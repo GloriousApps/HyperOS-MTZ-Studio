@@ -1992,10 +1992,24 @@ private fun HorizontalThemePickerDialog(
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    if (choice.specificPreviews.isNotEmpty()) TextButton(
-                                        onClick = { inspecting = choice },
-                                        modifier = Modifier.padding(horizontal = 4.dp),
-                                    ) { Text(stringResource(R.string.component_view_previews, choice.specificPreviews.size)) }
+                                    // Keep every selector card the same height. Some valid
+                                    // components have no preview file; reserve the preview
+                                    // action's space for those cards instead of letting the
+                                    // horizontal list jump in height as the user scrolls.
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(48.dp),
+                                    ) {
+                                        if (choice.specificPreviews.isNotEmpty()) {
+                                            TextButton(
+                                                onClick = { inspecting = choice },
+                                                modifier = Modifier.padding(horizontal = 4.dp),
+                                            ) {
+                                                Text(stringResource(R.string.component_view_previews, choice.specificPreviews.size))
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

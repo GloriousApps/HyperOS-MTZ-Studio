@@ -14,11 +14,11 @@ on:
       tag_name:
         description: 'Release tag, or signed artifact label for a private test build'
         required: false
-        default: 'v4.6.1'
+        default: 'v4.6.2'
       release_name:
         description: 'Release Title'
         required: false
-        default: 'HyperOS MTZ Studio v4.6.1'
+        default: 'HyperOS MTZ Studio v4.6.2'
 
 permissions:
   contents: write
@@ -92,7 +92,7 @@ jobs:
         with:
           tag_name: ${{ steps.release_meta.outputs.tag }}
           name: ${{ steps.release_meta.outputs.title }}
-          body_path: docs/release-notes-v4.6.1.md
+          body_path: docs/release-notes-v4.6.2.md
           draft: false
           prerelease: false
           generate_release_notes: true
