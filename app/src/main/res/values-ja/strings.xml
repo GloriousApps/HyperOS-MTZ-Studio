@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">ロック画面のスタイル</string>
     <string name="dest_icons">アイコン</string>
     <string name="dest_system_ui">ステータスバー</string>
+    <string name="dest_widget">ウィジェット</string>
     <string name="dest_contacts">電話と連絡先</string>
     <string name="dest_mms">SMSとメッセージ</string>
     <string name="dest_system_ui_plugin">コントロールセンターと通知</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">ロック画面のスタイル</string>
     <string name="category_wallpaper">壁紙</string>
     <string name="category_system_ui">ステータスバー</string>
+    <string name="category_widget">ウィジェット</string>
     <string name="category_contacts">電話と連絡先</string>
     <string name="category_mms">SMSとメッセージ</string>
     <string name="category_framework">システム資源</string>

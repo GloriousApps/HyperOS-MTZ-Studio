@@ -101,6 +101,7 @@ class MtzParserTest {
         val parsed = MtzParser().parse(
             zip(
                 "statusbar" to byteArrayOf(1),
+                "clock_2x4" to byteArrayOf(10),
                 "contact" to byteArrayOf(2),
                 "mms" to byteArrayOf(3),
                 "lockstyle" to byteArrayOf(4),
@@ -115,6 +116,7 @@ class MtzParserTest {
         assertEquals(
             setOf(
                 ComponentCategory.SYSTEM_UI,
+                ComponentCategory.WIDGET,
                 ComponentCategory.CONTACTS,
                 ComponentCategory.MMS,
                 ComponentCategory.LOCKSCREEN,

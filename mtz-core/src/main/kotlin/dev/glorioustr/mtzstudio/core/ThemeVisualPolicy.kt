@@ -16,6 +16,7 @@ object ThemeVisualPolicy {
             ComponentCategory.ICONS -> listOf("icons", "icon")
             ComponentCategory.LOCKSCREEN -> listOf("lockscreen", "lock_style")
             ComponentCategory.SYSTEM_UI -> listOf("statusbar", "status_bar", "notification", "controlcenter", "control_center", "systemui")
+            ComponentCategory.WIDGET -> listOf("clock_2x4", "widget")
             ComponentCategory.CONTACTS -> listOf("contact", "contacts", "dialer", "call", "phone")
             ComponentCategory.MMS -> listOf("mms", "sms", "message", "messages")
             ComponentCategory.LAUNCHER -> listOf("launcher", "home")
@@ -52,7 +53,7 @@ object ThemeVisualPolicy {
 
     val personalizationCategories = listOf(
         ComponentCategory.ICONS, ComponentCategory.LOCKSCREEN, ComponentCategory.SYSTEM_UI,
-        ComponentCategory.CONTACTS, ComponentCategory.MMS, ComponentCategory.LAUNCHER,
+        ComponentCategory.WIDGET, ComponentCategory.CONTACTS, ComponentCategory.MMS, ComponentCategory.LAUNCHER,
         ComponentCategory.AOD, ComponentCategory.FONT,
     )
 

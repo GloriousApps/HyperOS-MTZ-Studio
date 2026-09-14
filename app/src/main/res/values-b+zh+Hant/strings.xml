@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">鎖定畫面樣式</string>
     <string name="dest_icons">圖示</string>
     <string name="dest_system_ui">狀態列</string>
+    <string name="dest_widget">小工具</string>
     <string name="dest_contacts">撥號與聯絡人</string>
     <string name="dest_mms">簡訊與訊息</string>
     <string name="dest_system_ui_plugin">控制中心與通知</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">鎖定畫面樣式</string>
     <string name="category_wallpaper">桌布</string>
     <string name="category_system_ui">狀態列</string>
+    <string name="category_widget">小工具</string>
     <string name="category_contacts">撥號與聯絡人</string>
     <string name="category_mms">簡訊與訊息</string>
     <string name="category_framework">系統資源</string>

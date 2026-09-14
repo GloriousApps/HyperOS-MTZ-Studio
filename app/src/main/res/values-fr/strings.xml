@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">Style de l’écran de verrouillage</string>
     <string name="dest_icons">Icônes</string>
     <string name="dest_system_ui">Barre d’état</string>
+    <string name="dest_widget">Widget</string>
     <string name="dest_contacts">Téléphone et contacts</string>
     <string name="dest_mms">SMS et messages</string>
     <string name="dest_system_ui_plugin">Centre de contrôle et notifications</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">Style de l’écran de verrouillage</string>
     <string name="category_wallpaper">Fond d’écran</string>
     <string name="category_system_ui">Barre d’état</string>
+    <string name="category_widget">Widget</string>
     <string name="category_contacts">Téléphone et contacts</string>
     <string name="category_mms">SMS et messages</string>
     <string name="category_framework">Ressources du système</string>

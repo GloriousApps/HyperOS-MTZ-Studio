@@ -252,6 +252,26 @@ class MtzComposerTest {
         }
     }
 
+    @Test
+    fun `copies a clock 2x4 widget from its selected source`() {
+        val parser = MtzParser()
+        val widgetTheme = parser.parse(zip("clock_2x4" to byteArrayOf(80, 75, 3, 4, 9, 8, 7)))
+        val request = CompositionRequest(
+            metadata = CompositionMetadata(name = "Widget test"),
+            selections = listOf(selection("widget", widgetTheme, ComponentCategory.WIDGET)),
+        )
+
+        val result = MtzComposer(parser).compose(
+            request,
+            Files.createTempDirectory("mtz-widget-compose-test").resolve("widget.mtz"),
+        )
+
+        ZipFile(result.output.toFile()).use { output ->
+            assertTrue(output.getEntry("clock_2x4") != null)
+        }
+        assertTrue(result.verifiedArchive.components.any { it.category == ComponentCategory.WIDGET })
+    }
+
     private fun selection(id: String, archive: dev.glorioustr.mtzstudio.core.MtzArchive, category: ComponentCategory): ComponentSelection {
         val component = archive.components.single { it.category == category }
         return ComponentSelection(

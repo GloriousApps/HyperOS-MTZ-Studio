@@ -146,9 +146,10 @@ internal enum class StudioDestination(
     RINGTONES(R.string.dest_ringtones, ComponentCategory.RINGTONE),
     FONTS(R.string.dest_fonts, ComponentCategory.FONT),
     LOCKSCREEN(R.string.dest_lockscreen, ComponentCategory.LOCKSCREEN),
-    ICONS(R.string.dest_icons, ComponentCategory.ICONS),
-    SYSTEM_UI(R.string.dest_system_ui, ComponentCategory.SYSTEM_UI),
-    CONTACTS(R.string.dest_contacts, ComponentCategory.CONTACTS),
+        ICONS(R.string.dest_icons, ComponentCategory.ICONS),
+        SYSTEM_UI(R.string.dest_system_ui, ComponentCategory.SYSTEM_UI),
+        WIDGET(R.string.dest_widget, ComponentCategory.WIDGET),
+        CONTACTS(R.string.dest_contacts, ComponentCategory.CONTACTS),
     MMS(R.string.dest_mms, ComponentCategory.MMS),
     SYSTEM_UI_PLUGIN(R.string.dest_system_ui_plugin, ComponentCategory.SYSTEM_UI_PLUGIN),
     LAUNCHER(R.string.dest_launcher, ComponentCategory.LAUNCHER),
@@ -1597,11 +1598,11 @@ internal fun PersonalizeScreen(
         // Base Theme (Ana Tema) Selection Card
         item {
             Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 StudioCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1637,7 +1638,7 @@ internal fun PersonalizeScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(54.dp, 76.dp)
+                                    .size(46.dp, 64.dp)
                                         .clip(RoundedCornerShape(8.dp)),
                                 ) {
                                     ThemePreview(
@@ -1677,7 +1678,7 @@ internal fun PersonalizeScreen(
         }
 
         items(availableCategories.chunked(2)) { rowCategories ->
-            Row(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 rowCategories.forEach { category ->
                     val selected = selections[category]
                     val selectedTheme = selected?.let { sel ->
@@ -1706,7 +1707,7 @@ internal fun PersonalizeScreen(
         // Custom Wallpapers in 2 Columns matching the grid above
         item {
             Column(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
@@ -1744,7 +1745,7 @@ internal fun PersonalizeScreen(
         // Save Theme Card directly below
         item {
             Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -3624,17 +3625,17 @@ private fun PersonalizeTile(
     val subtitle = sourceName ?: selectedTheme?.archive?.metadata?.name ?: selectedTheme?.displayName ?: notSelectedText
     val hasPreview = selectedTheme != null && hasThemePreview(selectedTheme, category)
     StudioCard(
-        modifier = modifier.padding(4.dp).height(80.dp).clickable(onClick = onClick),
+        modifier = modifier.padding(3.dp).height(70.dp).clickable(onClick = onClick),
     ) {
         Row(
-            Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+            Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (hasPreview && selectedTheme != null) {
                 Box(
                     modifier = Modifier
-                        .size(46.dp, 60.dp)
+                        .size(40.dp, 54.dp)
                         .clip(RoundedCornerShape(8.dp)),
                 ) {
                     ThemePreview(
@@ -3646,12 +3647,12 @@ private fun PersonalizeTile(
             } else {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(38.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -3694,21 +3695,21 @@ private fun CustomWallpaperTile(
     val hasBaseWallpaper = baseTheme != null && hasThemeWallpaper(baseTheme, lockScreen)
     StudioCard(
         modifier = modifier
-            .padding(4.dp)
-            .height(80.dp)
+            .padding(3.dp)
+            .height(70.dp)
             .clickable(onClick = onPick),
     ) {
         Row(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (uriString != null || hasBaseWallpaper) {
                 Box(
                     modifier = Modifier
-                        .size(46.dp, 60.dp)
+                        .size(40.dp, 54.dp)
                         .clip(RoundedCornerShape(8.dp)),
                 ) {
                     if (uriString != null) {
@@ -3727,12 +3728,12 @@ private fun CustomWallpaperTile(
             } else {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(38.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(24.dp))
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(21.dp))
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -4009,6 +4010,7 @@ private val THEME_GALLERY_CATEGORIES = setOf(
     ComponentCategory.LOCKSCREEN,
     ComponentCategory.WALLPAPER,
     ComponentCategory.SYSTEM_UI,
+    ComponentCategory.WIDGET,
     ComponentCategory.CONTACTS,
     ComponentCategory.MMS,
     ComponentCategory.LAUNCHER,
@@ -4025,6 +4027,7 @@ internal fun destinationFor(category: ComponentCategory): StudioDestination = wh
     ComponentCategory.WALLPAPER -> StudioDestination.WALLPAPERS
     ComponentCategory.FRAMEWORK -> StudioDestination.FRAMEWORK
     ComponentCategory.SYSTEM_UI -> StudioDestination.SYSTEM_UI
+    ComponentCategory.WIDGET -> StudioDestination.OTHER
     ComponentCategory.CONTACTS -> StudioDestination.CONTACTS
     ComponentCategory.MMS -> StudioDestination.MMS
     ComponentCategory.SYSTEM_UI_PLUGIN -> StudioDestination.SYSTEM_UI_PLUGIN
@@ -4051,6 +4054,7 @@ internal fun categoryLabelRes(category: ComponentCategory): Int = when (category
     ComponentCategory.WALLPAPER -> R.string.category_wallpaper
     ComponentCategory.FRAMEWORK -> R.string.category_framework
     ComponentCategory.SYSTEM_UI -> R.string.category_system_ui
+    ComponentCategory.WIDGET -> R.string.category_widget
     ComponentCategory.CONTACTS -> R.string.category_contacts
     ComponentCategory.MMS -> R.string.category_mms
     ComponentCategory.SYSTEM_UI_PLUGIN -> R.string.category_system_ui_plugin
@@ -4067,6 +4071,7 @@ private fun categoryIcon(category: ComponentCategory): ImageVector = when (categ
     ComponentCategory.WALLPAPER -> Icons.Filled.Image
     ComponentCategory.FRAMEWORK -> Icons.Filled.Build
     ComponentCategory.SYSTEM_UI -> Icons.Filled.Notifications
+    ComponentCategory.WIDGET -> Icons.Filled.Widgets
     ComponentCategory.CONTACTS -> Icons.Filled.Call
     ComponentCategory.MMS -> Icons.Filled.Sms
     ComponentCategory.SYSTEM_UI_PLUGIN -> Icons.Filled.Widgets

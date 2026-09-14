@@ -10,6 +10,7 @@ enum class ComponentCategory(val label: String) {
     LOCKSCREEN("Lock screen"),
     WALLPAPER("Wallpaper"),
     SYSTEM_UI("Status bar"),
+    WIDGET("Widget"),
     CONTACTS("Dialer & Contacts"),
     MMS("SMS & Messages"),
     FRAMEWORK("Framework resources"),

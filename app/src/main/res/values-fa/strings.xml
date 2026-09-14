@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">سبک صفحه قفل</string>
     <string name="dest_icons">نمادها</string>
     <string name="dest_system_ui">نوار وضعیت</string>
+    <string name="dest_widget">ویجت</string>
     <string name="dest_contacts">تلفن و مخاطبین</string>
     <string name="dest_mms">پیامک و پیام‌ها</string>
     <string name="dest_system_ui_plugin">مرکز کنترل و اعلان‌ها</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">سبک صفحه قفل</string>
     <string name="category_wallpaper">تصویر پس‌زمینه</string>
     <string name="category_system_ui">نوار وضعیت</string>
+    <string name="category_widget">ویجت</string>
     <string name="category_contacts">تلفن و مخاطبین</string>
     <string name="category_mms">پیامک و پیام‌ها</string>
     <string name="category_framework">منابع سیستم</string>

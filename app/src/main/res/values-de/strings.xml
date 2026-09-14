@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">Sperrbildschirmstil</string>
     <string name="dest_icons">Symbole</string>
     <string name="dest_system_ui">Statusleiste</string>
+    <string name="dest_widget">Widget</string>
     <string name="dest_contacts">Telefon und Kontakte</string>
     <string name="dest_mms">SMS und Nachrichten</string>
     <string name="dest_system_ui_plugin">Kontrollzentrum und Benachrichtigungen</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">Sperrbildschirmstil</string>
     <string name="category_wallpaper">Hintergrundbild</string>
     <string name="category_system_ui">Statusleiste</string>
+    <string name="category_widget">Widget</string>
     <string name="category_contacts">Telefon und Kontakte</string>
     <string name="category_mms">SMS und Nachrichten</string>
     <string name="category_framework">Systemressourcen</string>

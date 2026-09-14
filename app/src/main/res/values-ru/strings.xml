@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">Стиль экрана блокировки</string>
     <string name="dest_icons">Значки</string>
     <string name="dest_system_ui">Строка состояния</string>
+    <string name="dest_widget">Виджет</string>
     <string name="dest_contacts">Телефон и контакты</string>
     <string name="dest_mms">SMS и сообщения</string>
     <string name="dest_system_ui_plugin">Центр управления и уведомления</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">Стиль экрана блокировки</string>
     <string name="category_wallpaper">Обои</string>
     <string name="category_system_ui">Строка состояния</string>
+    <string name="category_widget">Виджет</string>
     <string name="category_contacts">Телефон и контакты</string>
     <string name="category_mms">SMS и сообщения</string>
     <string name="category_framework">Системные ресурсы</string>

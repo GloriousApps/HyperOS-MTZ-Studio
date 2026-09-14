@@ -59,10 +59,11 @@ class ThemeVisualPolicyTest {
         assertEquals(listOf("preview/en_US_contact_0.jpg"), ThemeVisualPolicy.categoryPreviewPaths(entries, ComponentCategory.CONTACTS))
     }
 
-    @Test fun `all eight sections exist independently of preview files`() {
-        assertEquals(8, ThemeVisualPolicy.personalizationCategories.distinct().size)
+    @Test fun `all nine sections exist independently of preview files`() {
+        assertEquals(9, ThemeVisualPolicy.personalizationCategories.distinct().size)
         assertTrue(ComponentCategory.FONT in ThemeVisualPolicy.personalizationCategories)
         assertTrue(ComponentCategory.AOD in ThemeVisualPolicy.personalizationCategories)
+        assertTrue(ComponentCategory.WIDGET in ThemeVisualPolicy.personalizationCategories)
         assertFalse(ComponentCategory.WALLPAPER in ThemeVisualPolicy.personalizationCategories)
         assertTrue(ThemeVisualPolicy.defaultPreviewPaths(emptyList()).isEmpty())
     }
@@ -95,7 +96,7 @@ class ThemeVisualPolicyTest {
         val path = Files.createTempFile("mtz-no-previews", ".mtz")
         try {
             ZipOutputStream(Files.newOutputStream(path)).use { zip ->
-                listOf("icons", "lockscreen", "com.android.systemui", "miui.systemui.plugin",
+                listOf("icons", "lockscreen", "com.android.systemui", "clock_2x4", "miui.systemui.plugin",
                     "com.android.contacts", "com.android.incallui", "com.android.mms", "com.miui.home",
                     "wallpaper/default_wallpaper.jpg", "wallpaper/default_lock_wallpaper.jpg").forEach {
                     zip.putNextEntry(ZipEntry(it)); zip.write(byteArrayOf(1, 2, 3)); zip.closeEntry()
@@ -105,7 +106,7 @@ class ThemeVisualPolicyTest {
             val actual = archive.components.map { it.category }.toSet()
                 .intersect(ThemeVisualPolicy.personalizationCategories.toSet())
             assertEquals(setOf(ComponentCategory.ICONS, ComponentCategory.LOCKSCREEN,
-                ComponentCategory.SYSTEM_UI, ComponentCategory.CONTACTS, ComponentCategory.MMS,
+                ComponentCategory.SYSTEM_UI, ComponentCategory.WIDGET, ComponentCategory.CONTACTS, ComponentCategory.MMS,
                 ComponentCategory.LAUNCHER), actual)
             assertEquals("wallpaper/default_wallpaper.jpg", ThemeVisualPolicy.defaultPreviewPaths(archive.entries).first())
         } finally { Files.deleteIfExists(path) }

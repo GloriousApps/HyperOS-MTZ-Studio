@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">Gaya layar kunci</string>
     <string name="dest_icons">Ikon</string>
     <string name="dest_system_ui">Bilah status</string>
+    <string name="dest_widget">Widget</string>
     <string name="dest_contacts">Telepon &amp; Kontak</string>
     <string name="dest_mms">SMS &amp; Pesan</string>
     <string name="dest_system_ui_plugin">Pusat kontrol dan notifikasi</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">Gaya layar kunci</string>
     <string name="category_wallpaper">Wallpaper</string>
     <string name="category_system_ui">Bilah status</string>
+    <string name="category_widget">Widget</string>
     <string name="category_contacts">Telepon &amp; Kontak</string>
     <string name="category_mms">SMS &amp; Pesan</string>
     <string name="category_framework">Sumber daya sistem</string>

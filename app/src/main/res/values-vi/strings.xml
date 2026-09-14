@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">Kiểu màn hình khóa</string>
     <string name="dest_icons">Biểu tượng</string>
     <string name="dest_system_ui">Thanh trạng thái</string>
+    <string name="dest_widget">Tiện ích</string>
     <string name="dest_contacts">Điện thoại và danh bạ</string>
     <string name="dest_mms">SMS và tin nhắn</string>
     <string name="dest_system_ui_plugin">Trung tâm điều khiển và thông báo</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">Kiểu màn hình khóa</string>
     <string name="category_wallpaper">Hình nền</string>
     <string name="category_system_ui">Thanh trạng thái</string>
+    <string name="category_widget">Tiện ích</string>
     <string name="category_contacts">Điện thoại và danh bạ</string>
     <string name="category_mms">SMS và tin nhắn</string>
     <string name="category_framework">Tài nguyên hệ thống</string>

@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">نمط شاشة القفل</string>
     <string name="dest_icons">الأيقونات</string>
     <string name="dest_system_ui">شريط الحالة</string>
+    <string name="dest_widget">الودجت</string>
     <string name="dest_contacts">الهاتف وجهات الاتصال</string>
     <string name="dest_mms">الرسائل النصية</string>
     <string name="dest_system_ui_plugin">مركز التحكم والإشعارات</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">نمط شاشة القفل</string>
     <string name="category_wallpaper">الخلفية</string>
     <string name="category_system_ui">شريط الحالة</string>
+    <string name="category_widget">الودجت</string>
     <string name="category_contacts">الهاتف وجهات الاتصال</string>
     <string name="category_mms">الرسائل النصية</string>
     <string name="category_framework">الموارد النظامية</string>

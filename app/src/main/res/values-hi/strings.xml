@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">लॉक स्क्रीन शैली</string>
     <string name="dest_icons">आइकन</string>
     <string name="dest_system_ui">स्टेटस बार</string>
+    <string name="dest_widget">विजेट</string>
     <string name="dest_contacts">फ़ोन और संपर्क</string>
     <string name="dest_mms">SMS और संदेश</string>
     <string name="dest_system_ui_plugin">नियंत्रण केंद्र और सूचनाएँ</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">लॉक स्क्रीन शैली</string>
     <string name="category_wallpaper">वॉलपेपर</string>
     <string name="category_system_ui">स्टेटस बार</string>
+    <string name="category_widget">विजेट</string>
     <string name="category_contacts">फ़ोन और संपर्क</string>
     <string name="category_mms">SMS और संदेश</string>
     <string name="category_framework">सिस्टम संसाधन</string>

@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">Estilo da tela de bloqueio</string>
     <string name="dest_icons">Ícones</string>
     <string name="dest_system_ui">Barra de status</string>
+    <string name="dest_widget">Widget</string>
     <string name="dest_contacts">Telefone e contatos</string>
     <string name="dest_mms">SMS e mensagens</string>
     <string name="dest_system_ui_plugin">Central de controle e notificações</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">Estilo da tela de bloqueio</string>
     <string name="category_wallpaper">Papel de parede</string>
     <string name="category_system_ui">Barra de status</string>
+    <string name="category_widget">Widget</string>
     <string name="category_contacts">Telefone e contatos</string>
     <string name="category_mms">SMS e mensagens</string>
     <string name="category_framework">Recursos do sistema</string>

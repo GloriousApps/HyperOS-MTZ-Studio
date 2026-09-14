@@ -36,6 +36,9 @@ internal object ComponentRecognizer {
                 root == "spwallpaper" -> ComponentCategory.WALLPAPER
             root == "framework" || root == "framework-res" || root == "framework-miui-res" -> ComponentCategory.FRAMEWORK
             root == "com.android.systemui" || root == "statusbar" -> ComponentCategory.SYSTEM_UI
+            // Xiaomi clock/weather widgets are top-level, extensionless MTZ archives. Keep
+            // this resource independent so selecting it never replaces launcher resources.
+            root == "clock_2x4" -> ComponentCategory.WIDGET
             root == "miui.systemui.plugin" -> ComponentCategory.SYSTEM_UI_PLUGIN
             root == "contact" || root == "contacts" || root == "com.android.contacts" ||
                 root == "com.android.incallui" || root == "com.android.phone" -> ComponentCategory.CONTACTS

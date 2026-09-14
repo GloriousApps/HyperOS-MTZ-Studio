@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">লক স্ক্রিনের ধরন</string>
     <string name="dest_icons">আইকন</string>
     <string name="dest_system_ui">স্ট্যাটাস বার</string>
+    <string name="dest_widget">উইজেট</string>
     <string name="dest_contacts">ফোন ও পরিচিতি</string>
     <string name="dest_mms">SMS ও বার্তা</string>
     <string name="dest_system_ui_plugin">কন্ট্রোল সেন্টার ও বিজ্ঞপ্তি</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">লক স্ক্রিনের ধরন</string>
     <string name="category_wallpaper">ওয়ালপেপার</string>
     <string name="category_system_ui">স্ট্যাটাস বার</string>
+    <string name="category_widget">উইজেট</string>
     <string name="category_contacts">ফোন ও পরিচিতি</string>
     <string name="category_mms">SMS ও বার্তা</string>
     <string name="category_framework">সিস্টেম রিসোর্স</string>

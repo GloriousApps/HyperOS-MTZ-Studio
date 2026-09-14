@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">பூட்டுத் திரை பாணி</string>
     <string name="dest_icons">ஐகான்கள்</string>
     <string name="dest_system_ui">நிலைப் பட்டி</string>
+    <string name="dest_widget">விட்ஜெட்</string>
     <string name="dest_contacts">தொலைபேசி மற்றும் தொடர்புகள்</string>
     <string name="dest_mms">SMS மற்றும் செய்திகள்</string>
     <string name="dest_system_ui_plugin">கட்டுப்பாட்டு மையம் மற்றும் அறிவிப்புகள்</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">பூட்டுத் திரை பாணி</string>
     <string name="category_wallpaper">வால்பேப்பர்</string>
     <string name="category_system_ui">நிலைப் பட்டி</string>
+    <string name="category_widget">விட்ஜெட்</string>
     <string name="category_contacts">தொலைபேசி மற்றும் தொடர்புகள்</string>
     <string name="category_mms">SMS மற்றும் செய்திகள்</string>
     <string name="category_framework">கணினி வளங்கள்</string>

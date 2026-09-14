@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">لاک اسکرین کا انداز</string>
     <string name="dest_icons">آئیکنز</string>
     <string name="dest_system_ui">اسٹیٹس بار</string>
+    <string name="dest_widget">ویجٹ</string>
     <string name="dest_contacts">فون اور رابطے</string>
     <string name="dest_mms">SMS اور پیغامات</string>
     <string name="dest_system_ui_plugin">کنٹرول سینٹر اور اطلاعات</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">لاک اسکرین کا انداز</string>
     <string name="category_wallpaper">وال پیپر</string>
     <string name="category_system_ui">اسٹیٹس بار</string>
+    <string name="category_widget">ویجٹ</string>
     <string name="category_contacts">فون اور رابطے</string>
     <string name="category_mms">SMS اور پیغامات</string>
     <string name="category_framework">نظام کے وسائل</string>

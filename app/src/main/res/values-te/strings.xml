@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">లాక్ స్క్రీన్ శైలి</string>
     <string name="dest_icons">చిహ్నాలు</string>
     <string name="dest_system_ui">స్థితి పట్టీ</string>
+    <string name="dest_widget">విడ్జెట్</string>
     <string name="dest_contacts">ఫోన్ మరియు పరిచయాలు</string>
     <string name="dest_mms">SMS మరియు సందేశాలు</string>
     <string name="dest_system_ui_plugin">నియంత్రణ కేంద్రం మరియు నోటిఫికేషన్‌లు</string>
@@ -33,6 +34,7 @@
     <string name="category_lockscreen">లాక్ స్క్రీన్ శైలి</string>
     <string name="category_wallpaper">వాల్‌పేపర్</string>
     <string name="category_system_ui">స్థితి పట్టీ</string>
+    <string name="category_widget">విడ్జెట్</string>
     <string name="category_contacts">ఫోన్ మరియు పరిచయాలు</string>
     <string name="category_mms">SMS మరియు సందేశాలు</string>
     <string name="category_framework">వ్యవస్థ వనరులు</string>

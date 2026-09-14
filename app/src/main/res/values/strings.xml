@@ -16,6 +16,7 @@
     <string name="dest_lockscreen">Lock screen style</string>
     <string name="dest_icons">Icons</string>
     <string name="dest_system_ui">Status bar</string>
+    <string name="dest_widget">Widget</string>
     <string name="dest_contacts">Dialer &amp; Contacts</string>
     <string name="dest_mms">SMS &amp; Messages</string>
     <string name="dest_system_ui_plugin">Control center and notifications</string>
@@ -89,6 +90,7 @@
     <string name="category_lockscreen">Lock screen style</string>
     <string name="category_wallpaper">Wallpaper</string>
     <string name="category_system_ui">Status bar</string>
+    <string name="category_widget">Widget</string>
     <string name="category_contacts">Dialer &amp; Contacts</string>
     <string name="category_mms">SMS &amp; Messages</string>
     <string name="category_framework">System resources</string>
