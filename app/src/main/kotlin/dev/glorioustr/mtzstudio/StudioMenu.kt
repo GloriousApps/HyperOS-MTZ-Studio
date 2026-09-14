@@ -1836,11 +1836,13 @@ internal fun PersonalizeScreen(
     quickPickCategory?.let { category ->
         val current = selections[category]
         val choices = themes.mapNotNull { theme ->
+            // A preview image is not a selectable component.  Only offer a theme
+            // when the requested component is actually present in its archive.
+            // This keeps, for example, the Widget picker limited to themes that
+            // contain clock_2x4 rather than every theme that has a widget preview.
             val component = theme.archive.components.firstOrNull { it.category == category }
-            val specificPreviews = dev.glorioustr.mtzstudio.core.ThemeVisualPolicy
-                .categoryPreviewPaths(theme.archive.entries, category)
-            if (component == null && specificPreviews.isEmpty()) return@mapNotNull null
-            ThemeChoice(theme = theme, category = category, rootPath = component?.rootPath)
+                ?: return@mapNotNull null
+            ThemeChoice(theme = theme, category = category, rootPath = component.rootPath)
         }
         HorizontalThemePickerDialog(
             title = stringResource(R.string.category_quick_picker_title, stringResource(categoryLabelRes(category))),
