@@ -1678,9 +1678,10 @@ private fun StudioScreen(
         }
     }
     androidx.compose.runtime.LaunchedEffect(capabilities.usesNativeCatalog) {
-        if (!capabilities.usesNativeCatalog) {
-            catalogLoadFinished = true
-        }
+        // Xiaomi Themes is not a second authoritative Studio library. Importing every local
+        // Themes record on resume caused previously applied themes to reappear in Studio.
+        // Full catalog import remains available explicitly from Library management.
+        catalogLoadFinished = true
     }
     androidx.compose.runtime.LaunchedEffect(catalogProgress) {
         if (catalogProgress.total > 0) {
@@ -1697,10 +1698,6 @@ private fun StudioScreen(
     }
     androidx.compose.runtime.LaunchedEffect(status) {
         diagnostics.record("operation_status", status)
-    }
-    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-        // Also pick up changes made in Xiaomi Themes while Studio was in the background.
-        if (destination == StudioDestination.THEMES && capabilities.usesNativeCatalog) refreshModernThemeManagerCatalog()
     }
     androidx.compose.runtime.LaunchedEffect(globalThemeProtectionRequired) {
         if (!globalThemeProtectionRequired && destination == StudioDestination.THEME_PROTECTION) {
