@@ -56,6 +56,7 @@ import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
 import dev.glorioustr.mtzstudio.tester.VerifiedThemeManagerApk
 import dev.glorioustr.mtzstudio.shevery.SheveryAccess
 import dev.glorioustr.mtzstudio.shevery.SheveryAuthorizationStatus
+import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,12 +77,20 @@ internal fun ThemeManagerCompatibilityCard(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheveryAccess = remember { SheveryAccess(context.applicationContext) }
+    val rootModuleInstaller = remember {
+        RootThemeImportModuleInstaller(
+            context.applicationContext,
+            PreferredPrivilegedCommandRunner(context.applicationContext),
+        )
+    }
     var installed by remember { mutableStateOf<InstalledThemeManager?>(null) }
     var runtimeProfile by remember { mutableStateOf<dev.glorioustr.mtzstudio.tester.ThemeManagerRuntimeProfile?>(null) }
     var verifiedApk by remember { mutableStateOf<VerifiedThemeManagerApk?>(null) }
     var status by remember { mutableStateOf(resources.getString(R.string.tm_checking_version)) }
     var riskAccepted by remember { mutableStateOf(false) }
     var showConfirmation by remember { mutableStateOf(false) }
+    var showRootModuleConfirmation by remember { mutableStateOf(false) }
+    var rootModuleState by remember { mutableStateOf<RootThemeImportModuleInstaller.State?>(null) }
     val cyanAccent = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) Color(0xFF006A78) else Color(0xFF00DAF3)
 
     fun startShizukuDowngrade() {
@@ -153,6 +162,9 @@ internal fun ThemeManagerCompatibilityCard(
             installed = detected
             val profile = withContext(Dispatchers.IO) { ThemeManagerCapabilityProbe(context).probe(detected) }
             runtimeProfile = profile
+            rootModuleState = if (allowRootDowngrade) {
+                runCatching { withContext(Dispatchers.IO) { rootModuleInstaller.inspect() } }.getOrNull()
+            } else null
             status = if (profile.compatibleLocalMtzPath) {
                 resources.getString(R.string.tm_recommended_active)
             } else {
@@ -276,6 +288,19 @@ internal fun ThemeManagerCompatibilityCard(
                     )
                 }
 
+                if (applyActivityUnavailable && allowRootDowngrade) {
+                    val module = rootModuleState
+                    val moduleText = when {
+                        module?.active == true -> "Root MTZ Import modülü etkin. Xiaomi Temalar importer'ı yeniden başlatma sonrasında hazır."
+                        module?.installed == true -> "Root MTZ Import modülü kurulu. Etkinleşmesi için telefonu yeniden başlatın."
+                        else -> "Bu Global Temalar sürümünde dışa açık MTZ Import yok. Root modülü, Xiaomi Temalar'ın kendi importer'ını güvenli biçimde etkinleştirir."
+                    }
+                    Text(moduleText, style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = { showRootModuleConfirmation = true }) {
+                        Text(if (module?.installed == true) "Root MTZ Import modülünü güncelle" else "Root ile MTZ Import'u etkinleştir")
+                    }
+                }
+
                 // Compatibility requires a runtime-resolvable Xiaomi route. Legacy Global builds
                 // use ApplyThemeForScreenshot; 10.8.7.6+ builds use the native local library.
                 // The modern version family alone is not enough if its component is missing.
@@ -363,6 +388,38 @@ internal fun ThemeManagerCompatibilityCard(
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmation = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
+    if (showRootModuleConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showRootModuleConfirmation = false },
+            title = { Text("Root MTZ Import'u etkinleştir") },
+            text = {
+                Text(
+                    "MTZ Studio, yalnızca kendi Zygisk modülünü root yöneticinizin standart modül dizinine kuracak. " +
+                        "Xiaomi Temalar APK'sı, imzası ve verileri değiştirilmez. Kurulumdan sonra modülün yüklenmesi için telefon yeniden başlatılmalıdır.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRootModuleConfirmation = false
+                    scope.launch {
+                        status = "Root MTZ Import modülü kuruluyor…"
+                        runCatching {
+                            withContext(Dispatchers.IO) { rootModuleInstaller.installOrUpdate() }
+                        }.onSuccess { result ->
+                            rootModuleState = withContext(Dispatchers.IO) { rootModuleInstaller.inspect() }
+                            status = "Root MTZ Import modülü ${result.version} kuruldu. Etkinleştirmek için telefonu yeniden başlatın."
+                        }.onFailure { error ->
+                            status = "Root MTZ Import modülü kurulamadı: ${error.message ?: error::class.simpleName}"
+                        }
+                    }
+                }) { Text("Kur") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRootModuleConfirmation = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
