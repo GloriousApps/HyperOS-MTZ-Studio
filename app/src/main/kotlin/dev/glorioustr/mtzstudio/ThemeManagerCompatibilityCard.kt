@@ -92,6 +92,8 @@ internal fun ThemeManagerCompatibilityCard(
     var showRootModuleConfirmation by remember { mutableStateOf(false) }
     var showRootModuleRestartDialog by remember { mutableStateOf(false) }
     var rootModuleState by remember { mutableStateOf<RootThemeImportModuleInstaller.State?>(null) }
+    var rootModuleCheckComplete by remember { mutableStateOf(!allowRootDowngrade) }
+    var rootModuleUpdateRequested by remember { mutableStateOf(false) }
     val cyanAccent = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) Color(0xFF006A78) else Color(0xFF00DAF3)
 
     fun startShizukuDowngrade() {
@@ -166,6 +168,7 @@ internal fun ThemeManagerCompatibilityCard(
             rootModuleState = if (allowRootDowngrade) {
                 runCatching { withContext(Dispatchers.IO) { rootModuleInstaller.inspect() } }.getOrNull()
             } else null
+            rootModuleCheckComplete = true
             status = if (profile.compatibleLocalMtzPath) {
                 resources.getString(R.string.tm_recommended_active)
             } else {
@@ -307,8 +310,21 @@ internal fun ThemeManagerCompatibilityCard(
                         else -> "Bu Global Temalar sürümünde dışa açık MTZ Import yok. Root modülü, Xiaomi Temalar'ın kendi importer'ını güvenli biçimde etkinleştirir."
                     }
                     Text(moduleText, style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = { showRootModuleConfirmation = true }) {
-                        Text(if (module?.installed == true) "Root MTZ Import modülünü güncelle" else "Root ile MTZ Import'u etkinleştir")
+                    if (rootModuleCheckComplete) {
+                        Button(onClick = {
+                            rootModuleUpdateRequested = module?.installed == true
+                            showRootModuleConfirmation = true
+                        }) {
+                            Text(
+                                if (module?.installed == true) {
+                                    "Root MTZ Import modülünü güncelle"
+                                } else {
+                                    "Root MTZ Import modülünü kur"
+                                },
+                            )
+                        }
+                    } else {
+                        Text("Root MTZ Import modülü denetleniyor…", style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
@@ -406,29 +422,45 @@ internal fun ThemeManagerCompatibilityCard(
     if (showRootModuleConfirmation) {
         AlertDialog(
             onDismissRequest = { showRootModuleConfirmation = false },
-            title = { Text("Root MTZ Import'u etkinleştir") },
+            title = {
+                Text(
+                    if (rootModuleUpdateRequested) {
+                        "Root MTZ Import modülünü güncelle"
+                    } else {
+                        "Root MTZ Import modülünü kur"
+                    },
+                )
+            },
             text = {
                 Text(
                     "MTZ Studio, yalnızca kendi Zygisk modülünü root yöneticinizin standart modül dizinine kuracak. " +
-                        "Xiaomi Temalar APK'sı, imzası ve verileri değiştirilmez. Kurulumdan sonra modülün yüklenmesi için telefon yeniden başlatılmalıdır.",
+                        "Xiaomi Temalar APK'sı, imzası ve verileri değiştirilmez. İşlemden sonra modülün yüklenmesi için telefon yeniden başlatılmalıdır.",
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     showRootModuleConfirmation = false
                     scope.launch {
-                        status = "Root MTZ Import modülü kuruluyor…"
+                        status = if (rootModuleUpdateRequested) {
+                            "Root MTZ Import modülü güncelleniyor…"
+                        } else {
+                            "Root MTZ Import modülü kuruluyor…"
+                        }
                         runCatching {
                             withContext(Dispatchers.IO) { rootModuleInstaller.installOrUpdate() }
                         }.onSuccess { result ->
                             rootModuleState = withContext(Dispatchers.IO) { rootModuleInstaller.inspect() }
-                            status = "Root MTZ Import modülü ${result.version} kuruldu. Etkinleştirmek için telefonu yeniden başlatın."
+                            status = if (rootModuleUpdateRequested) {
+                                "Root MTZ Import modülü ${result.version} güncellendi. Etkinleştirmek için telefonu yeniden başlatın."
+                            } else {
+                                "Root MTZ Import modülü ${result.version} kuruldu. Etkinleştirmek için telefonu yeniden başlatın."
+                            }
                             showRootModuleRestartDialog = true
                         }.onFailure { error ->
                             status = "Root MTZ Import modülü kurulamadı: ${error.message ?: error::class.simpleName}"
                         }
                     }
-                }) { Text("Kur") }
+                }) { Text(if (rootModuleUpdateRequested) "Güncelle" else "Kur") }
             },
             dismissButton = {
                 TextButton(onClick = { showRootModuleConfirmation = false }) { Text(stringResource(R.string.action_cancel)) }
@@ -439,10 +471,14 @@ internal fun ThemeManagerCompatibilityCard(
     if (showRootModuleRestartDialog) {
         AlertDialog(
             onDismissRequest = { showRootModuleRestartDialog = false },
-            title = { Text("Modül güncellendi") },
+            title = { Text(if (rootModuleUpdateRequested) "Modül güncellendi" else "Modül kuruldu") },
             text = {
                 Text(
-                    "Root MTZ Import modülü kuruldu. Xiaomi Temalar importer'ının etkinleşmesi için telefonu şimdi yeniden başlatın.",
+                    if (rootModuleUpdateRequested) {
+                        "Root MTZ Import modülü güncellendi. Xiaomi Temalar importer'ının etkinleşmesi için telefonu şimdi yeniden başlatın."
+                    } else {
+                        "Root MTZ Import modülü kuruldu. Xiaomi Temalar importer'ının etkinleşmesi için telefonu şimdi yeniden başlatın."
+                    },
                 )
             },
             confirmButton = {
