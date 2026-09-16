@@ -199,7 +199,11 @@ internal fun ThemeManagerCompatibilityCard(
         }
     }
 
-    LaunchedEffect(Unit) {
+    // Root capability is resolved asynchronously while the panel is first composed. Re-run the
+    // module probe when that capability becomes available; otherwise a valid module can remain
+    // displayed as "installable" from the initial non-root pass.
+    LaunchedEffect(allowRootDowngrade) {
+        rootModuleCheckComplete = !allowRootDowngrade
         refresh()
     }
     DisposableEffect(verifiedApk) {
