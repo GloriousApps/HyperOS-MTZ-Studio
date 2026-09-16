@@ -44,7 +44,11 @@ class ThemeApplyCoordinator(
 ) {
     private val diagnostics get() = LiveDiagnosticsRecorder.get(context)
 
-    fun prepare(theme: LibraryTheme, themeManagerLocalId: String? = null): PreparedThemeApply {
+    fun prepare(
+        theme: LibraryTheme,
+        themeManagerLocalId: String? = null,
+        themeManagerLocalIds: Set<String> = setOfNotNull(themeManagerLocalId),
+    ): PreparedThemeApply {
         diagnostics.record("apply_source_check", "Tema kaynağı ve sürüm kontrol ediliyor", mapOf(
             "theme" to theme.displayName, "version" to installedThemeManagerVersion(), "localId" to themeManagerLocalId,
         ))
@@ -65,7 +69,7 @@ class ThemeApplyCoordinator(
             rootGlobalModuleBridgeReady() -> prepareRootGlobalModuleImport(
                 theme,
                 ThemeManagerOperation.APPLY,
-                themeManagerLocalId,
+                themeManagerLocalIds,
             )
             modern && themeManagerLocalId != null -> prepareModernExistingTheme(theme, themeManagerLocalId)
             modern && legacyTesterAvailable() -> {
@@ -142,7 +146,7 @@ class ThemeApplyCoordinator(
     private fun prepareRootGlobalModuleImport(
         theme: LibraryTheme,
         operation: ThemeManagerOperation,
-        replacedLocalId: String? = null,
+        replacedLocalIds: Set<String> = emptySet(),
     ): PreparedThemeApply {
         check(rootGlobalModuleBridgeReady()) {
             "Root MTZ Import modülü etkin değil veya güncel değil. Modülü güncelleyip telefonu yeniden başlatın."
@@ -177,8 +181,12 @@ class ThemeApplyCoordinator(
             putExtra(ThemeManagerBridgeContract.EXTRA_THEME_PATH, stagedPath)
             putExtra(ThemeManagerBridgeContract.EXTRA_THEME_SHA256, theme.archive.sha256)
             putExtra(ThemeManagerBridgeContract.EXTRA_THEME_NAME, themeName.take(180))
-            replacedLocalId?.takeIf { it.matches(SAFE_LOCAL_ID) }?.let {
-                putExtra(ThemeManagerBridgeContract.EXTRA_REPLACED_THEME_LOCAL_ID, it)
+            val safeReplacedIds = replacedLocalIds.filterTo(linkedSetOf()) { it.matches(SAFE_LOCAL_ID) }
+            if (safeReplacedIds.isNotEmpty()) {
+                putStringArrayListExtra(
+                    ThemeManagerBridgeContract.EXTRA_REPLACED_THEME_LOCAL_IDS,
+                    ArrayList(safeReplacedIds),
+                )
             }
         }
         check(intent.resolveActivity(context.packageManager) != null) {
@@ -754,7 +762,7 @@ class ThemeApplyCoordinator(
         const val ROOT_GLOBAL_THEME_ACTIVITY = "com.android.thememanager.activity.ThemeTabActivity"
         const val ROOT_GLOBAL_READY_MARKER = "/data/user/0/com.android.thememanager/files/mtz_import_module_ready"
         const val ROOT_GLOBAL_MODULE_PROP = "/data/adb/modules/xiaomi_themes_global_import/module.prop"
-        const val ROOT_GLOBAL_MODULE_VERSION = "0.1.10-alpha"
+        const val ROOT_GLOBAL_MODULE_VERSION = "0.1.11-alpha"
         val SAFE_LOCAL_ID = Regex("[A-Za-z0-9._-]{1,128}")
         val BRIDGE_MARKER_FILES = listOf(
             "/data/system/theme/${ThemeManagerBridgeContract.BRIDGE_MARKER}",

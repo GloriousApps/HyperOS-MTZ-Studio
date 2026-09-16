@@ -20,6 +20,8 @@ public final class ThemeManagerBridgeContract {
             "dev.glorioustr.mtzstudio.extra.THEME_LOCAL_ID";
     public static final String EXTRA_REPLACED_THEME_LOCAL_ID =
             "dev.glorioustr.mtzstudio.extra.REPLACED_THEME_LOCAL_ID";
+    public static final String EXTRA_REPLACED_THEME_LOCAL_IDS =
+            "dev.glorioustr.mtzstudio.extra.REPLACED_THEME_LOCAL_IDS";
     public static final String EXTRA_RESULT =
             "dev.glorioustr.mtzstudio.extra.APPLY_RESULT";
     public static final String EXTRA_ERROR =

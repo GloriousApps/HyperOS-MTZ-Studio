@@ -279,9 +279,13 @@ internal class DeviceThemeImporter(
     }
 
     fun localIdFor(theme: LibraryTheme): String? {
-        if (themeManagerOriginNeedsRefresh(theme)) return null
-        return importOrigins.all.entries.firstNotNullOfOrNull { (key, value) ->
-            if (!key.startsWith(ORIGIN_PREFIX)) return@firstNotNullOfOrNull null
+        return localIdsFor(theme).firstOrNull()
+    }
+
+    fun localIdsFor(theme: LibraryTheme): Set<String> {
+        if (themeManagerOriginNeedsRefresh(theme)) return emptySet()
+        return importOrigins.all.entries.mapNotNullTo(linkedSetOf()) { (key, value) ->
+            if (!key.startsWith(ORIGIN_PREFIX)) return@mapNotNullTo null
             val mappedThemeId = value?.toString()?.substringAfter('|', "").orEmpty()
             key.removePrefix(ORIGIN_PREFIX).takeIf { mappedThemeId == theme.id.value }
         }
@@ -309,6 +313,16 @@ internal class DeviceThemeImporter(
     }
 
     fun rememberThemeManagerOrigin(localId: String, theme: LibraryTheme) {
+        val editor = importOrigins.edit()
+        importOrigins.all.forEach { (key, value) ->
+            if (key.startsWith(ORIGIN_PREFIX) &&
+                key.removePrefix(ORIGIN_PREFIX) != localId &&
+                value?.toString()?.substringAfter('|', "") == theme.id.value
+            ) {
+                editor.remove(key)
+            }
+        }
+        editor.apply()
         linkThemeManagerOrigin(appContext, localId, theme.id.value, theme.archive.sha256)
     }
 

@@ -967,7 +967,8 @@ private fun StudioScreen(
                         // can stage an MTZ for that screen even though it cannot read the private
                         // catalog. Never send this branch to the removed legacy tester activity.
                         val originNeedsRefresh = deviceThemeImporter.themeManagerOriginNeedsRefresh(theme)
-                        val savedLocalId = deviceThemeImporter.localIdFor(theme)
+                        val savedLocalIds = deviceThemeImporter.localIdsFor(theme)
+                        val savedLocalId = savedLocalIds.firstOrNull()
                         val localId = when {
                             savedLocalId != null -> savedLocalId
                             modernShizukuImport -> {
@@ -996,7 +997,7 @@ private fun StudioScreen(
                             // Xiaomi Themes record merely because its title still matches.
                             themeApplyCoordinator.prepareModernImportAndApply(theme)
                         } else {
-                            themeApplyCoordinator.prepare(theme, localId)
+                            themeApplyCoordinator.prepare(theme, localId, savedLocalIds)
                         }
                     } else {
                         themeApplyCoordinator.prepareRootlessManualImport(theme)
