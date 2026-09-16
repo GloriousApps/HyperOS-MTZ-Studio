@@ -111,6 +111,15 @@ internal class RootThemeImportModuleInstaller(
             chown -R 0:0 "${'$'}target"
             chmod 0755 "${'$'}target" "${'$'}target/zygisk" "${'$'}target/dex"
             chmod 0644 "${'$'}target/module.prop" "${'$'}target/zygisk/arm64-v8a.so" "${'$'}target/dex/classes.dex"
+            # Files copied from app storage retain shell_data_file labels. Zygisk only loads
+            # modules from the normal /data/adb/modules SELinux context after the next boot.
+            if command -v restorecon >/dev/null 2>&1; then
+              restorecon -RF "${'$'}target" || true
+            fi
+            if command -v chcon >/dev/null 2>&1; then
+              chcon u:object_r:system_file:s0 "${'$'}target" "${'$'}target/zygisk" "${'$'}target/dex" || true
+              chcon u:object_r:system_file:s0 "${'$'}target/module.prop" "${'$'}target/zygisk/arm64-v8a.so" "${'$'}target/dex/classes.dex" || true
+            fi
             rm -f '$READY_MARKER'
             rm -rf "${'$'}backup" "${'$'}staging"
             echo MTZ_IMPORT_MODULE_INSTALLED
