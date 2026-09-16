@@ -409,7 +409,9 @@ private fun StudioScreen(
     }
 
     fun persistPreparedApply(prepared: PreparedThemeApply) {
-        if (prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_BRIDGE) {
+        if (prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_BRIDGE ||
+            prepared.protocol == ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE
+        ) {
             prepared.intent.putExtra(ThemeManagerBridgeContract.EXTRA_DIAGNOSTIC_RECEIVER, diagnostics.nativeStepReceiver())
         }
         diagnostics.record("theme_request_ready", "Temalar işlemine geçiliyor", mapOf(
@@ -660,7 +662,8 @@ private fun StudioScreen(
                     rememberAppliedTheme(prepared.themeId, prepared.protocol)
                 }
 
-                ThemeApplyProtocol.MODERN_THEME_MANAGER_BRIDGE -> {
+                ThemeApplyProtocol.MODERN_THEME_MANAGER_BRIDGE,
+                ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE -> {
                     val bridgeSucceeded = result.resultCode == Activity.RESULT_OK &&
                         result.data?.getStringExtra(ThemeManagerBridgeContract.EXTRA_RESULT) == ThemeManagerBridgeContract.RESULT_OK
                     if (bridgeSucceeded) {
@@ -1210,6 +1213,18 @@ private fun StudioScreen(
                         status = resources.getString(R.string.status_apply_failed, error.message ?: error::class.simpleName)
                         operationError = status
                     }
+                } else if (themeApplyCoordinator.rootGlobalModuleBridgeReady()) {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            themeApplyCoordinator.prepareRootGlobalModuleImportOnly(importedTheme)
+                        }
+                    }.onSuccess(::launchPreparedTheme)
+                        .onFailure { error ->
+                            themeOperationRunning = false
+                            diagnostics.record("root_global_compose_import_failed", "Oluşturulan tema Xiaomi Temalar kitaplığına aktarılamadı", error = error)
+                            status = resources.getString(R.string.status_apply_failed, error.message ?: error::class.simpleName)
+                            operationError = status
+                        }
                 } else {
                     themeOperationRunning = false
                 }
@@ -1436,7 +1451,20 @@ private fun StudioScreen(
                     }
                 }.onSuccess { importedTheme ->
                     themes = (themes.filterNot { it.id == importedTheme.id } + importedTheme)
-                    runCatching { mirrorImportedThemeToXiaomi(importedTheme) }
+                    runCatching {
+                        // Global Themes exposes its importer only inside its own process.  When
+                        // the active root module is present, immediately hand this verified copy
+                        // to that importer instead of leaving the Studio-only archive orphaned.
+                        if (themeApplyCoordinator.rootGlobalModuleBridgeReady()) {
+                            val prepared = withContext(Dispatchers.IO) {
+                                themeApplyCoordinator.prepareRootGlobalModuleImportOnly(importedTheme)
+                            }
+                            launchPreparedTheme(prepared)
+                            true
+                        } else {
+                            mirrorImportedThemeToXiaomi(importedTheme)
+                        }
+                    }
                         .onFailure { error ->
                             // The Studio import remains valid when Xiaomi rejects its own native
                             // catalog copy. Applying later can retry the existing manual/native

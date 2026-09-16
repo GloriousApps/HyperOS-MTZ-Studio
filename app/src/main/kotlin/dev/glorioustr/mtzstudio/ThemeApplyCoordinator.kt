@@ -29,6 +29,7 @@ enum class ThemeManagerOperation { APPLY, IMPORT_ONLY, DELETE }
 enum class ThemeApplyProtocol {
     LEGACY_TESTER,
     MODERN_THEME_MANAGER_BRIDGE,
+    ROOT_GLOBAL_THEME_MANAGER_BRIDGE,
     MODERN_THEME_MANAGER_DIRECT_APPLY,
     MODERN_THEME_MANAGER_MANUAL_IMPORT,
     ROOTLESS_MANUAL_IMPORT,
@@ -55,6 +56,7 @@ class ThemeApplyCoordinator(
         // packages also expose the old screenshot tester alias, but that route needs root-only
         // staging and must not steal an already imported Shizuku theme from the native flow.
         return when {
+            rootGlobalModuleBridgeReady() -> prepareRootGlobalModuleImport(theme, ThemeManagerOperation.APPLY)
             modern && themeManagerLocalId != null -> prepareModernExistingTheme(theme, themeManagerLocalId)
             modern && legacyTesterAvailable() -> {
                 diagnostics.record(
@@ -73,6 +75,75 @@ class ThemeApplyCoordinator(
 
     fun prepareModernImportAndApply(theme: LibraryTheme): PreparedThemeApply =
         prepareModernImport(theme, ThemeManagerOperation.APPLY)
+
+    /**
+     * Global Themes builds have their importer but do not expose it to other applications.
+     * Our active root module receives this verified request inside Themes, then uses Xiaomi's
+     * native import queue and apply implementation.  The MTZ is never copied into Themes data
+     * by Studio itself.
+     */
+    fun prepareRootGlobalModuleImportOnly(theme: LibraryTheme): PreparedThemeApply =
+        prepareRootGlobalModuleImport(theme, ThemeManagerOperation.IMPORT_ONLY)
+
+    fun rootGlobalModuleBridgeReady(): Boolean {
+        val result = runRecordedRootOrShell(
+            "root_global_bridge_check",
+            "test \"\$(id -u)\" = 0 && test -f '$ROOT_GLOBAL_READY_MARKER' && " +
+                "/system/bin/grep -qx '$ROOT_GLOBAL_MODULE_VERSION' '$ROOT_GLOBAL_READY_MARKER' && " +
+                "test -f '$ROOT_GLOBAL_MODULE_PROP' && /system/bin/grep -qx 'version=$ROOT_GLOBAL_MODULE_VERSION' '$ROOT_GLOBAL_MODULE_PROP'",
+            5,
+        )
+        return result.exitCode == 0
+    }
+
+    private fun prepareRootGlobalModuleImport(theme: LibraryTheme, operation: ThemeManagerOperation): PreparedThemeApply {
+        check(rootGlobalModuleBridgeReady()) {
+            "Root MTZ Import modülü etkin değil veya güncel değil. Modülü güncelleyip telefonu yeniden başlatın."
+        }
+        check(Hashing.sha256(theme.archive.source) == theme.archive.sha256) {
+            "Tema kaynağı doğrulama sonrası değişmiş"
+        }
+        val themeName = theme.archive.metadata?.name ?: theme.displayName
+        val exported = checkNotNull(MtzPublicExporter.exportToPublicDownloads(context, theme.archive.source, themeName)) {
+            "Tema, Xiaomi Temalar içe aktarma akışı için hazırlanamadı"
+        }
+        val stagedPath = "$THEME_MANAGER_MODERN_DOWNLOAD_ROOT/${UUID.randomUUID()}.mtz"
+        val stage = "/system/bin/mkdir -p ${shellQuote(THEME_MANAGER_MODERN_DOWNLOAD_ROOT)} && " +
+            "/system/bin/cp ${shellQuote(exported.absolutePath)} ${shellQuote(stagedPath)} && " +
+            "/system/bin/chmod 0644 ${shellQuote(stagedPath)}"
+        val result = runRecordedRootOrShell("root_global_mtz_staging", stage, 120)
+        check(result.exitCode == 0) {
+            "Tema Xiaomi Temalar içe aktarma alanına hazırlanamadı: ${result.output.takeLast(500)}"
+        }
+        val intent = Intent(
+            if (operation == ThemeManagerOperation.APPLY) {
+                ThemeManagerBridgeContract.ACTION_APPLY_MODERN
+            } else {
+                ThemeManagerBridgeContract.ACTION_IMPORT_MODERN
+            },
+        ).apply {
+            component = ComponentName(THEME_MANAGER_PACKAGE, ROOT_GLOBAL_THEME_ACTIVITY)
+            putExtra(ThemeManagerBridgeContract.EXTRA_THEME_PATH, stagedPath)
+            putExtra(ThemeManagerBridgeContract.EXTRA_THEME_SHA256, theme.archive.sha256)
+            putExtra(ThemeManagerBridgeContract.EXTRA_THEME_NAME, themeName.take(180))
+        }
+        check(intent.resolveActivity(context.packageManager) != null) {
+            "Xiaomi Temalar içe aktarma ekranı bulunamadı"
+        }
+        diagnostics.record(
+            "root_global_bridge_prepared",
+            "Root modülü için Xiaomi Temalar yerleşik içe aktarma isteği hazırlandı",
+            mapOf("theme" to theme.displayName, "operation" to operation.name),
+        )
+        return PreparedThemeApply(
+            themeId = theme.id.value,
+            themeName = themeName,
+            stagedPath = stagedPath,
+            intent = intent,
+            protocol = ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE,
+            operation = operation,
+        )
+    }
 
     /**
      * Adds an MTZ to Xiaomi Themes through HyperOS' own backup service while running with
@@ -480,6 +551,7 @@ class ThemeApplyCoordinator(
         if (prepared.stagedPath.isNotBlank()) {
             val command = "/system/bin/rm -f ${shellQuote(prepared.stagedPath)}"
             if (prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_BRIDGE ||
+                prepared.protocol == ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE ||
                 prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_MANUAL_IMPORT
             ) {
                 runRecordedRootOrShell("staging_cleanup", command, 30)
@@ -625,6 +697,10 @@ class ThemeApplyCoordinator(
             "/sdcard/Android/data/com.android.thememanager/files/MIUI/theme/.download"
         const val THEME_MANAGER_MODERN_LOCAL_ACTIVITY =
             ThemeManagerContract.MODERN_LOCAL_LIBRARY_COMPONENT
+        const val ROOT_GLOBAL_THEME_ACTIVITY = "com.android.thememanager.activity.ThemeTabActivity"
+        const val ROOT_GLOBAL_READY_MARKER = "/data/user/0/com.android.thememanager/files/mtz_import_module_ready"
+        const val ROOT_GLOBAL_MODULE_PROP = "/data/adb/modules/xiaomi_themes_global_import/module.prop"
+        const val ROOT_GLOBAL_MODULE_VERSION = "0.1.4-alpha"
         val SAFE_LOCAL_ID = Regex("[A-Za-z0-9._-]{1,128}")
         val BRIDGE_MARKER_FILES = listOf(
             "/data/system/theme/${ThemeManagerBridgeContract.BRIDGE_MARKER}",
