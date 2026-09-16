@@ -90,6 +90,7 @@ internal fun ThemeManagerCompatibilityCard(
     var riskAccepted by remember { mutableStateOf(false) }
     var showConfirmation by remember { mutableStateOf(false) }
     var showRootModuleConfirmation by remember { mutableStateOf(false) }
+    var showRootModuleRestartDialog by remember { mutableStateOf(false) }
     var rootModuleState by remember { mutableStateOf<RootThemeImportModuleInstaller.State?>(null) }
     val cyanAccent = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) Color(0xFF006A78) else Color(0xFF00DAF3)
 
@@ -422,6 +423,7 @@ internal fun ThemeManagerCompatibilityCard(
                         }.onSuccess { result ->
                             rootModuleState = withContext(Dispatchers.IO) { rootModuleInstaller.inspect() }
                             status = "Root MTZ Import modülü ${result.version} kuruldu. Etkinleştirmek için telefonu yeniden başlatın."
+                            showRootModuleRestartDialog = true
                         }.onFailure { error ->
                             status = "Root MTZ Import modülü kurulamadı: ${error.message ?: error::class.simpleName}"
                         }
@@ -430,6 +432,39 @@ internal fun ThemeManagerCompatibilityCard(
             },
             dismissButton = {
                 TextButton(onClick = { showRootModuleConfirmation = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
+
+    if (showRootModuleRestartDialog) {
+        AlertDialog(
+            onDismissRequest = { showRootModuleRestartDialog = false },
+            title = { Text("Modül güncellendi") },
+            text = {
+                Text(
+                    "Root MTZ Import modülü kuruldu. Xiaomi Temalar importer'ının etkinleşmesi için telefonu şimdi yeniden başlatın.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRootModuleRestartDialog = false
+                    scope.launch {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                val result = PreferredPrivilegedCommandRunner(context.applicationContext)
+                                    .run("setprop sys.powerctl reboot", 10)
+                                if (result.exitCode != 0) {
+                                    error(result.output.ifBlank { "exit ${'$'}{result.exitCode}" })
+                                }
+                            }
+                        }.onFailure { error ->
+                            status = "Telefon yeniden başlatılamadı: ${'$'}{error.message ?: error::class.simpleName}"
+                        }
+                    }
+                }) { Text("Yeniden başlat") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRootModuleRestartDialog = false }) { Text("Daha sonra") }
             },
         )
     }
