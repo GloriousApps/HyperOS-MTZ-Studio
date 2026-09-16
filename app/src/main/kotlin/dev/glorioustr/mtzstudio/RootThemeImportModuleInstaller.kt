@@ -51,7 +51,11 @@ internal class RootThemeImportModuleInstaller(
         return State(
             installed = installed != null,
             version = installed?.substringAfter(':')?.takeIf(String::isNotBlank),
-            active = active != null,
+            // Zygisk injects only when Xiaomi Themes starts.  Requiring Themes to have
+            // already been opened after every reboot made a correctly installed module look
+            // like it still needed a restart.  The signed module.prop is the authoritative
+            // availability check; the runtime marker is retained only as extra diagnostics.
+            active = active != null || installed != null,
         )
     }
 

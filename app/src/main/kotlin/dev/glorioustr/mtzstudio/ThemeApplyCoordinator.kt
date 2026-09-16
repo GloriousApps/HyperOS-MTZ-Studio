@@ -88,9 +88,10 @@ class ThemeApplyCoordinator(
     fun rootGlobalModuleBridgeReady(): Boolean {
         val result = runRecordedRootOrShell(
             "root_global_bridge_check",
-            "test \"\$(id -u)\" = 0 && test -f '$ROOT_GLOBAL_READY_MARKER' && " +
-                "/system/bin/grep -qx '$ROOT_GLOBAL_MODULE_VERSION' '$ROOT_GLOBAL_READY_MARKER' && " +
-                "test -f '$ROOT_GLOBAL_MODULE_PROP' && /system/bin/grep -qx 'version=$ROOT_GLOBAL_MODULE_VERSION' '$ROOT_GLOBAL_MODULE_PROP'",
+            // The module is injected when this intent launches Xiaomi Themes.  Its marker
+            // cannot exist before that first launch, so it must not gate the request itself.
+            "test \"\$(id -u)\" = 0 && test -f '$ROOT_GLOBAL_MODULE_PROP' && " +
+                "/system/bin/grep -qx 'version=$ROOT_GLOBAL_MODULE_VERSION' '$ROOT_GLOBAL_MODULE_PROP'",
             5,
         )
         return result.exitCode == 0
