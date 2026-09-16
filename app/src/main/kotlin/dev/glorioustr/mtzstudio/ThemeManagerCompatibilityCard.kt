@@ -205,6 +205,8 @@ internal fun ThemeManagerCompatibilityCard(
 
     StudioCard(Modifier.fillMaxWidth()) {
         val compatibleLocalMtzPath = runtimeProfile?.compatibleLocalMtzPath == true
+        val applyActivityUnavailable = runtimeProfile != null && installed?.installed == true && !compatibleLocalMtzPath
+        val rootModuleMode = allowRootDowngrade && applyActivityUnavailable
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -216,18 +218,26 @@ internal fun ThemeManagerCompatibilityCard(
                 ) {
                     Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = cyanAccent, modifier = Modifier.size(24.dp))
                 }
-                Text(stringResource(R.string.tm_card_title), modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    if (rootModuleMode) "Root MTZ Import modülü" else stringResource(R.string.tm_card_title),
+                    modifier = Modifier.weight(1f),
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge,
+                )
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ) {
                     Text(
-                        stringResource(
-                            if (runtimeProfile == null) R.string.tm_profile_checking
-                            else if (compatibleLocalMtzPath) R.string.tm_profile_active
-                            else R.string.tm_profile_checking,
-                        ),
+                        when {
+                            rootModuleMode && rootModuleState?.active == true -> "Etkin"
+                            rootModuleMode && rootModuleState?.installed == true -> "Yeniden başlatın"
+                            rootModuleMode -> "Etkinleştirilebilir"
+                            runtimeProfile == null -> stringResource(R.string.tm_profile_checking)
+                            compatibleLocalMtzPath -> stringResource(R.string.tm_profile_active)
+                            else -> stringResource(R.string.tm_profile_checking)
+                        },
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelSmall,
@@ -235,9 +245,9 @@ internal fun ThemeManagerCompatibilityCard(
                 }
             }
             installed?.let { current ->
-                val applyActivityUnavailable = runtimeProfile != null && current.installed && !compatibleLocalMtzPath
                 Text(
-                    if (!current.installed) stringResource(R.string.tm_device_not_found)
+                    if (rootModuleMode) "Xiaomi Temalar: ${current.versionName ?: stringResource(R.string.tm_version_unknown)}"
+                    else if (!current.installed) stringResource(R.string.tm_device_not_found)
                     else if (compatibleLocalMtzPath) stringResource(
                         R.string.tm_device_installed_compatible,
                         current.versionName ?: stringResource(R.string.tm_version_unknown),
@@ -245,7 +255,7 @@ internal fun ThemeManagerCompatibilityCard(
                         R.string.tm_device_installed_incompatible,
                         current.versionName ?: stringResource(R.string.tm_version_unknown),
                     ),
-                    color = if (compatibleLocalMtzPath) cyanAccent else MaterialTheme.colorScheme.error,
+                    color = if (compatibleLocalMtzPath || rootModuleMode) cyanAccent else MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -275,7 +285,7 @@ internal fun ThemeManagerCompatibilityCard(
                         )
                     }
                 }
-                if (applyActivityUnavailable) {
+                if (applyActivityUnavailable && !rootModuleMode) {
                     Text(
                         stringResource(R.string.tm_incompatibility_reason_missing_activity),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -288,7 +298,7 @@ internal fun ThemeManagerCompatibilityCard(
                     )
                 }
 
-                if (applyActivityUnavailable && allowRootDowngrade) {
+                if (rootModuleMode) {
                     val module = rootModuleState
                     val moduleText = when {
                         module?.active == true -> "Root MTZ Import modülü etkin. Xiaomi Temalar importer'ı yeniden başlatma sonrasında hazır."
@@ -310,10 +320,10 @@ internal fun ThemeManagerCompatibilityCard(
                     }
                 }
             }
-            if (runtimeProfile != null && !compatibleLocalMtzPath) Text(status, style = MaterialTheme.typography.bodySmall)
+            if (runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) Text(status, style = MaterialTheme.typography.bodySmall)
 
             val current = installed
-            if (allowRootDowngrade && current != null && current.installed && runtimeProfile != null && !compatibleLocalMtzPath) {
+            if (allowRootDowngrade && current != null && current.installed && runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) {
                 OutlinedButton(
                     onClick = {
                         apkPicker.launch(
