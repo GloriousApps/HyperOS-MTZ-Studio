@@ -211,6 +211,7 @@ internal fun ThemeManagerCompatibilityCard(
         val compatibleLocalMtzPath = runtimeProfile?.compatibleLocalMtzPath == true
         val applyActivityUnavailable = runtimeProfile != null && installed?.installed == true && !compatibleLocalMtzPath
         val rootModuleMode = allowRootDowngrade && applyActivityUnavailable
+        val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState)
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -235,7 +236,8 @@ internal fun ThemeManagerCompatibilityCard(
                 ) {
                     Text(
                         when {
-                            rootModuleMode && rootModuleState?.active == true -> "Etkin"
+                            rootModuleMode && rootModuleState?.active == true && rootModuleCurrent -> "Modül güncel"
+                            rootModuleMode && rootModuleState?.active == true -> "Güncelleme var"
                             rootModuleMode && rootModuleState?.installed == true -> "Yeniden başlatın"
                             rootModuleMode -> "Etkinleştirilebilir"
                             runtimeProfile == null -> stringResource(R.string.tm_profile_checking)
@@ -305,7 +307,8 @@ internal fun ThemeManagerCompatibilityCard(
                 if (rootModuleMode) {
                     val module = rootModuleState
                     val moduleText = when {
-                        module?.active == true -> "Root MTZ Import modülü etkin. Xiaomi Temalar importer'ı yeniden başlatma sonrasında hazır."
+                        module?.active == true && rootModuleCurrent -> "Root MTZ Import modülü güncel ve etkin. Xiaomi Temalar importer'ı kullanıma hazır."
+                        module?.active == true -> "Root MTZ Import modülü etkin, ancak uygulamayla gelen yeni sürüm yüklenmeye hazır."
                         module?.installed == true -> "Root MTZ Import modülü kurulu. Etkinleşmesi için telefonu yeniden başlatın."
                         else -> "Bu Global Temalar sürümünde dışa açık MTZ Import yok. Root modülü, Xiaomi Temalar'ın kendi importer'ını güvenli biçimde etkinleştirir."
                     }
@@ -323,6 +326,21 @@ internal fun ThemeManagerCompatibilityCard(
                                 showRootModuleRestartDialog = true
                             }) {
                                 Text("Telefonu yeniden başlat")
+                            }
+
+                            rootModuleCurrent -> Surface(
+                                shape = RoundedCornerShape(50),
+                                color = cyanAccent.copy(alpha = 0.14f),
+                                contentColor = cyanAccent,
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Text("Root MTZ Import modülü güncel", fontWeight = FontWeight.SemiBold)
+                                }
                             }
 
                             else -> Button(onClick = {

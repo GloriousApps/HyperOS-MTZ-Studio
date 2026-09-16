@@ -55,6 +55,10 @@ internal class RootThemeImportModuleInstaller(
         )
     }
 
+    /** Returns true only when the installed module is the exact version bundled with this app. */
+    fun isBundledVersion(state: State?): Boolean =
+        state?.installed == true && state.version == MODULE_VERSION
+
     fun installOrUpdate(): InstallResult {
         val staged = File(appContext.cacheDir, "theme-import-module/${UUID.randomUUID()}.zip")
         staged.parentFile?.mkdirs()
