@@ -56,11 +56,12 @@ class ThemeApplyCoordinator(
         // packages also expose the old screenshot tester alias, but that route needs root-only
         // staging and must not steal an already imported Shizuku theme from the native flow.
         return when {
-            // The root bridge returns a stable Xiaomi Themes localId after the first import.
-            // Reusing that record is essential: applying an already imported theme must never
-            // enqueue the MTZ for a second import.
-            rootGlobalModuleBridgeReady() && themeManagerLocalId != null ->
-                prepareRootGlobalModuleExistingTheme(theme, themeManagerLocalId)
+            // Global Themes builds do not expose a safe, stable "replace this existing local
+            // record" API. A local theme is a tree of generated component records, not merely
+            // one MTZ file. Reuse the native import-and-apply flow that Xiaomi Themes itself
+            // uses, then persist the newly returned local ID. This is deliberately different
+            // from the Shizuku 10.8+ route: it avoids fragile metadata deserialization on
+            // rooted Global builds and guarantees that the applied resource is the current MTZ.
             rootGlobalModuleBridgeReady() -> prepareRootGlobalModuleImport(theme, ThemeManagerOperation.APPLY)
             modern && themeManagerLocalId != null -> prepareModernExistingTheme(theme, themeManagerLocalId)
             modern && legacyTesterAvailable() -> {

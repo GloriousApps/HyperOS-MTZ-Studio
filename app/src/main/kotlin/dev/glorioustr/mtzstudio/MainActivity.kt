@@ -671,6 +671,18 @@ private fun StudioScreen(
                         val localId = result.data?.getStringExtra(ThemeManagerBridgeContract.EXTRA_THEME_LOCAL_ID)
                         when (prepared.operation) {
                             ThemeManagerOperation.APPLY -> {
+                                // Root Global Themes applies through its native importer. Each
+                                // completed import receives a fresh local ID, so retain it here
+                                // rather than leaving Studio linked to the older record.
+                                if (!localId.isNullOrBlank()) {
+                                    scope.launch(Dispatchers.IO) {
+                                        library.load().themes.firstOrNull {
+                                            it.id.value == prepared.themeId
+                                        }?.let { applied ->
+                                            deviceThemeImporter.rememberThemeManagerOrigin(localId, applied)
+                                        }
+                                    }
+                                }
                                 status = resources.getString(R.string.status_apply_success, prepared.themeName)
                                 rememberAppliedTheme(prepared.themeId, prepared.protocol)
                             }
