@@ -311,17 +311,26 @@ internal fun ThemeManagerCompatibilityCard(
                     }
                     Text(moduleText, style = MaterialTheme.typography.bodySmall)
                     if (rootModuleCheckComplete) {
-                        Button(onClick = {
-                            rootModuleUpdateRequested = module?.installed == true
-                            showRootModuleConfirmation = true
-                        }) {
-                            Text(
-                                if (module?.installed == true) {
-                                    "Root MTZ Import modülünü güncelle"
-                                } else {
-                                    "Root MTZ Import modülünü kur"
-                                },
-                            )
+                        when {
+                            module?.installed != true -> Button(onClick = {
+                                rootModuleUpdateRequested = false
+                                showRootModuleConfirmation = true
+                            }) {
+                                Text("Root MTZ Import modülünü kur")
+                            }
+
+                            module.active != true -> Button(onClick = {
+                                showRootModuleRestartDialog = true
+                            }) {
+                                Text("Telefonu yeniden başlat")
+                            }
+
+                            else -> Button(onClick = {
+                                rootModuleUpdateRequested = true
+                                showRootModuleConfirmation = true
+                            }) {
+                                Text("Root MTZ Import modülünü güncelle")
+                            }
                         }
                     } else {
                         Text("Root MTZ Import modülü denetleniyor…", style = MaterialTheme.typography.bodySmall)
@@ -471,14 +480,10 @@ internal fun ThemeManagerCompatibilityCard(
     if (showRootModuleRestartDialog) {
         AlertDialog(
             onDismissRequest = { showRootModuleRestartDialog = false },
-            title = { Text(if (rootModuleUpdateRequested) "Modül güncellendi" else "Modül kuruldu") },
+            title = { Text("Yeniden başlatma gerekli") },
             text = {
                 Text(
-                    if (rootModuleUpdateRequested) {
-                        "Root MTZ Import modülü güncellendi. Xiaomi Temalar importer'ının etkinleşmesi için telefonu şimdi yeniden başlatın."
-                    } else {
-                        "Root MTZ Import modülü kuruldu. Xiaomi Temalar importer'ının etkinleşmesi için telefonu şimdi yeniden başlatın."
-                    },
+                    "Root MTZ Import modülü kurulu. Xiaomi Temalar importer'ının etkinleşmesi için telefonu şimdi yeniden başlatın.",
                 )
             },
             confirmButton = {
