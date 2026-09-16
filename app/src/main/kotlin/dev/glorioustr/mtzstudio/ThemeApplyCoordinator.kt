@@ -111,7 +111,11 @@ class ThemeApplyCoordinator(
         val stagedPath = "$THEME_MANAGER_MODERN_DOWNLOAD_ROOT/${UUID.randomUUID()}.mtz"
         val stage = "/system/bin/mkdir -p ${shellQuote(THEME_MANAGER_MODERN_DOWNLOAD_ROOT)} && " +
             "/system/bin/cp ${shellQuote(exported.absolutePath)} ${shellQuote(stagedPath)} && " +
-            "/system/bin/chmod 0644 ${shellQuote(stagedPath)}"
+            // Android 15/16 FUSE may reject chmod inside another app's external-files
+            // domain even after a successful root copy.  The copied file is already
+            // readable by Themes; validate its presence instead of turning that benign
+            // storage-layer limitation into an import failure.
+            "/system/bin/test -s ${shellQuote(stagedPath)}"
         val result = runRecordedRootOrShell("root_global_mtz_staging", stage, 120)
         check(result.exitCode == 0) {
             "Tema Xiaomi Temalar içe aktarma alanına hazırlanamadı: ${result.output.takeLast(500)}"
