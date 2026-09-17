@@ -762,7 +762,7 @@ class ThemeApplyCoordinator(
         const val ROOT_GLOBAL_THEME_ACTIVITY = "com.android.thememanager.activity.ThemeTabActivity"
         const val ROOT_GLOBAL_READY_MARKER = "/data/user/0/com.android.thememanager/files/mtz_import_module_ready"
         const val ROOT_GLOBAL_MODULE_PROP = "/data/adb/modules/xiaomi_themes_global_import/module.prop"
-        const val ROOT_GLOBAL_MODULE_VERSION = "0.1.17-alpha"
+        const val ROOT_GLOBAL_MODULE_VERSION = "1.0.0"
         val SAFE_LOCAL_ID = Regex("[A-Za-z0-9._-]{1,128}")
         val BRIDGE_MARKER_FILES = listOf(
             "/data/system/theme/${ThemeManagerBridgeContract.BRIDGE_MARKER}",
