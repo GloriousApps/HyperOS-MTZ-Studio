@@ -151,10 +151,10 @@ internal class RootThemeImportModuleInstaller(
 
     private companion object {
         const val MODULE_ID = "xiaomi_themes_global_import"
-        const val MODULE_VERSION = "0.1.16-alpha"
+        const val MODULE_VERSION = "0.1.17-alpha"
         const val MODULE_DIRECTORY = "/data/adb/modules/xiaomi_themes_global_import"
         const val READY_MARKER = "/data/user/0/com.android.thememanager/files/mtz_import_module_ready"
-        const val ASSET_NAME = "xiaomi_themes_global_mtz_import_v0_1_16.zip"
-        const val ASSET_SHA256 = "2e48420a9cbda85938d5242f20226ffa493f093119f0f92edfd8784268dec612"
+        const val ASSET_NAME = "xiaomi_themes_global_mtz_import_v0_1_17.zip"
+        const val ASSET_SHA256 = "41f5972ac2b02009bd97a6dc89909d53bd651642fdce4b66ac50cfbaa30cf504"
     }
 }
