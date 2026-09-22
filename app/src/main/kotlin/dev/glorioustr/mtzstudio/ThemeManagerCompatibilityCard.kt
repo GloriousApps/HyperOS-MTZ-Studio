@@ -214,7 +214,10 @@ internal fun ThemeManagerCompatibilityCard(
     StudioCard(Modifier.fillMaxWidth()) {
         val compatibleLocalMtzPath = runtimeProfile?.compatibleLocalMtzPath == true
         val applyActivityUnavailable = runtimeProfile != null && installed?.installed == true && !compatibleLocalMtzPath
-        val rootModuleMode = allowRootDowngrade && applyActivityUnavailable
+        // Legacy Global builds such as 3.0.5.6 expose ApplyThemeForScreenshot and are therefore
+        // reported as compatible. They still need our root module to mirror an imported MTZ into
+        // Xiaomi Themes. Do not hide the module card merely because that legacy activity exists.
+        val rootModuleMode = allowRootDowngrade && supportsRootMtzImportModule(installed?.versionName)
         val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState)
         Column(
             modifier = Modifier.padding(16.dp),
@@ -531,6 +534,13 @@ internal fun ThemeManagerCompatibilityCard(
             },
         )
     }
+}
+
+private fun supportsRootMtzImportModule(versionName: String?): Boolean {
+    val version = versionName?.lowercase() ?: return false
+    return version.startsWith("3.0.5.6") ||
+        version.startsWith("3.0.6.8") ||
+        version.startsWith("3.4.")
 }
 
 private fun awaitDownload(manager: DownloadManager, downloadId: Long) {
