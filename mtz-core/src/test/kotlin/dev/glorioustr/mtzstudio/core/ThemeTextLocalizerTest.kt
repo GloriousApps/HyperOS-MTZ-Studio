@@ -74,6 +74,32 @@ class ThemeTextLocalizerTest {
         assertTrue(entry(resources, "layout").toString(Charsets.UTF_8).contains("çeviri"))
     }
 
+    @Test fun `replaces lock screen bitmap labels with safe MAML text overlays`() {
+        val xml = """<Root>
+            <Image x="50" y="160" w="190" h="90" src="menu/exit_btn.png" touchable="true"/>
+            <Image x="#screen_width-50" y="160" w="190" h="90" align="right" src="menu/setting_btn.png"/>
+            <Image x="#screen_width/2" y="0" align="center" alignV="center" src="menu/add_widget.webp" visibility="#widget_on==0"/>
+        </Root>""".toByteArray()
+        val (source, output) = archive(zip("lockscreen" to zip("advance/manifest.xml" to xml)))
+
+        val result = ThemeTextLocalizer().rewrite(source, output) { value ->
+            mapOf("完成" to "Tamam", "自定义" to "Özelleştir", "添加小组件" to "Bileşen ekle").getValue(value)
+        }
+
+        assertEquals(3, result.translatedNodes)
+        val lockscreen = nested(output, "lockscreen")
+        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(entry(lockscreen, "advance/manifest.xml").inputStream())
+        val images = doc.getElementsByTagName("Image")
+        assertEquals("menu/exit_btn_mask.png", (images.item(0) as org.w3c.dom.Element).getAttribute("src"))
+        assertEquals("menu/exit_btn_mask.png", (images.item(1) as org.w3c.dom.Element).getAttribute("src"))
+        assertEquals("0", (images.item(2) as org.w3c.dom.Element).getAttribute("visibility"))
+        val labels = doc.getElementsByTagName("Text")
+        assertEquals("Tamam", (labels.item(0) as org.w3c.dom.Element).getAttribute("text"))
+        assertEquals("Özelleştir", (labels.item(1) as org.w3c.dom.Element).getAttribute("text"))
+        assertEquals("Bileşen ekle", (labels.item(2) as org.w3c.dom.Element).getAttribute("text"))
+        assertEquals("#widget_on==0", (labels.item(2) as org.w3c.dom.Element).getAttribute("visibility"))
+    }
+
     @Test fun `multilingual mode translates safe display text from different scripts`() {
         val xml = """<Root><Text text="Customize"/><Text text="Настройки"/><Text text="إعدادات"/><Text text="カスタマイズ"/><Var name="code" expression="'Настройки'"/><Image src="Настройки.png"/></Root>"""
         val (source, output) = archive(zip("manifest.xml" to xml.toByteArray()))

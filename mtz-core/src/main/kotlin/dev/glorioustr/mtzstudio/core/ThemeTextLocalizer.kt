@@ -1,6 +1,7 @@
 package dev.glorioustr.mtzstudio.core
 
 import org.w3c.dom.Element
+import org.w3c.dom.Document
 import org.w3c.dom.Node
 import org.xml.sax.InputSource
 import org.xml.sax.SAXException
@@ -282,6 +283,15 @@ class ThemeTextLocalizer(
                 if (replacement != original) { node.textContent = replacement; state.nodes++ }
             }
         }
+        // Some lock-screen authors bake short UI labels into their button artwork.
+        // Replacing those bitmaps outright would lose the theme's visual style.  The
+        // matching MAML packages ship a blank mask for the two action buttons, so we
+        // retain that artwork and put a localized Text layer above it instead.
+        //
+        // This is deliberately an opt-in mapping for known, semantic asset names.
+        // A generic image rewrite would be unsafe: most PNG/WebP assets are photos,
+        // icons or previews and must remain byte-identical.
+        state.nodes += localizeEmbeddedButtonLabels(document, state)
         if (state.collectOnly) return bytes
         if (state.nodes > before) state.nodes += ThemeLayoutOptimizer.optimize(document, targetLanguage)
         if (state.nodes == before) return bytes
@@ -291,6 +301,54 @@ class ThemeTextLocalizer(
         DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(InputSource(StringReader(result.toString("UTF-8"))))
         state.changed += path
         return result.toByteArray()
+    }
+
+    private fun localizeEmbeddedButtonLabels(document: Document, state: State): Int {
+        val images = document.getElementsByTagName("Image").let { all ->
+            (0 until all.length).map { all.item(it) as Element }
+        }
+        var changed = 0
+        images.forEach { image ->
+            val source = image.getAttribute("src")
+            val label = BITMAP_LABELS[source] ?: return@forEach
+            val localized = state.text(label)
+            if (localized == label) return@forEach
+
+            val isWidgetPrompt = source == "menu/add_widget.webp"
+            val originalVisibility = image.getAttribute("visibility")
+            if (isWidgetPrompt) {
+                // This prompt is a text-only WebP.  Hide it and retain the original
+                // visibility expression on the native MAML Text replacement.
+                image.setAttribute("visibility", "0")
+            } else {
+                image.setAttribute("src", "menu/exit_btn_mask.png")
+            }
+
+            val overlay = document.createElement("Text")
+            val x = image.getAttribute("x").ifBlank { "#screen_width/2" }
+            val width = image.getAttribute("w")
+            val alignment = image.getAttribute("align")
+            val centeredX = when {
+                alignment.equals("right", true) && width.isNotBlank() -> "$x-$width/2"
+                alignment.equals("center", true) -> x
+                width.isNotBlank() -> "$x+$width/2"
+                else -> x
+            }
+            overlay.setAttribute("x", centeredX)
+            overlay.setAttribute("y", image.getAttribute("y").ifBlank { "0" })
+            overlay.setAttribute("align", "center")
+            overlay.setAttribute("alignV", image.getAttribute("alignV").ifBlank { "center" })
+            overlay.setAttribute("text", localized)
+            overlay.setAttribute("color", "#ffffffff")
+            overlay.setAttribute("size", if (isWidgetPrompt) "42" else "34")
+            overlay.setAttribute("fontFamily", "mipro-medium")
+            originalVisibility.takeIf(String::isNotBlank)?.let { overlay.setAttribute("visibility", it) }
+            image.getAttribute("alpha").takeIf(String::isNotBlank)?.let { overlay.setAttribute("alpha", it) }
+            image.getAttribute("scale").takeIf(String::isNotBlank)?.let { overlay.setAttribute("scale", it) }
+            image.parentNode.insertBefore(overlay, image.nextSibling)
+            changed++
+        }
+        return changed
     }
 
     private fun localizeJson(bytes: ByteArray, path: String, state: State): ByteArray {
@@ -363,6 +421,11 @@ class ThemeTextLocalizer(
         private val CODE_TAGS = setOf(
             "script", "source", "command", "var", "variable", "variablecommand",
             "action", "intent", "method", "function",
+        )
+        private val BITMAP_LABELS = mapOf(
+            "menu/exit_btn.png" to "完成",
+            "menu/setting_btn.png" to "自定义",
+            "menu/add_widget.webp" to "添加小组件",
         )
 
         private fun isOpaqueComponent(name: String, depth: Int): Boolean =
