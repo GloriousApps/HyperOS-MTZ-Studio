@@ -59,7 +59,7 @@ internal class MamlTextTranslator(
             return combined.joinToString("+") { expression(it, dateTime, depth + 1) }
         }
         literal(s)?.let { value ->
-            return if (dateTime != null) dateLiteral(value, dateTime) else quote(translate(value))
+            return if (dateTime != null) dateLiteral(value, dateTime) else quote(translateLiteral(value))
         }
         val call = Regex("([A-Za-z_][A-Za-z_0-9]*)\\((.*)\\)", RegexOption.DOT_MATCHES_ALL).matchEntire(s)
         if (call != null) {
@@ -149,6 +149,25 @@ internal class MamlTextTranslator(
         }
     }
 
+    /**
+     * `Text formatExp` is a printf-style template in MAML.  Its placeholders are
+     * executed later with `paras`, so sending `%d` or `%1$s` to a language model
+     * can turn a valid template into the on-screen "format error".  Translate
+     * only its human-facing fragments and stitch the exact placeholder back in.
+     */
+    private fun translateLiteral(value: String): String {
+        if (!PRINTF_TOKEN.containsMatchIn(value)) return translate(value)
+        val output = StringBuilder()
+        var cursor = 0
+        PRINTF_TOKEN.findAll(value).forEach { match ->
+            if (match.range.first > cursor) output.append(translate(value.substring(cursor, match.range.first)))
+            output.append(match.value)
+            cursor = match.range.last + 1
+        }
+        if (cursor < value.length) output.append(translate(value.substring(cursor)))
+        return output.toString()
+    }
+
     private fun withAffix(expression: String, prefix: String = "", suffix: String = ""): String? {
         if (!expression.startsWith("ifelse(") || !expression.endsWith(")")) return null
         val args = split(expression.substring(7, expression.length - 1), ',')
@@ -201,6 +220,9 @@ internal class MamlTextTranslator(
 
     companion object {
         private val DATE_PATTERN_CHARS = Regex("[yMdEHhmsSaDZzYNe年年月日点时分\\s,./:()_\\-·]+")
+        // Java/Android formatter-style specifier, including indexed, width and
+        // precision forms such as %d, %1$s, %.2f and %tF.
+        private val PRINTF_TOKEN = Regex("%(?:\\d+\\$)?[-#+ 0,(<]*\\d*(?:\\.\\d+)?(?:[tT])?[a-zA-Z]")
         private fun balanced(s: String): Boolean {
             var depth = 0
             val stripped = LITERALS.replace(s, "''")

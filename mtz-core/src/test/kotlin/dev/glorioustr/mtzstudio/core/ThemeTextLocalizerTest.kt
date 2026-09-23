@@ -100,6 +100,20 @@ class ThemeTextLocalizerTest {
         assertEquals("#widget_on==0", (labels.item(2) as org.w3c.dom.Element).getAttribute("visibility"))
     }
 
+    @Test fun `preserves MAML printf placeholders in translated format expressions`() {
+        val xml = """<Root><Text formatExp="'已使用主题%d天 | 版本号：20260910'" paras="#days"/></Root>"""
+        val (source, output) = archive(zip("manifest.xml" to xml.toByteArray()))
+
+        ThemeTextLocalizer().rewrite(source, output) { value ->
+            value.replace("已使用主题", "Tema kullanım süresi: ")
+                .replace("天 | 版本号：20260910", " gün | sürüm: 20260910")
+        }
+
+        val rewritten = nested(output, "manifest.xml").toString(Charsets.UTF_8)
+        assertTrue(rewritten.contains("Tema kullanım süresi: %d gün | sürüm: 20260910"), rewritten)
+        assertFalse(rewritten.contains("% D"), rewritten)
+    }
+
     @Test fun `multilingual mode translates safe display text from different scripts`() {
         val xml = """<Root><Text text="Customize"/><Text text="Настройки"/><Text text="إعدادات"/><Text text="カスタマイズ"/><Var name="code" expression="'Настройки'"/><Image src="Настройки.png"/></Root>"""
         val (source, output) = archive(zip("manifest.xml" to xml.toByteArray()))
