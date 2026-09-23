@@ -132,7 +132,7 @@ class ThemeApplyCoordinator(
     }
 
     fun rootGlobalModuleBridgeReady(): Boolean {
-        val result = runRecordedRootOrShell(
+        val result = runRecordedRoot(
             "root_global_bridge_check",
             // The module is injected when this intent launches Xiaomi Themes.  Its marker
             // cannot exist before that first launch, so it must not gate the request itself.
@@ -166,7 +166,7 @@ class ThemeApplyCoordinator(
             // readable by Themes; validate its presence instead of turning that benign
             // storage-layer limitation into an import failure.
             "/system/bin/test -s ${shellQuote(stagedPath)}"
-        val result = runRecordedRootOrShell("root_global_mtz_staging", stage, 120)
+        val result = runRecordedRoot("root_global_mtz_staging", stage, 120)
         check(result.exitCode == 0) {
             "Tema Xiaomi Temalar içe aktarma alanına hazırlanamadı: ${result.output.takeLast(500)}"
         }
@@ -205,6 +205,42 @@ class ThemeApplyCoordinator(
             protocol = ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE,
             operation = operation,
         )
+    }
+
+    /**
+     * Dispatches the root-module bridge from the privileged service itself.  On devices where
+     * Shizuku is also active, an ActivityResult launch can be paused by Xiaomi Themes before
+     * the second intent is delivered.  The native bridge does not need an Activity result to
+     * perform the apply operation, so this command keeps the hand-off alive independently of
+     * Studio's foreground lifecycle.
+     */
+    fun dispatchRootGlobalModuleBridge(prepared: PreparedThemeApply) {
+        check(prepared.protocol == ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE) {
+            "Root MTZ Import köprüsü için geçersiz işlem"
+        }
+        val intent = prepared.intent
+        val action = checkNotNull(intent.action) { "Root MTZ Import eylemi eksik" }
+        val command = buildString {
+            append("/system/bin/am start -n ")
+            append(shellQuote("$THEME_MANAGER_PACKAGE/$ROOT_GLOBAL_THEME_ACTIVITY"))
+            append(" -a ").append(shellQuote(action))
+            intent.getStringExtra(ThemeManagerBridgeContract.EXTRA_THEME_PATH)?.let {
+                append(" --es ").append(shellQuote(ThemeManagerBridgeContract.EXTRA_THEME_PATH))
+                    .append(' ').append(shellQuote(it))
+            }
+            intent.getStringExtra(ThemeManagerBridgeContract.EXTRA_THEME_SHA256)?.let {
+                append(" --es ").append(shellQuote(ThemeManagerBridgeContract.EXTRA_THEME_SHA256))
+                    .append(' ').append(shellQuote(it))
+            }
+            intent.getStringExtra(ThemeManagerBridgeContract.EXTRA_THEME_LOCAL_ID)?.let {
+                append(" --es ").append(shellQuote(ThemeManagerBridgeContract.EXTRA_THEME_LOCAL_ID))
+                    .append(' ').append(shellQuote(it))
+            }
+        }
+        val result = runRecordedRoot("root_global_bridge_dispatch", command, 30)
+        check(result.exitCode == 0) {
+            "Xiaomi Temalar uygulama isteği başlatılamadı: ${result.output.takeLast(500)}"
+        }
     }
 
     /**
@@ -710,6 +746,34 @@ class ThemeApplyCoordinator(
         diagnostics.record(
             "privileged_step_failed",
             "Root veya Shizuku kabuk işlemi tamamlanamadı",
+            mapOf("stage" to stage),
+            error,
+        )
+        throw error
+    }
+
+    private fun runRecordedRoot(stage: String, command: String, timeoutSeconds: Long) = try {
+        diagnostics.record(
+            "root_step_started",
+            "Root işlemi başladı",
+            mapOf("stage" to stage),
+        )
+        commandRunner.run(command, timeoutSeconds).also { result ->
+            diagnostics.record(
+                "root_step_result",
+                "Root işlemi sonucu",
+                mapOf(
+                    "stage" to stage,
+                    "exitCode" to result.exitCode,
+                    "source" to result.authorizationSource,
+                    "output" to result.output.takeLast(1500),
+                ),
+            )
+        }
+    } catch (error: Exception) {
+        diagnostics.record(
+            "root_step_failed",
+            "Root işlemi tamamlanamadı",
             mapOf("stage" to stage),
             error,
         )

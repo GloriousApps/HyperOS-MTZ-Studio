@@ -921,6 +921,42 @@ private fun StudioScreen(
                     "rootless" to prepared.protocol.name.startsWith("ROOTLESS_"),
                 ),
             )
+            if (prepared.protocol == ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE) {
+                scope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            themeApplyCoordinator.dispatchRootGlobalModuleBridge(prepared)
+                        }
+                    }.onSuccess {
+                        // The root bridge completes Xiaomi Themes' native import/apply work in
+                        // its own process, so there is no ActivityResult to wait for here.
+                        preparedApply = null
+                        clearPreparedApply()
+                        themeOperationRunning = false
+                        pauseCatalog.set(false)
+                        diagnostics.record(
+                            "root_global_bridge_dispatched",
+                            "Xiaomi Temalar yerleşik uygulama isteği root köprüsüne gönderildi",
+                            mapOf("theme" to prepared.themeName, "operation" to prepared.operation),
+                        )
+                        if (prepared.operation == ThemeManagerOperation.APPLY) {
+                            status = resources.getString(R.string.status_apply_success, prepared.themeName)
+                            rememberAppliedTheme(prepared.themeId, prepared.protocol)
+                        } else {
+                            status = resources.getString(R.string.status_modern_theme_imported, prepared.themeName)
+                        }
+                    }.onFailure { error ->
+                        preparedApply = null
+                        clearPreparedApply()
+                        themeOperationRunning = false
+                        pauseCatalog.set(false)
+                        diagnostics.record("root_global_bridge_dispatch_failed", "Root köprüsü isteği gönderilemedi", error = error)
+                        status = resources.getString(R.string.status_apply_failed, error.message ?: error::class.simpleName.orEmpty())
+                        operationError = status
+                    }
+                }
+                return
+            }
             applyLauncher.launch(prepared.intent)
             if (prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_MANUAL_IMPORT) {
                 observeModernNativeImport(prepared)
