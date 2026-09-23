@@ -43,6 +43,9 @@ class ThemeApplyCoordinator(
     private val commandRunner: PreferredPrivilegedCommandRunner,
 ) {
     private val diagnostics get() = LiveDiagnosticsRecorder.get(context)
+    private val rootModuleInstaller by lazy {
+        RootThemeImportModuleInstaller(context.applicationContext, commandRunner)
+    }
 
     fun prepare(
         theme: LibraryTheme,
@@ -132,17 +135,16 @@ class ThemeApplyCoordinator(
     }
 
     fun rootGlobalModuleBridgeReady(): Boolean {
-        val result = runRecordedRoot(
-            "root_global_bridge_check",
-            // On some root managers (including FolkPatch), the root shell is intentionally
-            // denied read access to /data/adb/modules even though Zygisk has loaded the
-            // module.  Themes writes this marker from its own process after the hook starts;
-            // `test -f` remains permitted across that SELinux boundary and proves the bridge
-            // is live without making the apply path depend on module.prop readability.
-            "test \"\$(id -u)\" = 0 && test -f '$ROOT_GLOBAL_READY_MARKER'",
-            5,
-        )
-        return result.exitCode == 0
+        // Use the exact same module inspection as the compatibility card.  Maintaining a
+        // second probe here made the card say “module current” while Apply silently fell back
+        // to a stale Xiaomi activity on FolkPatch devices.
+        return runCatching {
+            val state = rootModuleInstaller.inspect()
+            state.active && rootModuleInstaller.isBundledVersion(state)
+        }.getOrElse { error ->
+            diagnostics.record("root_global_bridge_check_failed", "Root MTZ Import modülü denetlenemedi", error = error)
+            false
+        }
     }
 
     private fun prepareRootGlobalModuleImport(
