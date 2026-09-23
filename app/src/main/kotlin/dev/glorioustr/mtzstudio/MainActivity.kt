@@ -921,7 +921,27 @@ private fun StudioScreen(
                     "rootless" to prepared.protocol.name.startsWith("ROOTLESS_"),
                 ),
             )
-            applyLauncher.launch(prepared.intent)
+            if (prepared.protocol == ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE) {
+                // On Global Themes, ThemeTabActivity forwards its very first launch before
+                // Zygisk has necessarily attached the importer hook.  Start Themes normally
+                // once, then send the authenticated bridge request after its process and hook
+                // are ready.  Without this short warm-up, a cold launch can leave the user on
+                // Themes' home screen with the request silently consumed by Xiaomi's redirect.
+                val warmupIntent = context.packageManager
+                    .getLaunchIntentForPackage("com.android.thememanager")
+                    ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (warmupIntent != null) {
+                    context.startActivity(warmupIntent)
+                    scope.launch {
+                        delay(700)
+                        applyLauncher.launch(prepared.intent)
+                    }
+                } else {
+                    applyLauncher.launch(prepared.intent)
+                }
+            } else {
+                applyLauncher.launch(prepared.intent)
+            }
             if (prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_MANUAL_IMPORT) {
                 observeModernNativeImport(prepared)
             }
