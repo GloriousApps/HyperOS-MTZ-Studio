@@ -934,15 +934,7 @@ private fun StudioScreen(
                 if (warmupIntent != null) {
                     context.startActivity(warmupIntent)
                     Handler(Looper.getMainLooper()).postDelayed({
-                        // Studio is paused while Themes is warming up. ActivityResultLauncher
-                        // silently declines a second launch from that paused lifecycle on some
-                        // HyperOS builds, so dispatch this bridge intent through the system
-                        // context instead. The root bridge performs the native apply itself.
-                        runCatching {
-                            context.startActivity(
-                                Intent(prepared.intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
+                        runCatching { applyLauncher.launch(prepared.intent) }
                             .onFailure { error ->
                                 preparedApply = null
                                 clearPreparedApply()
