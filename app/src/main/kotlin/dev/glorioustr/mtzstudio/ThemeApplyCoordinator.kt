@@ -134,10 +134,12 @@ class ThemeApplyCoordinator(
     fun rootGlobalModuleBridgeReady(): Boolean {
         val result = runRecordedRoot(
             "root_global_bridge_check",
-            // The module is injected when this intent launches Xiaomi Themes.  Its marker
-            // cannot exist before that first launch, so it must not gate the request itself.
-            "test \"\$(id -u)\" = 0 && test -f '$ROOT_GLOBAL_MODULE_PROP' && " +
-                "/system/bin/grep -qx 'version=$ROOT_GLOBAL_MODULE_VERSION' '$ROOT_GLOBAL_MODULE_PROP'",
+            // On some root managers (including FolkPatch), the root shell is intentionally
+            // denied read access to /data/adb/modules even though Zygisk has loaded the
+            // module.  Themes writes this marker from its own process after the hook starts;
+            // `test -f` remains permitted across that SELinux boundary and proves the bridge
+            // is live without making the apply path depend on module.prop readability.
+            "test \"\$(id -u)\" = 0 && test -f '$ROOT_GLOBAL_READY_MARKER'",
             5,
         )
         return result.exitCode == 0
