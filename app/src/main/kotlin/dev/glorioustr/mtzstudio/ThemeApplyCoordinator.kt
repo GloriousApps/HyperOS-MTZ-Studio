@@ -386,10 +386,10 @@ class ThemeApplyCoordinator(
         val result = runRecordedRootOrShell("modern_staging", command, 120)
         check(result.exitCode == 0) { "Tema, Temalar 10.8 içe aktarma alanına hazırlanamadı: ${result.output.takeLast(500)}" }
 
-        val intent = if (bridgeReady) {
-            Intent().apply {
-                component = ComponentName(THEME_MANAGER_PACKAGE, THEME_MANAGER_MODERN_LOCAL_ACTIVITY)
-                putExtra("REQUEST_RESOURCE_CODE", "theme")
+        val intent = Intent().apply {
+            component = ComponentName(THEME_MANAGER_PACKAGE, THEME_MANAGER_MODERN_LOCAL_ACTIVITY)
+            putExtra("REQUEST_RESOURCE_CODE", "theme")
+            if (bridgeReady) {
                 action = if (operation == ThemeManagerOperation.IMPORT_ONLY) {
                     ThemeManagerBridgeContract.ACTION_IMPORT_MODERN
                 } else {
@@ -399,12 +399,8 @@ class ThemeApplyCoordinator(
                 putExtra(ThemeManagerBridgeContract.EXTRA_THEME_SHA256, theme.archive.sha256)
                 putExtra(ThemeManagerBridgeContract.EXTRA_THEME_NAME, themeName.take(180))
             }
-        } else {
-            // Several Global Themes releases removed MineResourceTabActivity.  The fallback is
-            // intentionally only a safe handoff to Themes; it must never reference a guessed
-            // private activity because that turns an unavailable native bridge into a crash.
-            themeManagerLauncherIntent()
         }
+        check(intent.resolveActivity(context.packageManager) != null) { "Xiaomi Temalar yerel tema ekranı bulunamadı" }
         return PreparedThemeApply(
             themeId = theme.id.value,
             themeName = themeName,
@@ -478,16 +474,19 @@ class ThemeApplyCoordinator(
     fun prepareModernManualFallback(prepared: PreparedThemeApply): PreparedThemeApply {
         check(prepared.manualImportPath != null) { "Yerleşik içe aktarma için hazırlanmış MTZ bulunamadı" }
         return prepared.copy(
-            intent = themeManagerLauncherIntent(),
+            intent = Intent().apply {
+                component = ComponentName(THEME_MANAGER_PACKAGE, THEME_MANAGER_MODERN_LOCAL_ACTIVITY)
+                putExtra("REQUEST_RESOURCE_CODE", "theme")
+            },
             protocol = ThemeApplyProtocol.MODERN_THEME_MANAGER_MANUAL_IMPORT,
         )
     }
 
-    fun nativeLibraryIntent(): Intent = themeManagerLauncherIntent()
-
-    private fun themeManagerLauncherIntent(): Intent = checkNotNull(
-        context.packageManager.getLaunchIntentForPackage(THEME_MANAGER_PACKAGE),
-    ) { "Xiaomi Temalar uygulaması bulunamadı" }
+    fun nativeLibraryIntent(): Intent = Intent().apply {
+        component = ComponentName(THEME_MANAGER_PACKAGE, THEME_MANAGER_MODERN_LOCAL_ACTIVITY)
+        putExtra("REQUEST_RESOURCE_CODE", "theme")
+        check(resolveActivity(context.packageManager) != null) { "Theme Manager local library is unavailable" }
+    }
 
     private fun publicThemeManagerIntent(source: java.nio.file.Path): Intent {
         val sourceUri = FileProvider.getUriForFile(
