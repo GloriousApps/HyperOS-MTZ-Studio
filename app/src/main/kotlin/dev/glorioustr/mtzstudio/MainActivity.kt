@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.widget.Toast
@@ -921,7 +923,41 @@ private fun StudioScreen(
                     "rootless" to prepared.protocol.name.startsWith("ROOTLESS_"),
                 ),
             )
-            applyLauncher.launch(prepared.intent)
+            if (prepared.protocol == ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE) {
+                // On a cold launch, Global Themes can redirect its first activity before the
+                // injected importer has finished loading. Warm its process first, then launch
+                // the authenticated bridge request from the activity's main thread. A Handler
+                // is deliberate here: a Compose coroutine can be cancelled as Studio pauses.
+                val warmupIntent = context.packageManager
+                    .getLaunchIntentForPackage("com.android.thememanager")
+                    ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (warmupIntent != null) {
+                    context.startActivity(warmupIntent)
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        runCatching { applyLauncher.launch(prepared.intent) }
+                            .onFailure { error ->
+                                preparedApply = null
+                                clearPreparedApply()
+                                themeOperationRunning = false
+                                pauseCatalog.set(false)
+                                diagnostics.record(
+                                    "root_global_bridge_launch_failed",
+                                    "Xiaomi Temalar köprü isteği başlatılamadı",
+                                    error = error,
+                                )
+                                status = resources.getString(
+                                    R.string.status_apply_failed,
+                                    error.message ?: error::class.simpleName.orEmpty(),
+                                )
+                                operationError = status
+                            }
+                    }, 850L)
+                } else {
+                    applyLauncher.launch(prepared.intent)
+                }
+            } else {
+                applyLauncher.launch(prepared.intent)
+            }
             if (prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_MANUAL_IMPORT) {
                 observeModernNativeImport(prepared)
             }
