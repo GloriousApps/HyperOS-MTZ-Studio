@@ -934,7 +934,16 @@ private fun StudioScreen(
             preparedApply = null
             clearPreparedApply()
             diagnostics.record("theme_activity_launch_failed", "Temalar etkinliği başlatılamadı", error = error)
-            throw error
+            // ActivityResultLauncher may throw synchronously when a vendor Themes build removes
+            // one of its private activities.  Keep Studio alive and show a recoverable error
+            // instead of allowing the exception to reach the process-level crash handler.
+            themeOperationRunning = false
+            pauseCatalog.set(false)
+            status = resources.getString(
+                R.string.status_apply_failed,
+                error.message ?: error::class.simpleName.orEmpty(),
+            )
+            operationError = status
         }
     }
 

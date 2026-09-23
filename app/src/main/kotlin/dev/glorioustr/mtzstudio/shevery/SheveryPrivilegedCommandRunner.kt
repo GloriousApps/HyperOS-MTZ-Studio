@@ -191,12 +191,29 @@ class PreferredPrivilegedCommandRunner(context: Context) : PrivilegedCommandRunn
      * that need private app data or package installation privileges must continue to use [run].
      */
     fun runRootOrAdbShell(command: String, timeoutSeconds: Long): PrivilegedCommandResult {
-        return if (shevery.status() == SheveryAuthorizationStatus.ADB_READY) {
-            commandGate.run {
-                shevery.executeShell(command, timeoutSeconds).also { accessFailure.value = null }
+        return commandGate.run {
+            /*
+             * A rooted device can also have an active Shizuku/Shevery ADB session.  The
+             * previous ordering selected that shell session first, which is deliberately
+             * unable to read /data/adb.  As a result the installed Root MTZ Import module
+             * looked absent and the app fell back to an obsolete Themes activity.
+             *
+             * Prefer a verified root channel for every command, then use the authorized ADB
+             * shell only when root is genuinely unavailable.  This preserves the rootless
+             * workflow while making module detection and staging reliable on mixed setups.
+             */
+            try {
+                verifiedRunner.run(command, timeoutSeconds).also { accessFailure.value = null }
+            } catch (rootUnavailable: RootAccessUnavailableException) {
+                if (shevery.status() == SheveryAuthorizationStatus.ADB_READY) {
+                    shevery.executeShell(command, timeoutSeconds).also { accessFailure.value = null }
+                } else {
+                    throw ThemeManagerUpdateException(
+                        appContext.getString(dev.glorioustr.mtzstudio.R.string.privileged_access_unavailable),
+                        rootUnavailable,
+                    )
+                }
             }
-        } else {
-            run(command, timeoutSeconds)
         }
     }
 
