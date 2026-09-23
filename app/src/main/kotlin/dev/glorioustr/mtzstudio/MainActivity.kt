@@ -1027,7 +1027,15 @@ private fun StudioScreen(
                             }
                             else -> null
                         }
-                        if (originNeedsRefresh && localId == null) {
+                        if (rootAccessAvailable == true &&
+                            themeApplyCoordinator.rootGlobalModuleBridgeReady()
+                        ) {
+                            // A translated or re-created Studio archive must enter Themes through
+                            // the root module as well.  The former branch below bypassed the module
+                            // whenever its prior local record was stale, then opened an activity
+                            // removed from current Global Themes builds.
+                            themeApplyCoordinator.prepareRootGlobalModuleImportAndApply(theme, savedLocalIds)
+                        } else if (originNeedsRefresh && localId == null) {
                             // The Studio source changed after it was mirrored (for example by
                             // translation). Import and apply the new archive; never reuse the old
                             // Xiaomi Themes record merely because its title still matches.

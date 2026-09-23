@@ -102,6 +102,17 @@ class ThemeApplyCoordinator(
     fun prepareRootGlobalModuleImportOnly(theme: LibraryTheme): PreparedThemeApply =
         prepareRootGlobalModuleImport(theme, ThemeManagerOperation.IMPORT_ONLY)
 
+    /**
+     * Imports the current Studio archive through the active root module and applies it with
+     * Xiaomi Themes.  This is also required after translation, when the previous local record
+     * must not be reused because it still points at the older archive.
+     */
+    fun prepareRootGlobalModuleImportAndApply(
+        theme: LibraryTheme,
+        replacedLocalIds: Set<String> = emptySet(),
+    ): PreparedThemeApply =
+        prepareRootGlobalModuleImport(theme, ThemeManagerOperation.APPLY, replacedLocalIds)
+
     private fun prepareRootGlobalModuleExistingTheme(
         theme: LibraryTheme,
         localId: String,
