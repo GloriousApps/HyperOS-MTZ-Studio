@@ -284,6 +284,15 @@ internal class DeviceThemeImporter(
 
     fun localIdsFor(theme: LibraryTheme): Set<String> {
         if (themeManagerOriginNeedsRefresh(theme)) return emptySet()
+        return linkedLocalIdsFor(theme)
+    }
+
+    /**
+     * Returns saved Theme Manager identities even while an edited archive needs a one-time
+     * refresh.  The refresh path needs these old identities as a snapshot; hiding them made
+     * every subsequent Root apply look like a brand-new import.
+     */
+    fun linkedLocalIdsFor(theme: LibraryTheme): Set<String> {
         return importOrigins.all.entries.mapNotNullTo(linkedSetOf()) { (key, value) ->
             if (!key.startsWith(ORIGIN_PREFIX)) return@mapNotNullTo null
             val mappedThemeId = value?.toString()?.substringAfter('|', "").orEmpty()

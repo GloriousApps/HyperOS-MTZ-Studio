@@ -882,6 +882,39 @@ private fun StudioScreen(
         }
     }
 
+    /** Root bridge requests run outside Studio, so persist the native local ID by observing
+     * the catalog after the import completes.  Without this, every later Apply re-imports the
+     * same MTZ and leaves a duplicate in Xiaomi Themes. */
+    fun observeRootBridgeImport(prepared: PreparedThemeApply) {
+        val previousIds = prepared.themeManagerLocalIdsBefore ?: return
+        val importedTheme = themes.firstOrNull { it.id.value == prepared.themeId } ?: return
+        modernImportObserverJob?.cancel()
+        modernImportObserverJob = scope.launch {
+            repeat(60) {
+                delay(1_500)
+                val localId = withContext(Dispatchers.IO) {
+                    runCatching { deviceThemeImporter.resolveImportedLocalId(importedTheme, previousIds) }.getOrNull()
+                }
+                if (localId != null) {
+                    withContext(Dispatchers.IO) {
+                        deviceThemeImporter.rememberThemeManagerOrigin(localId, importedTheme)
+                    }
+                    diagnostics.record(
+                        "root_global_import_linked",
+                        "Root köprüsünün oluşturduğu Xiaomi Temalar kaydı eşleştirildi; sonraki uygulamalarda yeniden içe aktarma yapılmayacak",
+                        mapOf("theme" to prepared.themeName, "localId" to localId),
+                    )
+                    return@launch
+                }
+            }
+            diagnostics.record(
+                "root_global_import_link_timeout",
+                "Root köprüsü tamamlandı ancak yeni Xiaomi Temalar kimliği zamanında bulunamadı",
+                mapOf("theme" to prepared.themeName),
+            )
+        }
+    }
+
     fun launchPreparedTheme(prepared: PreparedThemeApply) {
         if (prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_MANUAL_IMPORT &&
             prepared.themeManagerLocalIdsBefore == null
@@ -942,6 +975,7 @@ private fun StudioScreen(
                         if (prepared.operation == ThemeManagerOperation.APPLY) {
                             status = resources.getString(R.string.status_apply_success, prepared.themeName)
                             rememberAppliedTheme(prepared.themeId, prepared.protocol)
+                            if (prepared.themeManagerLocalId == null) observeRootBridgeImport(prepared)
                         } else {
                             status = resources.getString(R.string.status_modern_theme_imported, prepared.themeName)
                         }
@@ -1003,7 +1037,8 @@ private fun StudioScreen(
                         // can stage an MTZ for that screen even though it cannot read the private
                         // catalog. Never send this branch to the removed legacy tester activity.
                         val originNeedsRefresh = deviceThemeImporter.themeManagerOriginNeedsRefresh(theme)
-                        val savedLocalIds = deviceThemeImporter.localIdsFor(theme)
+                        val linkedLocalIds = deviceThemeImporter.linkedLocalIdsFor(theme)
+                        val savedLocalIds = if (originNeedsRefresh) emptySet() else linkedLocalIds
                         val savedLocalId = savedLocalIds.firstOrNull()
                         val localId = when {
                             savedLocalId != null -> savedLocalId
@@ -1034,7 +1069,16 @@ private fun StudioScreen(
                             // the root module as well.  The former branch below bypassed the module
                             // whenever its prior local record was stale, then opened an activity
                             // removed from current Global Themes builds.
-                            themeApplyCoordinator.prepareRootGlobalModuleImportAndApply(theme, savedLocalIds)
+                            if (localId != null) {
+                                themeApplyCoordinator.prepare(theme, localId, linkedLocalIds)
+                            } else {
+                                // The native importer runs asynchronously inside Xiaomi Themes.
+                                // Keep a complete before-snapshot so its newly created local ID
+                                // can be saved and reused by all following Apply actions.
+                                val allLocalIdsBefore = deviceThemeImporter.localThemeIds()
+                                themeApplyCoordinator.prepareRootGlobalModuleImportAndApply(theme, linkedLocalIds)
+                                    .copy(themeManagerLocalIdsBefore = allLocalIdsBefore)
+                            }
                         } else if (originNeedsRefresh && localId == null) {
                             // The Studio source changed after it was mirrored (for example by
                             // translation). Import and apply the new archive; never reuse the old

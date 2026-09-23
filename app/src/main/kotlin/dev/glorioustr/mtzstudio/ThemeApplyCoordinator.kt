@@ -69,6 +69,8 @@ class ThemeApplyCoordinator(
             // uses, then persist the newly returned local ID. This is deliberately different
             // from the Shizuku 10.8+ route: it avoids fragile metadata deserialization on
             // rooted Global builds and guarantees that the applied resource is the current MTZ.
+            rootGlobalModuleBridgeReady() && themeManagerLocalId != null ->
+                prepareRootGlobalModuleExistingTheme(theme, themeManagerLocalId)
             rootGlobalModuleBridgeReady() -> prepareRootGlobalModuleImport(
                 theme,
                 ThemeManagerOperation.APPLY,
