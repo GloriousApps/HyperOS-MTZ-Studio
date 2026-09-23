@@ -36,6 +36,22 @@ internal object ThemeLayoutOptimizer {
                 element.setAttribute("size", newSize)
                 changes++
             }
+
+            // Component editors use fixed-width buttons but Chinese labels are much
+            // shorter than their translated counterparts.  Scale a literal label to
+            // its own available width so it remains readable instead of overflowing
+            // into the neighbouring control.
+            val literal = element.getAttribute("text").takeIf { it.isNotBlank() }
+                ?: element.textContent.takeIf { it.isNotBlank() && element.childNodes.length == 1 }
+            val width = element.getAttribute("w").toFloatOrNull()
+            val size = element.getAttribute("size").toFloatOrNull()
+            if (literal != null && width != null && size != null && literal.length >= 10) {
+                val fitted = (width / (literal.length * 0.56f)).coerceAtLeast(14f)
+                if (fitted < size) {
+                    element.setAttribute("size", fitted.toInt().toString())
+                    changes++
+                }
+            }
         }
         return changes
     }

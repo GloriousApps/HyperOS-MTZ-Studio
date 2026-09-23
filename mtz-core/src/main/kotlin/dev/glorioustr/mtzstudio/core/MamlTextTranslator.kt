@@ -164,6 +164,11 @@ internal class MamlTextTranslator(
 
     private fun dateLiteral(value: String, time: String): String {
         if (value == "今天是今年的第D天" && language == "tr") return "'Yılın '+formatDate('D',$time)+'. günü'"
+        // A number of component authors feed custom strftime-like strings into
+        // formatDate. They are executable format syntax, not visible prose. Passing
+        // those through the language model turns %D / token fragments into words and
+        // produces the on-screen "format error" seen in the lock-screen editor.
+        if ('%' in value || !DATE_PATTERN_CHARS.matches(value)) return quote(value)
         // Render literal and date fragments separately; translated words must never become date tokens.
         var pattern = ThemeGlossary.convertDatePattern(value, language) ?: value
         val lunar = Regex("(?:Y+年\\s*)?N+月e+")
@@ -195,6 +200,7 @@ internal class MamlTextTranslator(
     }
 
     companion object {
+        private val DATE_PATTERN_CHARS = Regex("[yMdEHhmsSaDZzYNe年年月日点时分\\s,./:()_\\-·]+")
         private fun balanced(s: String): Boolean {
             var depth = 0
             val stripped = LITERALS.replace(s, "''")

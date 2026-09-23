@@ -56,6 +56,24 @@ class ThemeTextLocalizerTest {
         assertContentEquals(original, nested(output, "lockscreen"))
     }
 
+    @Test fun `translates deep extensionless left and right component resources`() {
+        val component = """<Root><Text text="完成"/><Text text="自定义"/><Text text="添加小组件"/></Root>""".toByteArray()
+        val deep = zip("left_component" to zip("right_component" to zip("editor_component" to zip("widget_shell" to zip("resource_pack" to zip("layout" to component))))))
+        val (source, output) = archive(zip("lockscreen" to deep))
+        val seen = mutableListOf<String>()
+        val result = ThemeTextLocalizer().rewrite(source, output) { seen += it; "çeviri" }
+
+        assertEquals(listOf("完成", "自定义", "添加小组件"), seen)
+        assertEquals(3, result.translatedNodes)
+        val lockscreen = nested(output, "lockscreen")
+        val left = entry(lockscreen, "left_component")
+        val right = entry(left, "right_component")
+        val editor = entry(right, "editor_component")
+        val shell = entry(editor, "widget_shell")
+        val resources = entry(shell, "resource_pack")
+        assertTrue(entry(resources, "layout").toString(Charsets.UTF_8).contains("çeviri"))
+    }
+
     @Test fun `multilingual mode translates safe display text from different scripts`() {
         val xml = """<Root><Text text="Customize"/><Text text="Настройки"/><Text text="إعدادات"/><Text text="カスタマイズ"/><Var name="code" expression="'Настройки'"/><Image src="Настройки.png"/></Root>"""
         val (source, output) = archive(zip("manifest.xml" to xml.toByteArray()))

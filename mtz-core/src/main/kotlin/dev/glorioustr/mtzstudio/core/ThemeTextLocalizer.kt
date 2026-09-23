@@ -24,7 +24,10 @@ class ThemeTextLocalizer(
     private val maxExpandedBytes: Long = 512L * 1024 * 1024,
     private val maxEntryBytes: Long = 256L * 1024 * 1024,
     private val maxPreservedEntryBytes: Long = 512L * 1024 * 1024,
-    private val maxDepth: Int = 4,
+    // Modern lock-screen themes commonly contain the MTZ > lockscreen > clock >
+    // left/right component chain. Four layers was enough for older packages but
+    // leaves the component labels untouched in newer, modular themes.
+    private val maxDepth: Int = 8,
     private val targetLanguage: String = "tr",
     private val translateAllDisplayText: Boolean = false,
     private val shouldTranslate: ((String) -> Boolean)? = null,
@@ -105,13 +108,13 @@ class ThemeTextLocalizer(
                                 scanZip(temp, "$path!/", depth + 1, state)
                             } finally { Files.deleteIfExists(temp) }
                         }
-                        name.endsWith(".xml", true) && !name.contains("rights", true) && entry.size in 0..MAX_RESOURCE_BYTES -> {
+                        entry.size in 0..MAX_RESOURCE_BYTES && mayContainTextResource(name, input) -> {
                             val bytes = ByteArrayOutputStream(); copyBounded(input, bytes, state, MAX_RESOURCE_BYTES)
-                            localizeXml(bytes.toByteArray(), path, state)
-                        }
-                        name.endsWith(".json", true) && !name.contains("rights", true) && entry.size in 0..MAX_RESOURCE_BYTES -> {
-                            val bytes = ByteArrayOutputStream(); copyBounded(input, bytes, state, MAX_RESOURCE_BYTES)
-                            localizeJson(bytes.toByteArray(), path, state)
+                            when (resourceFormat(name, bytes.toByteArray())) {
+                                ResourceFormat.XML -> localizeXml(bytes.toByteArray(), path, state)
+                                ResourceFormat.JSON -> localizeJson(bytes.toByteArray(), path, state)
+                                null -> Unit
+                            }
                         }
                     }
                 }
@@ -157,20 +160,15 @@ class ThemeTextLocalizer(
                                     Files.deleteIfExists(rewritten)
                                 }
                             }
-                            name.endsWith(".xml", true) &&
-                                !name.contains("rights", true) && entry.size in 0..MAX_RESOURCE_BYTES -> {
+                            entry.size in 0..MAX_RESOURCE_BYTES && mayContainTextResource(name, input) -> {
                                 val bytes = ByteArrayOutputStream()
                                 copyBounded(input, bytes, state, MAX_RESOURCE_BYTES)
                                 val original = bytes.toByteArray()
-                                val replacement = localizeXml(original, path, state)
-                                out.write(replacement)
-                            }
-                            name.endsWith(".json", true) &&
-                                !name.contains("rights", true) && entry.size in 0..MAX_RESOURCE_BYTES -> {
-                                val bytes = ByteArrayOutputStream()
-                                copyBounded(input, bytes, state, MAX_RESOURCE_BYTES)
-                                val original = bytes.toByteArray()
-                                val replacement = localizeJson(original, path, state)
+                                val replacement = when (resourceFormat(name, original)) {
+                                    ResourceFormat.XML -> localizeXml(original, path, state)
+                                    ResourceFormat.JSON -> localizeJson(original, path, state)
+                                    null -> original
+                                }
                                 out.write(replacement)
                             }
                             else -> {
@@ -316,8 +314,43 @@ class ThemeTextLocalizer(
         return rewritten.toByteArray(Charsets.UTF_8)
     }
 
+    /**
+     * Some MAML packages deliberately omit a file extension (for example
+     * `left_component` and `right_component`).  Their payload is still XML, so
+     * recognize safe textual content instead of relying only on its filename.
+     */
+    private fun mayContainTextResource(name: String, input: InputStream): Boolean {
+        if (name.contains("rights", true)) return false
+        val leaf = name.substringAfterLast('/')
+        if (leaf.endsWith(".xml", true) || leaf.endsWith(".json", true) || leaf.endsWith(".maml", true)) return true
+        input.mark(TEXT_PROBE_BYTES)
+        val probe = ByteArray(TEXT_PROBE_BYTES)
+        val count = input.read(probe)
+        input.reset()
+        return resourceFormat(leaf, probe.copyOf(count.coerceAtLeast(0))) != null
+    }
+
+    private fun resourceFormat(name: String, bytes: ByteArray): ResourceFormat? {
+        if (name.contains("rights", true)) return null
+        val text = decodeTextProbe(bytes)?.trimStart('\uFEFF', ' ', '\t', '\r', '\n') ?: return null
+        return when {
+            name.endsWith(".xml", true) || name.endsWith(".maml", true) || text.startsWith('<') -> ResourceFormat.XML
+            name.endsWith(".json", true) || text.startsWith('{') || text.startsWith('[') -> ResourceFormat.JSON
+            else -> null
+        }
+    }
+
+    private fun decodeTextProbe(bytes: ByteArray): String? = when {
+        bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte() -> bytes.toString(Charsets.UTF_16LE)
+        bytes.size >= 2 && bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte() -> bytes.toString(Charsets.UTF_16BE)
+        else -> bytes.toString(Charsets.UTF_8)
+    }.takeIf { text -> text.none { it == '\u0000' } }
+
+    private enum class ResourceFormat { XML, JSON }
+
     companion object {
         private const val MAX_RESOURCE_BYTES = 2L * 1024 * 1024
+        private const val TEXT_PROBE_BYTES = 512
         private val CHINESE = Regex("[\\p{IsHan}]+")
         private val LETTER = Regex("\\p{L}")
         private val NON_DISPLAY_VALUE = Regex(

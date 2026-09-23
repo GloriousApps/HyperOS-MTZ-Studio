@@ -4,6 +4,11 @@ import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.test.*
 
 class MamlTextTranslatorTest {
+    @Test fun `preserves custom percent date formats instead of generating a format error`() {
+        val document = doc("""<Root/>""")
+        val tool = MamlTextTranslator(document, "tr") { "translated" }
+        assertEquals("'%D - custom format'", tool.expression("formatDate('%D - custom format',#time)"))
+    }
     private fun doc(xml: String) = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
     private fun translate(s: String) = ThemeGlossary.resolve(s, "tr") ?: s
 

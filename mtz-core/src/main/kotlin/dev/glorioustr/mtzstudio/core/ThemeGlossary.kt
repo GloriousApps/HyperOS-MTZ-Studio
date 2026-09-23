@@ -162,6 +162,7 @@ object ThemeGlossary {
 
     private val TURKISH_THEME_UI = mapOf(
         "自定义" to "Özelleştirme",
+        "完成" to "Tamam", "添加小组件" to "Bileşen ekle",
         "默认壁纸" to "Varsayılan duvar kâğıdı", "自定义壁纸" to "Özel duvar kâğıdı",
         "桌面壁纸" to "Ana ekran duvar kâğıdı", "文件夹壁纸" to "Klasördeki duvar kâğıdı", "内置壁纸" to "Hazır duvar kâğıdı",
         "正在使用默认壁纸" to "Varsayılan duvar kâğıdı kullanılıyor",
