@@ -70,6 +70,29 @@ class MamlTextTranslatorTest {
         )
     }
 
+    @Test fun `hash referenced runtime strings are localized without changing the writer`() {
+        val document = doc("""<Root><VariableCommand name="quality" type="string" expression="ifelse(#aqi {= 50,'优','良')"/></Root>""")
+        val tool = MamlTextTranslator(document, "tr", ::translate)
+
+        val output = tool.expression("#quality")
+
+        assertTrue(output.contains("eqs(#quality,'优'),'Çok iyi'"), output)
+        assertEquals(
+            "ifelse(#aqi {= 50,'优','良')",
+            (document.getElementsByTagName("VariableCommand").item(0) as org.w3c.dom.Element).getAttribute("expression"),
+        )
+    }
+
+    @Test fun `dynamic gesture hints use deterministic glossary translations`() {
+        val tool = MamlTextTranslator(doc("<Root/>"), "tr", ::translate)
+        val output = tool.expression("ifelse(#open,'↓↓下划收起壁纸面板↓↓','↑↑上划呼出壁纸面板↑↑')")
+
+        assertTrue(output.contains("Duvar kâğıdı panelini kapatmak için aşağı kaydırın"), output)
+        assertTrue(output.contains("Duvar kâğıdı panelini açmak için yukarı kaydırın"), output)
+        assertFalse(output.contains("下划"), output)
+        assertFalse(output.contains("上划"), output)
+    }
+
     @Test fun `compact Chinese weekday substring becomes localized branches`() {
         val tool = MamlTextTranslator(doc("<Root/>"), "tr", ::translate)
         val output = tool.expression("substr('日一二三四五六',#day,1)")

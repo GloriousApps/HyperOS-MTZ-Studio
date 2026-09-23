@@ -182,6 +182,10 @@ object ThemeGlossary {
         "双击打开快捷功能" to "Kısayolları açmak için çift dokunun",
         "雙擊開啟快捷功能" to "Kısayolları açmak için çift dokunun",
         "双击打开锁屏设置" to "Kilit ekranı ayarlarını açmak için çift dokunun",
+        // Dynamic MAML lock-screen hints. These must be deterministic: on-device
+        // translation models tend to split the arrows and repeat individual words.
+        "↓↓下划收起壁纸面板↓↓" to "↓↓ Duvar kâğıdı panelini kapatmak için aşağı kaydırın ↓↓",
+        "↑↑上划呼出壁纸面板↑↑" to "↑↑ Duvar kâğıdı panelini açmak için yukarı kaydırın ↑↑",
         "雙擊開啟鎖屏設定" to "Kilit ekranı ayarlarını açmak için çift dokunun",
         "鎖屏設定" to "Kilit Ekranı Ayarları", "時間顏色" to "Saat rengi",
         "時間顏色" to "Saat rengi", "冒号颜色" to "İki nokta rengi", "冒號顏色" to "İki nokta rengi",

@@ -78,10 +78,14 @@ internal class MamlTextTranslator(
                 else -> s // Includes comparison literals: translating them would change program behavior.
             }
         }
-        val ref = Regex("@([A-Za-z_][A-Za-z_0-9.]*)(\\[.*])?").matchEntire(s) ?: return s
-        val name = ref.groupValues[1]
+        // MAML themes use both @name and #name for string values.  Historically we
+        // only followed @ references, which left otherwise safe, display-only values
+        // untranslated in complex lock-screen packages.
+        val ref = Regex("([@#])([A-Za-z_][A-Za-z_0-9.]*)(\\[.*])?").matchEntire(s) ?: return s
+        val marker = ref.groupValues[1]
+        val name = ref.groupValues[2]
         val key = "$name|$dateTime"
-        clones[key]?.let { return "@$it${ref.groupValues[2]}" }
+        clones[key]?.let { return "$marker$it${ref.groupValues[3]}" }
         val node = definitions[name]?.singleOrNull()
         val written = elements.any { it.tagName == "VariableCommand" && it.getAttribute("name") == name }
         if (node != null && !written && visiting.add(key)) {
@@ -99,7 +103,7 @@ internal class MamlTextTranslator(
                     clone.removeAttribute("persist")
                     node.parentNode.insertBefore(clone, node.nextSibling)
                     clones[key] = cloneName
-                    return "@$cloneName${ref.groupValues[2]}"
+                    return "$marker$cloneName${ref.groupValues[3]}"
                 }
             } finally { visiting.remove(key) }
         }
