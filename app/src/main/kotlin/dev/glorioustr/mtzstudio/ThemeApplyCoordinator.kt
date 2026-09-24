@@ -172,17 +172,21 @@ class ThemeApplyCoordinator(
             "Tema kaynağı doğrulama sonrası değişmiş"
         }
         val themeName = theme.archive.metadata?.name ?: theme.displayName
-        val exported = checkNotNull(MtzPublicExporter.exportToPublicDownloads(context, theme.archive.source, themeName)) {
-            "Tema, Xiaomi Temalar içe aktarma akışı için hazırlanamadı"
-        }
+        // Root can read Studio's verified private archive directly. Exporting through
+        // MediaStore may rename a colliding download to "(1)" while returning the old
+        // filename, causing Themes to import an untranslated earlier copy instead.
+        val sourcePath = theme.archive.source.toAbsolutePath().normalize().toString()
         val stagedPath = "$THEME_MANAGER_MODERN_DOWNLOAD_ROOT/${UUID.randomUUID()}.mtz"
         val stage = "/system/bin/mkdir -p ${shellQuote(THEME_MANAGER_MODERN_DOWNLOAD_ROOT)} && " +
-            "/system/bin/cp ${shellQuote(exported.absolutePath)} ${shellQuote(stagedPath)} && " +
-            // Android 15/16 FUSE may reject chmod inside another app's external-files
-            // domain even after a successful root copy.  The copied file is already
-            // readable by Themes; validate its presence instead of turning that benign
-            // storage-layer limitation into an import failure.
-            "/system/bin/test -s ${shellQuote(stagedPath)}"
+            "/system/bin/cp ${shellQuote(sourcePath)} ${shellQuote(stagedPath)} && " +
+            // The private library file is 0600; cp preserves that mode on some FUSE
+            // mounts, so Themes cannot read it even though root can verify its hash.
+            // Other Android builds may reject chmod here while already exposing the
+            // copy through the Themes app's storage group.
+            "(/system/bin/chmod 0644 ${shellQuote(stagedPath)} 2>/dev/null || true) && " +
+            // Verify the exact copied bytes before asking Themes to import.
+            "/system/bin/test -s ${shellQuote(stagedPath)} && " +
+            "[ \"${'$'}(/system/bin/sha256sum ${shellQuote(stagedPath)} | /system/bin/cut -d ' ' -f1)\" = ${shellQuote(theme.archive.sha256)} ]"
         val result = runRecordedRoot("root_global_mtz_staging", stage, 120)
         check(result.exitCode == 0) {
             "Tema Xiaomi Temalar içe aktarma alanına hazırlanamadı: ${result.output.takeLast(500)}"

@@ -475,4 +475,8 @@
     <string name="app_update_available_text">Version %1$s is ready to download.</string>
     <string name="app_update_download_install">Download and install</string>
     <string name="status_modern_theme_detail_opened">%1$s was imported. The Xiaomi Themes apply screen was opened.</string>
+    <string name="experimental_ocr_title">OCR 翻譯為實驗性功能</string>
+    <string name="experimental_ocr_description">OCR 會嘗試翻譯主題圖片中的文字。結果可能不完整或影響圖片外觀。無法安全修改的圖片將保持不變。</string>
+    <string name="experimental_ocr_confirm">確認 OCR 翻譯</string>
+    <string name="experimental_ocr_local_only">以本機翻譯完成</string>
 </resources>

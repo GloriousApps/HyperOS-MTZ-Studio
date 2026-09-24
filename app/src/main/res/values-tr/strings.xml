@@ -474,7 +474,11 @@
     <string name="theme_language_tool_title">Tema Dil Aracı</string>
     <string name="theme_language_tool_desc">Desteklenen kaynak dilleri otomatik algılar ve görünür tema metinlerini uygulama dilinize göre yerinde çevirir. Görseller ve kilit ekranı davranışı değişmez.</string>
     <string name="theme_language_tool_working">Tema metinleri çevriliyor…</string>
-    <string name="theme_language_tool_complete">Çevrilebilen metinler mevcut temaya kaydedildi. Değişiklikleri görmek için temayı yeniden uygulayın. Görsellere gömülü yazılar ve işlevsel ifadeler değişmez.</string>
+    <string name="theme_language_tool_complete">Çevrilebilen metinler mevcut temaya kaydedildi. Değişiklikleri görmek için temayı yeniden uygulayın. Görsellere gömülü bazı yazılar ve işlevsel ifadeler değişmeyebilir.</string>
+    <string name="experimental_ocr_title">OCR Çeviri deneyseldir</string>
+    <string name="experimental_ocr_description">OCR, tema görsellerindeki Çince yazıları okuyup cihazda çevirmeyi dener. Sonuç eksik olabilir veya görsel görünümünü etkileyebilir. Güvenle düzenlenemeyen görseller değiştirilmez. Etkin çevrimiçi sağlayıcı, temanın diğer metinlerinde kullanılabilir; Yerel Çeviri seçeneği çevrimiçi sağlayıcıyı kullanmaz.</string>
+    <string name="experimental_ocr_confirm">OCR çevirisini onayla</string>
+    <string name="experimental_ocr_local_only">Yerel Çeviri ile tamamla</string>
     <string name="theme_language_tool_failed">Tema metinleri çevrilemedi: %1$s</string>
     <string name="action_translate">Çeviri</string>
     <string name="shizuku_recommended_title">Shizuku gerekli</string>

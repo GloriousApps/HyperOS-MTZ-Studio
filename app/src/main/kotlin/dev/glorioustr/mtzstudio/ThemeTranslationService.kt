@@ -57,6 +57,7 @@ internal class ThemeTranslationService : Service() {
         val themeId = intent?.getStringExtra(EXTRA_THEME_ID) ?: return START_NOT_STICKY
         if (runningJob?.isActive == true) return START_NOT_STICKY
         val themeName = intent.getStringExtra(EXTRA_THEME_NAME).orEmpty()
+        val experimentalOcr = intent.getBooleanExtra(EXTRA_EXPERIMENTAL_OCR, false)
         val initial = ThemeTranslationProgress(themeId, themeName, running = true)
         ThemeTranslationProgressStore.update(initial)
         startForeground(NOTIFICATION_ID, notification(initial))
@@ -66,7 +67,7 @@ internal class ThemeTranslationService : Service() {
                 val theme = library.load().themes.firstOrNull { it.id.value == themeId }
                     ?: error("Theme is no longer in the library")
                 val translated = ThemeLanguageTool(applicationContext, library)
-                    .translateTextToSystemLanguage(theme) { processed, total ->
+                    .translateTextToSystemLanguage(theme, experimentalOcr, experimentalOcr) { processed, total ->
                         val progress = ThemeTranslationProgress(
                             themeId = themeId,
                             themeName = themeName,
@@ -189,13 +190,15 @@ internal class ThemeTranslationService : Service() {
     companion object {
         private const val EXTRA_THEME_ID = "theme_id"
         private const val EXTRA_THEME_NAME = "theme_name"
+        private const val EXTRA_EXPERIMENTAL_OCR = "experimental_ocr"
         private const val CHANNEL_ID = "theme_translation"
         private const val NOTIFICATION_ID = 4401
 
-        fun start(context: Context, themeId: String, themeName: String) {
+        fun start(context: Context, themeId: String, themeName: String, experimentalOcr: Boolean = false) {
             val intent = Intent(context, ThemeTranslationService::class.java)
                 .putExtra(EXTRA_THEME_ID, themeId)
                 .putExtra(EXTRA_THEME_NAME, themeName)
+                .putExtra(EXTRA_EXPERIMENTAL_OCR, experimentalOcr)
             androidx.core.content.ContextCompat.startForegroundService(context, intent)
         }
     }

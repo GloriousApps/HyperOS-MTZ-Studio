@@ -3,6 +3,9 @@ package dev.glorioustr.mtzstudio.core
 import kotlin.test.*
 
 class ThemeGlossaryTest {
+    @Test fun `date pattern separates the Turkish month and weekday`() {
+        assertEquals("d MMMM E", ThemeGlossary.convertDatePattern("M月d日E", "tr"))
+    }
 
     @Test
     fun `chinese segmenter retains whitespace-only clauses without crashing`() {

@@ -475,4 +475,8 @@
     <string name="app_update_available_text">Version %1$s is ready to download.</string>
     <string name="app_update_download_install">Download and install</string>
     <string name="status_modern_theme_detail_opened">%1$s was imported. The Xiaomi Themes apply screen was opened.</string>
+    <string name="experimental_ocr_title">Dịch OCR đang thử nghiệm</string>
+    <string name="experimental_ocr_description">OCR sẽ thử dịch chữ trong hình ảnh của chủ đề. Kết quả có thể chưa đầy đủ hoặc làm thay đổi hình ảnh. Hình ảnh không thể chỉnh sửa an toàn sẽ được giữ nguyên.</string>
+    <string name="experimental_ocr_confirm">Xác nhận dịch OCR</string>
+    <string name="experimental_ocr_local_only">Hoàn tất bằng dịch cục bộ</string>
 </resources>

@@ -110,7 +110,7 @@ class ThemeTextLocalizerTest {
         }
 
         val rewritten = nested(output, "manifest.xml").toString(Charsets.UTF_8)
-        assertTrue(rewritten.contains("Tema kullanım süresi: %d gün | sürüm: 20260910"), rewritten)
+        assertTrue(rewritten.contains("Tema kullanımı: %d gün | Sürüm: 20260910"), rewritten)
         assertFalse(rewritten.contains("% D"), rewritten)
     }
 

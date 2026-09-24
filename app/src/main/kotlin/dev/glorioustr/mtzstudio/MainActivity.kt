@@ -339,6 +339,7 @@ private fun StudioScreen(
     var pendingBakArchive by remember { mutableStateOf<ThemeManagerBakArchive?>(null) }
     var translateBakToAppLanguage by remember { mutableStateOf(false) }
     var pendingApplyTheme by remember { mutableStateOf<LibraryTheme?>(null) }
+    var pendingTranslateTheme by remember { mutableStateOf<LibraryTheme?>(null) }
     var preparedApply by remember { mutableStateOf<PreparedThemeApply?>(null) }
     var themeOperationRunning by remember { mutableStateOf(false) }
     var mtzImportTotal by remember { mutableIntStateOf(0) }
@@ -575,7 +576,7 @@ private fun StudioScreen(
         }
     }
 
-    fun localizeTheme(theme: LibraryTheme) {
+    fun localizeTheme(theme: LibraryTheme, experimentalOcr: Boolean) {
         if (themeOperationRunning) return
         themeOperationRunning = true
         status = resources.getString(R.string.theme_language_tool_working)
@@ -583,6 +584,7 @@ private fun StudioScreen(
             context,
             theme.id.value,
             theme.archive.metadata?.name ?: theme.displayName,
+            experimentalOcr,
         )
     }
 
@@ -925,11 +927,14 @@ private fun StudioScreen(
                 }.onSuccess { ids ->
                     launchPreparedTheme(prepared.copy(themeManagerLocalIdsBefore = ids))
                 }.onFailure { error ->
-                    themeOperationRunning = false
-                    pauseCatalog.set(false)
-                    diagnostics.record("modern_import_snapshot_failed", "İçe aktarma öncesi yerel tema listesi okunamadı", error = error)
-                    status = resources.getString(R.string.status_apply_failed, error.message ?: error::class.simpleName)
-                    operationError = status
+                    // This snapshot is advisory only. A transiently unavailable private
+                    // catalog must not turn a valid MTZ import into a blocking apply error.
+                    diagnostics.record(
+                        "modern_import_snapshot_unavailable",
+                        "İçe aktarma öncesi yerel tema listesi okunamadı; işlem yine de sürdürülecek",
+                        error = error,
+                    )
+                    launchPreparedTheme(prepared.copy(themeManagerLocalIdsBefore = emptySet()))
                 }
             }
             return
@@ -1075,7 +1080,18 @@ private fun StudioScreen(
                                 // The native importer runs asynchronously inside Xiaomi Themes.
                                 // Keep a complete before-snapshot so its newly created local ID
                                 // can be saved and reused by all following Apply actions.
-                                val allLocalIdsBefore = deviceThemeImporter.localThemeIds()
+                                // The private Themes catalog can be temporarily unavailable
+                                // after a Themes update/restart. This snapshot is only used for
+                                // duplicate cleanup, so it must not block the root import.
+                                val allLocalIdsBefore = runCatching {
+                                    deviceThemeImporter.localThemeIds()
+                                }.onFailure { error ->
+                                    diagnostics.record(
+                                        "root_global_import_snapshot_unavailable",
+                                        "İçe aktarma öncesi Tema kitaplığı okunamadı; işlem yine de sürdürülecek",
+                                        error = error,
+                                    )
+                                }.getOrDefault(emptySet())
                                 themeApplyCoordinator.prepareRootGlobalModuleImportAndApply(theme, linkedLocalIds)
                                     .copy(themeManagerLocalIdsBefore = allLocalIdsBefore)
                             }
@@ -1987,7 +2003,7 @@ private fun StudioScreen(
                         }
                     }
                 },
-                onTranslateTheme = ::localizeTheme,
+                onTranslateTheme = { pendingTranslateTheme = it },
                 onDeleteTheme = ::deleteTheme,
                 onCustomizeTheme = { theme ->
                     baseThemeId = theme.id.value
@@ -2489,6 +2505,26 @@ private fun StudioScreen(
             text = { Text(message) },
             confirmButton = {
                 TextButton(onClick = { operationError = null }) { Text(stringResource(R.string.action_close)) }
+            },
+        )
+    }
+
+    pendingTranslateTheme?.let { theme ->
+        AlertDialog(
+            onDismissRequest = { pendingTranslateTheme = null },
+            title = { Text(stringResource(R.string.experimental_ocr_title)) },
+            text = { Text(stringResource(R.string.experimental_ocr_description)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingTranslateTheme = null
+                    localizeTheme(theme, experimentalOcr = true)
+                }) { Text(stringResource(R.string.experimental_ocr_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    pendingTranslateTheme = null
+                    localizeTheme(theme, experimentalOcr = false)
+                }) { Text(stringResource(R.string.experimental_ocr_local_only)) }
             },
         )
     }

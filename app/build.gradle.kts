@@ -14,8 +14,8 @@ android {
         applicationId = "dev.glorioustr.mtzstudio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 68
-        versionName = "5.0.0"
+        versionCode = 69
+        versionName = "5.1.0"
     }
 
     signingConfigs {
@@ -44,6 +44,11 @@ android {
     buildTypes {
         debug {
             isDebuggable = true
+            // Install an experimental build beside the signed app without touching its data.
+            if (providers.gradleProperty("mtz.sideBySideTest").orNull == "true") {
+                applicationIdSuffix = ".test"
+                versionNameSuffix = "-ocr-test"
+            }
         }
         release {
             isMinifyEnabled = false
@@ -80,6 +85,7 @@ dependencies {
     // translation sends only candidate text when the user explicitly enables a provider.
     implementation("com.google.mlkit:translate:17.0.3")
     implementation("com.google.mlkit:language-id:17.0.6")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     // Account-backed Google Drive app-data storage. Unlike the Storage Access
     // Framework this follows the user's Google account to a new device.
     implementation("com.google.android.gms:play-services-auth:22.0.0")

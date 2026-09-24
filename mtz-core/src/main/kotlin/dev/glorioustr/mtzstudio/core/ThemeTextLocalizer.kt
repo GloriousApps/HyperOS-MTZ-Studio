@@ -311,7 +311,12 @@ class ThemeTextLocalizer(
         images.forEach { image ->
             val source = image.getAttribute("src")
             val label = BITMAP_LABELS[source] ?: return@forEach
-            val localized = state.text(label)
+            val translated = state.text(label)
+            // In this narrow action button, the noun form overflows while the
+            // imperative is both clearer and short enough for the artwork.
+            val localized = if (targetLanguage.startsWith("tr") && source == "menu/setting_btn.png") {
+                "Özelleştir"
+            } else translated
             if (localized == label) return@forEach
 
             val isWidgetPrompt = source == "menu/add_widget.webp"
@@ -339,8 +344,12 @@ class ThemeTextLocalizer(
             overlay.setAttribute("align", "center")
             overlay.setAttribute("alignV", image.getAttribute("alignV").ifBlank { "center" })
             overlay.setAttribute("text", localized)
-            overlay.setAttribute("color", "#ffffffff")
-            overlay.setAttribute("size", if (isWidgetPrompt) "42" else "34")
+            // The two action capsules are white; only the standalone widget
+            // prompt sits on a dark surface and needs white lettering.
+            overlay.setAttribute("color", if (isWidgetPrompt) "#ffffffff" else "#ff202020")
+            val buttonSize = (190f / (localized.length.coerceAtLeast(1) * 0.56f))
+                .toInt().coerceIn(22, 34)
+            overlay.setAttribute("size", if (isWidgetPrompt) "42" else buttonSize.toString())
             overlay.setAttribute("fontFamily", "mipro-medium")
             originalVisibility.takeIf(String::isNotBlank)?.let { overlay.setAttribute("visibility", it) }
             image.getAttribute("alpha").takeIf(String::isNotBlank)?.let { overlay.setAttribute("alpha", it) }

@@ -62,6 +62,9 @@ object ThemeGlossary {
         result = result.replace("yyyy年", "yyyy")
         result = Regex("M{1,2}月").replace(result, "MMMM")
         result = Regex("d{1,2}日").replace(result, "d")
+        // Chinese date patterns often omit the separator before a weekday.  A
+        // localized month name must not run into the next token ("EylülPrş").
+        result = Regex("(d MMMM)(?=E{1,4}\\b)").replace(result, "$1 ")
         result = Regex("H{1,2}[点时]m{1,2}分").replace(result, "HH:mm")
         result = Regex("H{1,2}[点时]").replace(result, "HH:00")
         return result.takeIf { it != pattern }
@@ -196,6 +199,7 @@ object ThemeGlossary {
         "設定字體顏色" to "Metin rengini ayarla", "我的设备" to "Cihazlarım",
         "智能穿戴" to "Akıllı giyilebilir cihaz", "无线耳机" to "Kablosuz kulaklık",
         "微信" to "WeChat", "支付宝" to "Alipay", "快捷支付" to "Hızlı ödeme",
+        "扫一扫" to "Tara", "付款码" to "Ödeme kodu", "确定" to "Onayla", "确认" to "Onayla", "確認" to "Onayla",
         "暂无音乐" to "Müzik çalmıyor", "条新消息" to " yeni mesaj",
         "极速秒充" to "Ultra hızlı şarj", "正在充電 " to "Şarj ediliyor ",
         "红" to "Kırmızı", "绿" to "Yeşil", "蓝" to "Mavi",

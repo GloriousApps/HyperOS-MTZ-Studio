@@ -475,4 +475,8 @@
     <string name="app_update_available_text">Version %1$s is ready to download.</string>
     <string name="app_update_download_install">Download and install</string>
     <string name="status_modern_theme_detail_opened">%1$s was imported. The Xiaomi Themes apply screen was opened.</string>
+    <string name="experimental_ocr_title">OCR 번역은 실험적 기능입니다</string>
+    <string name="experimental_ocr_description">OCR이 테마 이미지 속 글자를 번역하려고 합니다. 결과가 불완전하거나 이미지 모양이 바뀔 수 있습니다. 안전하게 수정할 수 없는 이미지는 그대로 둡니다.</string>
+    <string name="experimental_ocr_confirm">OCR 번역 확인</string>
+    <string name="experimental_ocr_local_only">로컬 번역으로 완료</string>
 </resources>

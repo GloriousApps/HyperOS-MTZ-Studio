@@ -474,7 +474,11 @@
     <string name="theme_language_tool_title">Theme Language Tool</string>
     <string name="theme_language_tool_desc">Automatically detects supported source languages and translates visible theme text into your app language in place. Images and lockscreen behavior stay unchanged.</string>
     <string name="theme_language_tool_working">Translating theme text…</string>
-    <string name="theme_language_tool_complete">Supported text was translated in the existing theme. Apply the theme again to see the changes. Text embedded in images and functional expressions stays unchanged.</string>
+    <string name="theme_language_tool_complete">Supported text was translated in the existing theme. Apply the theme again to see the changes. Some text embedded in images or functional expressions may remain unchanged.</string>
+    <string name="experimental_ocr_title">OCR translation is experimental</string>
+    <string name="experimental_ocr_description">OCR will try to read Chinese text inside theme images. Results may be incomplete or affect image appearance. Images that cannot be edited safely will be left unchanged. Image text is translated on-device; a configured online provider may be used for other theme text. Local translation never uses the online provider.</string>
+    <string name="experimental_ocr_confirm">Confirm OCR translation</string>
+    <string name="experimental_ocr_local_only">Finish with local translation</string>
     <string name="theme_language_tool_failed">Theme text could not be translated: %1$s</string>
     <string name="action_translate">Translate</string>
     <string name="shizuku_recommended_title">Shizuku required</string>

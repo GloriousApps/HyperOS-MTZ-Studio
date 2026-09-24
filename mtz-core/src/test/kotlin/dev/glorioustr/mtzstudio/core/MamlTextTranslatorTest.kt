@@ -9,6 +9,13 @@ class MamlTextTranslatorTest {
         val tool = MamlTextTranslator(document, "tr") { "translated" }
         assertEquals("'%D - custom format'", tool.expression("formatDate('%D - custom format',#time)"))
     }
+    @Test fun `Super Duo theme usage keeps its printf argument and readable Turkish`() {
+        val tool = MamlTextTranslator(doc("<Root/>"), "tr") { "bad model output" }
+        assertEquals(
+            "'Tema kullanımı: %d gün | Sürüm: 20260910'",
+            tool.expression("' 已使用主题%d天 | 版本号：20260910 '"),
+        )
+    }
     private fun doc(xml: String) = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(xml.byteInputStream())
     private fun translate(s: String) = ThemeGlossary.resolve(s, "tr") ?: s
 

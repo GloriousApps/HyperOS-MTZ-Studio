@@ -156,6 +156,12 @@ internal class MamlTextTranslator(
      * only its human-facing fragments and stitch the exact placeholder back in.
      */
     private fun translateLiteral(value: String): String {
+        val themeUsage = Regex("^\\s*已使用主题%d天\\s*\\|\\s*版本号：(\\d+)\\s*$").matchEntire(value)
+        if (themeUsage != null) {
+            val version = themeUsage.groupValues[1]
+            if (language.startsWith("tr")) return "Tema kullanımı: %d gün | Sürüm: $version"
+            if (language.startsWith("en")) return "Theme used for %d days | Version: $version"
+        }
         if (!PRINTF_TOKEN.containsMatchIn(value)) return translate(value)
         val output = StringBuilder()
         var cursor = 0

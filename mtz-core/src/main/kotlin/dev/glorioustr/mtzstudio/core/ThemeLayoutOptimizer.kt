@@ -30,6 +30,11 @@ internal object ThemeLayoutOptimizer {
                 // Music source label inside the 270 px bottom player card.
                 element.getAttribute("w") == "270" && element.getAttribute("size") == "40" -> "30"
 
+                // Super Duo's three editor switches are only 220 px wide.  The
+                // original 38 px Chinese labels fit; Turkish labels overlap.
+                element.getAttribute("x") == "#function1_x+110+(#function_width+#function_gap)*#__i" &&
+                    element.getAttribute("size") == "38" -> "24"
+
                 else -> null
             }
             if (newSize != null) {
