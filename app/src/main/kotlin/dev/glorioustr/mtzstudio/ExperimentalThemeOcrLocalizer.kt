@@ -1,5 +1,6 @@
 package dev.glorioustr.mtzstudio
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -13,6 +14,9 @@ import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.paddle.ocr.PaddleOCR
+import com.paddle.ocr.util.OpenCVUtils
+import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.nio.file.Files
@@ -30,6 +34,8 @@ import kotlin.math.min
 internal class ExperimentalThemeOcrLocalizer(
     private val translate: (String) -> String,
     private val onProgress: (Int, Int) -> Unit = { _, _ -> },
+    private val context: Context? = null,
+    private val preferPaddle: Boolean = false,
 ) {
     data class Result(val scannedImages: Int, val changedImages: Int, val translatedLabels: Int, val skippedLabels: Int)
 
@@ -44,6 +50,11 @@ internal class ExperimentalThemeOcrLocalizer(
         var processedImages = 0
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+        val paddleContext = context
+        val paddle = if (preferPaddle && paddleContext != null) runCatching {
+            OpenCVUtils.init(paddleContext)
+            runBlocking { PaddleOCR.create(paddleContext) }
+        }.getOrNull() else null
         try {
             ZipFile(source.toFile()).use { outer ->
                 ZipOutputStream(Files.newOutputStream(output)).use { out ->
@@ -65,7 +76,7 @@ internal class ExperimentalThemeOcrLocalizer(
                                                         processedImages++
                                                         val value = if (asset.size in 1..MAX_IMAGE_BYTES) {
                                                             val bytes = nested.getInputStream(asset).use { it.readBytes() }
-                                                            try { scanImage(bytes, asset.name, recognizer) } catch (_: Exception) { null } ?: bytes
+                                                            try { scanImage(bytes, asset.name, recognizer, paddle) } catch (_: Exception) { null } ?: bytes
                                                         } else null
                                                         onProgress(processedImages, totalImages)
                                                         value
@@ -88,6 +99,7 @@ internal class ExperimentalThemeOcrLocalizer(
             }
         } finally {
             recognizer.close()
+            if (paddle != null) runCatching { runBlocking { paddle.release() } }
         }
         return Result(scannedImages, changedImages, translatedLabels, skippedLabels)
     }
@@ -113,6 +125,7 @@ internal class ExperimentalThemeOcrLocalizer(
         bytes: ByteArray,
         name: String,
         recognizer: com.google.mlkit.vision.text.TextRecognizer,
+        paddle: PaddleOCR?,
     ): ByteArray? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
@@ -126,18 +139,34 @@ internal class ExperimentalThemeOcrLocalizer(
             val scale = if (source.width < 700 && source.height < 700) 2 else 1
             val observed = if (scale == 2) Bitmap.createScaledBitmap(source, source.width * 2, source.height * 2, true) else source
             val lines = try {
-                Tasks.await(recognizer.process(InputImage.fromBitmap(observed, 0)), 30, TimeUnit.SECONDS)
-                    .textBlocks.flatMap { it.lines }
+                if (paddle != null) {
+                    runBlocking {
+                        paddle.recognize(observed).results
+                            .filter { it.confidence >= 0.55f }
+                            .mapNotNull { item ->
+                                val points = item.box.points
+                                val left = points.minOf { it.x }.toInt()
+                                val top = points.minOf { it.y }.toInt()
+                                val right = points.maxOf { it.x }.toInt()
+                                val bottom = points.maxOf { it.y }.toInt()
+                                if (right > left && bottom > top) DetectedLine(item.text, Rect(left, top, right, bottom)) else null
+                            }
+                    }
+                } else {
+                    Tasks.await(recognizer.process(InputImage.fromBitmap(observed, 0)), 30, TimeUnit.SECONDS)
+                        .textBlocks.flatMap { it.lines }
+                        .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it)) } }
+                }
             } finally {
                 if (observed !== source) observed.recycle()
             }
-            val sourceBoxes = lines.mapNotNull { line -> line.boundingBox?.let { Rect(it) } }
+            val sourceBoxes = lines.map { it.box }
             val plans = mutableListOf<Pair<String, Plan>>()
             var unsafe = false
             lines.forEach { line ->
                 if (!CJK.containsMatchIn(line.text)) return@forEach
                 if (CJK.findAll(line.text).count() < 2) { skippedLabels++; unsafe = true; return@forEach }
-                val originalBox = line.boundingBox ?: run { skippedLabels++; unsafe = true; return@forEach }
+                val originalBox = line.box
                 val box = Rect(originalBox.left / scale, originalBox.top / scale,
                     (originalBox.right + scale - 1) / scale, (originalBox.bottom + scale - 1) / scale)
                 if (box.width() < 8 || box.height() < 8) { skippedLabels++; unsafe = true; return@forEach }
@@ -184,6 +213,7 @@ internal class ExperimentalThemeOcrLocalizer(
     }
 
     private data class Plan(val region: RectF, val background: Int, val foreground: Int, val fontSize: Float)
+    private data class DetectedLine(val text: String, val box: Rect)
 
     private fun planText(bitmap: Bitmap, box: Rect, text: String, allBoxes: List<Rect>, scale: Int): Plan? {
         val height = box.height().toFloat()

@@ -224,9 +224,14 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
             val ocrResult = if (experimentalOcr) runCatching {
                 reportTextProgress(totalCandidates)
                 ocrStage = true
-                ExperimentalThemeOcrLocalizer(::translate) { processed, total ->
-                    onProgress(800 + processed * 200 / total.coerceAtLeast(1), 1000)
-                }.rewrite(previewOutput, ocrOutput)
+                ExperimentalThemeOcrLocalizer(
+                    translate = ::translate,
+                    onProgress = { processed, total ->
+                        onProgress(800 + processed * 200 / total.coerceAtLeast(1), 1000)
+                    },
+                    context = appContext,
+                    preferPaddle = true,
+                ).rewrite(previewOutput, ocrOutput)
             }.getOrElse { error ->
                 diagnostics.record("theme_experimental_ocr_failed", "Deneysel OCR atlandı; metin çevirisi korundu", error = error)
                 null
