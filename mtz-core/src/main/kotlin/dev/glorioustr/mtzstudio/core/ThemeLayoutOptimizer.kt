@@ -3,17 +3,16 @@ package dev.glorioustr.mtzstudio.core
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 
-/** Small MAML layout corrections for labels that expand noticeably in Turkish. */
+/** Keeps translated MAML labels inside the fixed controls supplied by each theme. */
 internal object ThemeLayoutOptimizer {
     fun optimize(document: Document, targetLanguage: String): Int {
-        if (!targetLanguage.startsWith("tr")) return 0
         var changes = 0
         val elements = document.getElementsByTagName("*")
         for (index in 0 until elements.length) {
             val element = elements.item(index) as? Element ?: continue
             if (!element.tagName.equals("Text", ignoreCase = true)) continue
 
-            val newSize = when {
+            val newSize = if (targetLanguage.startsWith("tr")) when {
                 // In landscape mode these labels are rotated into fixed 260 px controls.
                 // Long Turkish states such as “Sesli saat: Tam saat” need extra room.
                 element.getAttribute("x") == "210" &&
@@ -36,7 +35,7 @@ internal object ThemeLayoutOptimizer {
                     element.getAttribute("size") == "38" -> "24"
 
                 else -> null
-            }
+            } else null
             if (newSize != null) {
                 element.setAttribute("size", newSize)
                 changes++
@@ -46,12 +45,36 @@ internal object ThemeLayoutOptimizer {
             // shorter than their translated counterparts.  Scale a literal label to
             // its own available width so it remains readable instead of overflowing
             // into the neighbouring control.
-            val literal = element.getAttribute("text").takeIf { it.isNotBlank() }
+            val literal = element.getAttribute("text").takeIf {
+                it.isNotBlank() && !it.contains('#') && !it.contains('@')
+            }
                 ?: element.textContent.takeIf { it.isNotBlank() && element.childNodes.length == 1 }
-            val width = element.getAttribute("w").toFloatOrNull()
+            val ownWidth = element.getAttribute("w").toFloatOrNull()
+            // MAML buttons normally nest their labels in Normal/Pressed. The
+            // immediate parent has no width; the Button two levels up does.
+            var ancestor = element.parentNode as? Element
+            var parentWidth: Float? = null
+            repeat(3) {
+                if (parentWidth == null) {
+                    parentWidth = ancestor?.getAttribute("w")?.toFloatOrNull()
+                        ?.takeIf { it in 24f..500f }
+                    ancestor = ancestor?.parentNode as? Element
+                }
+            }
+            val width = ownWidth ?: parentWidth
             val size = element.getAttribute("size").toFloatOrNull()
-            if (literal != null && width != null && size != null && literal.length >= 10) {
-                val fitted = (width / (literal.length * 0.56f)).coerceAtLeast(14f)
+            if (literal != null && width != null && width >= 24f && size != null && size > 9f) {
+                // Leave a margin for rounded corners and use a conservative glyph estimate.
+                // Long words are reduced only when they exceed this particular control.
+                val units = literal.sumOf { char ->
+                    when {
+                        char.isWhitespace() -> 0.34
+                        char in "ıilIj.,:;!|'" -> 0.36
+                        char in "MWĞŞÖÜ@#" -> 0.9
+                        else -> 0.62
+                    }
+                }.toFloat()
+                val fitted = ((width * .86f) / units).coerceAtLeast(9f)
                 if (fitted < size) {
                     element.setAttribute("size", fitted.toInt().toString())
                     changes++

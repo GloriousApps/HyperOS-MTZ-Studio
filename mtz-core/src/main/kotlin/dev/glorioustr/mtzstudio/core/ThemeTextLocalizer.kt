@@ -307,9 +307,28 @@ class ThemeTextLocalizer(
         val images = document.getElementsByTagName("Image").let { all ->
             (0 until all.length).map { all.item(it) as Element }
         }
+        val hasWidgetPrompt = images.any { it.getAttribute("src") == "menu/add_widget.webp" }
         var changed = 0
         images.forEach { image ->
             val source = image.getAttribute("src")
+            if (source in BAKED_BUTTON_ART) {
+                // Some themes place a translated Text *under* a button bitmap
+                // that already contains the Chinese label. The image wins the
+                // draw order, leaving only stray translated letters outside it.
+                // Its lettering is handled in the artwork pass instead.
+                val parent = image.parentNode as? Element
+                if (parent != null && parent.tagName in setOf("Normal", "Pressed")) {
+                    val prior = parent.getElementsByTagName("Text")
+                    for (index in 0 until prior.length) {
+                        val labelNode = prior.item(index) as? Element ?: continue
+                        if (labelNode.getAttribute("visibility") != "0") {
+                            labelNode.setAttribute("visibility", "0")
+                            changed++
+                        }
+                    }
+                }
+                return@forEach
+            }
             val label = BITMAP_LABELS[source] ?: return@forEach
             val translated = state.text(label)
             // In this narrow action button, the noun form overflows while the
@@ -325,6 +344,19 @@ class ThemeTextLocalizer(
                 // This prompt is a text-only WebP.  Hide it and retain the original
                 // visibility expression on the native MAML Text replacement.
                 image.setAttribute("visibility", "0")
+                // The editor may sit on a white wallpaper. A dark capsule keeps
+                // the prompt readable instead of painting white text on white.
+                val backing = document.createElement("Rectangle")
+                backing.setAttribute("x", image.getAttribute("x").ifBlank { "#screen_width/2" })
+                backing.setAttribute("y", image.getAttribute("y").ifBlank { "0" })
+                backing.setAttribute("w", "320")
+                backing.setAttribute("h", "72")
+                backing.setAttribute("align", "center")
+                backing.setAttribute("alignV", "center")
+                backing.setAttribute("cornerRadius", "36")
+                backing.setAttribute("fillColor", "#cc202020")
+                originalVisibility.takeIf(String::isNotBlank)?.let { backing.setAttribute("visibility", it) }
+                image.parentNode.insertBefore(backing, image.nextSibling)
             } else {
                 image.setAttribute("src", "menu/exit_btn_mask.png")
             }
@@ -356,6 +388,22 @@ class ThemeTextLocalizer(
             image.getAttribute("scale").takeIf(String::isNotBlank)?.let { overlay.setAttribute("scale", it) }
             image.parentNode.insertBefore(overlay, image.nextSibling)
             changed++
+        }
+        if (hasWidgetPrompt &&
+            (0 until document.getElementsByTagName("Var").length).any {
+                (document.getElementsByTagName("Var").item(it) as? Element)?.getAttribute("name") == "select_bg_light_ani"
+            }
+        ) {
+            val variables = document.getElementsByTagName("Var")
+            for (index in 0 until variables.length) {
+                val variable = variables.item(index) as? Element ?: continue
+                if (variable.getAttribute("name") == "select_text_color" &&
+                    variable.getAttribute("expression") == "'#ffffffff'"
+                ) {
+                    variable.setAttribute("expression", "ifelse(#select_bg_light_ani}0.5,'#ff202020','#ffffffff')")
+                    changed++
+                }
+            }
         }
         return changed
     }
@@ -435,6 +483,11 @@ class ThemeTextLocalizer(
             "menu/exit_btn.png" to "完成",
             "menu/setting_btn.png" to "自定义",
             "menu/add_widget.webp" to "添加小组件",
+        )
+        private val BAKED_BUTTON_ART = setOf(
+            "anniu/sz.png", "anniu/zmmhk.png", "anniu/zmmhg.png",
+            "anniu/yyfwg.png", "anniu/yyfwk.png", "anniu/lddk.png",
+            "anniu/lddkg.png", "anniu/lddk2.png", "anniu/lddkg2.png",
         )
 
         private fun isOpaqueComponent(name: String, depth: Int): Boolean =

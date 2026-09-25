@@ -225,7 +225,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                 shouldTranslate = TranslationTextFilter::isCandidate,
             ).rewrite(original, output, ::translate)
             val bitmapResult = runCatching {
-                ThemeWidgetPreviewLocalizer(target).rewrite(output, bitmapOutput)
+                ThemeWidgetPreviewLocalizer(target, ::translate).rewrite(output, bitmapOutput)
             }.getOrElse { error ->
                 diagnostics.record("theme_widget_preview_failed", "Bileşen önizlemesi düzenlenemedi", error = error)
                 null

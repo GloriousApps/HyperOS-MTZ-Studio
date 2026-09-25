@@ -97,6 +97,23 @@ internal class ThemeTranslationService : Service() {
                 val library = ThemeLibrary(applicationContext)
                 val theme = library.load().themes.firstOrNull { it.id.value == themeId }
                     ?: error("Theme is no longer in the library")
+                val commandRunner = PreferredPrivilegedCommandRunner(applicationContext)
+                val coordinator = ThemeApplyCoordinator(applicationContext, commandRunner)
+                val importer = DeviceThemeImporter(
+                    context = applicationContext,
+                    library = library,
+                    composer = MtzComposer(),
+                    commandRunner = commandRunner,
+                )
+                // Capture identities while the original metadata is still available. The
+                // first import may never have been linked by an older Studio build, and its
+                // Chinese title no longer matches the archive after translation.
+                val previousLocalIds = if (coordinator.rootGlobalModuleBridgeReady()) {
+                    importer.linkedLocalIdsFor(theme) + listOfNotNull(
+                        runCatching { importer.resolveExistingLocalId(theme) }.getOrNull(),
+                        runCatching { importer.resolveExistingLocalId(library.translationSource(theme)) }.getOrNull(),
+                    )
+                } else emptySet()
                 val translated = ThemeLanguageTool(applicationContext, library)
                     .translateTextToSystemLanguage(
                         theme,
@@ -128,18 +145,10 @@ internal class ThemeTranslationService : Service() {
                             ThemeTranslationProgressStore.update(current.copy(ocrSummary = summary))
                         },
                     )
-                val commandRunner = PreferredPrivilegedCommandRunner(applicationContext)
-                val coordinator = ThemeApplyCoordinator(applicationContext, commandRunner)
-                val importer = DeviceThemeImporter(
-                    context = applicationContext,
-                    library = library,
-                    composer = MtzComposer(),
-                    commandRunner = commandRunner,
-                )
                 // Keep a snapshot before invalidating the old hash mapping. The root bridge
                 // receives those IDs so Xiaomi Themes replaces its untranslated record instead
                 // of leaving it beside the newly translated archive.
-                val replacedLocalIds = importer.linkedLocalIdsFor(translated)
+                val replacedLocalIds = previousLocalIds + importer.linkedLocalIdsFor(translated)
                 val localIdsBeforeRefresh = runCatching { importer.localThemeIds() }
                     .getOrDefault(emptySet())
                 DeviceThemeImporter.invalidateThemeManagerOriginAfterMutation(

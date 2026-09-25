@@ -98,6 +98,29 @@ class ThemeTextLocalizerTest {
         assertEquals("Özelleştir", (labels.item(1) as org.w3c.dom.Element).getAttribute("text"))
         assertEquals("Bileşen ekle", (labels.item(2) as org.w3c.dom.Element).getAttribute("text"))
         assertEquals("#widget_on==0", (labels.item(2) as org.w3c.dom.Element).getAttribute("visibility"))
+        val backing = doc.getElementsByTagName("Rectangle").item(0) as org.w3c.dom.Element
+        assertEquals("#cc202020", backing.getAttribute("fillColor"))
+    }
+
+    @Test fun `hides translated text occluded by baked button artwork and fits editor labels`() {
+        val xml = """<Root><Button w="205"><Normal>
+            <Text x="100" size="55" text="小组件样式"/><Image src="anniu/sz.png"/>
+            </Normal></Button><Var name="select_bg_light_ani"/><Var name="select_text_color" expression="'#ffffffff'"/>
+            <Image src="menu/add_widget.webp" visibility="#widget_on==0"/></Root>""".toByteArray()
+        val (source, output) = archive(zip("lockscreen" to zip("advance/manifest.xml" to xml)))
+        ThemeTextLocalizer().rewrite(source, output) {
+            when (it) { "小组件样式" -> "Widget'lar"; "添加小组件" -> "Bileşen ekle"; else -> it }
+        }
+        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(entry(nested(output, "lockscreen"), "advance/manifest.xml").inputStream())
+        val label = doc.getElementsByTagName("Text").item(0) as org.w3c.dom.Element
+        assertEquals("0", label.getAttribute("visibility"))
+        assertTrue(label.getAttribute("size").toInt() < 55)
+        val variables = doc.getElementsByTagName("Var")
+        assertTrue((0 until variables.length).any { index ->
+            val variable = variables.item(index) as org.w3c.dom.Element
+            variable.getAttribute("name") == "select_text_color" && variable.getAttribute("expression").contains("select_bg_light_ani")
+        })
     }
 
     @Test fun `preserves MAML printf placeholders in translated format expressions`() {

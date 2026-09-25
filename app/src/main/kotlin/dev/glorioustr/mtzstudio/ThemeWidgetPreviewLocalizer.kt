@@ -10,21 +10,19 @@ import android.graphics.RectF
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
-/** Localized replacements for Super Duo's text baked into widget-picker previews. */
-internal class ThemeWidgetPreviewLocalizer(private val targetLanguage: String) {
+/** Localizes known text-bearing theme artwork without flattening unrelated images. */
+internal class ThemeWidgetPreviewLocalizer(
+    private val targetLanguage: String,
+    private val translate: (String) -> String = { it },
+) {
     data class Result(val scannedImages: Int, val changedImages: Int)
 
     fun rewrite(source: Path, output: Path): Result {
         require(source.toAbsolutePath().normalize() != output.toAbsolutePath().normalize())
-        if (!targetLanguage.startsWith("tr")) {
-            Files.copy(source, output, StandardCopyOption.REPLACE_EXISTING)
-            return Result(0, 0)
-        }
         var scanned = 0
         var changed = 0
         ZipFile(source.toFile()).use { archive ->
@@ -38,20 +36,29 @@ internal class ThemeWidgetPreviewLocalizer(private val targetLanguage: String) {
                                 archive.getInputStream(entry).use { input -> Files.newOutputStream(nested).use(input::copyTo) }
                                 ZipFile(nested.toFile()).use { lockscreen ->
                                     val manifest = lockscreen.getEntry("advance/manifest.xml")
-                                    val matchingTheme = manifest != null && lockscreen.getInputStream(manifest).use {
-                                        it.bufferedReader().readText().let { xml ->
-                                            "versions_text" in xml && "20260910" in xml && "widget_01_preview.png" in xml
-                                        }
+                                    val manifestText = manifest?.let { lockscreen.getInputStream(it).bufferedReader().use { reader -> reader.readText() } }.orEmpty()
+                                    val matchingTheme = targetLanguage.startsWith("tr") && manifestText.let { xml ->
+                                        "versions_text" in xml && "20260910" in xml && "widget_01_preview.png" in xml
+                                    }
+                                    val matchingButtonTheme = manifestText.let { xml ->
+                                        "anniu/sz.png" in xml && "anniu/lddk.png" in xml && "anniu/yyfwg.png" in xml
                                     }
                                     ZipOutputStream(rewritten.nonClosing()).use { nestedOut ->
                                         lockscreen.entries().asSequence().forEach { component ->
                                             nestedOut.putNextEntry(ZipEntry(component.name).apply { time = component.time })
                                             if (!component.isDirectory) {
                                                 val bytes = lockscreen.getInputStream(component).use { it.readBytes() }
-                                                val replacement = if (matchingTheme && PREVIEW.matches(component.name)) {
-                                                    scanned++
-                                                    render(component.name, bytes)
-                                                } else null
+                                                val replacement = when {
+                                                    matchingTheme && PREVIEW.matches(component.name) -> {
+                                                        scanned++
+                                                        render(component.name, bytes)
+                                                    }
+                                                    matchingButtonTheme && component.name in BUTTON_LABELS -> {
+                                                        scanned++
+                                                        renderButton(component.name, bytes)
+                                                    }
+                                                    else -> null
+                                                }
                                                 if (replacement != null) {
                                                     nestedOut.write(replacement)
                                                     changed++
@@ -71,6 +78,48 @@ internal class ThemeWidgetPreviewLocalizer(private val targetLanguage: String) {
             }
         }
         return Result(scanned, changed)
+    }
+
+    private fun renderButton(path: String, bytes: ByteArray): ByteArray? {
+        val label = BUTTON_LABELS[path] ?: return null
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        if (decoded.width !in 290..310 || decoded.height !in 130..145) {
+            decoded.recycle()
+            return null
+        }
+        val bitmap = decoded.copy(Bitmap.Config.ARGB_8888, true)
+        decoded.recycle()
+        val startX = if (label.hasIcon) 91f else 48f
+        val centerX = (startX + 279f) / 2f
+        val background = bitmap.getPixel(271, 42)
+        val luminance = Color.red(background) * .299 + Color.green(background) * .587 + Color.blue(background) * .114
+        val foreground = if (luminance > 145) Color.rgb(25, 25, 25) else Color.WHITE
+        val title = if (targetLanguage.startsWith("tr")) label.turkishTitle else translate(label.chineseTitle)
+        val subtitle = if (targetLanguage.startsWith("tr")) label.turkishSubtitle else translate(label.chineseSubtitle)
+        if (title.isBlank() || subtitle.isBlank() || CJK.containsMatchIn(title) || CJK.containsMatchIn(subtitle)) {
+            bitmap.recycle()
+            return null
+        }
+        val canvas = Canvas(bitmap)
+        canvas.drawRect(startX, 35f, 279f, 106f, Paint().apply { color = background })
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = foreground
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        }
+        fun line(text: String, baseline: Float, maxSize: Float, minSize: Float) {
+            paint.textSize = maxSize
+            while (paint.measureText(text) > 276f - startX && paint.textSize > minSize) paint.textSize -= 1f
+            if (paint.measureText(text) <= 276f - startX) {
+                canvas.drawText(text, centerX - paint.measureText(text) / 2f, baseline, paint)
+            }
+        }
+        line(title, 77f, 27f, 12f)
+        paint.typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+        line(subtitle, 99f, 15f, 9f)
+        val stream = ByteArrayOutputStream()
+        val saved = bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+        bitmap.recycle()
+        return if (saved) stream.toByteArray() else null
     }
 
     private fun render(path: String, bytes: ByteArray): ByteArray? {
@@ -208,6 +257,25 @@ internal class ThemeWidgetPreviewLocalizer(private val targetLanguage: String) {
     }
 
     private companion object {
+        data class ButtonLabel(
+            val chineseTitle: String,
+            val chineseSubtitle: String,
+            val turkishTitle: String,
+            val turkishSubtitle: String,
+            val hasIcon: Boolean,
+        )
+        val CJK = Regex("[\\p{IsHan}]")
+        val BUTTON_LABELS = mapOf(
+            "advance/anniu/sz.png" to ButtonLabel("更多设置", "壁纸/动画/文字/开关", "Diğer ayarlar", "Duvar · animasyon · yazı", true),
+            "advance/anniu/zmmhk.png" to ButtonLabel("桌面模糊", "仅主题内置壁纸", "Masaüstü bulanıklığı", "Tema duvar kâğıdında", true),
+            "advance/anniu/zmmhg.png" to ButtonLabel("桌面模糊", "仅主题内置壁纸", "Masaüstü bulanıklığı", "Tema duvar kâğıdında", true),
+            "advance/anniu/yyfwg.png" to ButtonLabel("音乐氛围", "顶部模糊音乐封面", "Müzik atmosferi", "Üstte bulanık kapak", true),
+            "advance/anniu/yyfwk.png" to ButtonLabel("音乐氛围", "顶部模糊音乐封面", "Müzik atmosferi", "Üstte bulanık kapak", true),
+            "advance/anniu/lddk.png" to ButtonLabel("锁屏胶囊", "通知/音乐/手电", "Kilit ekranı kapsülü", "Bildirim · müzik · fener", true),
+            "advance/anniu/lddkg.png" to ButtonLabel("锁屏胶囊", "通知/音乐/手电", "Kilit ekranı kapsülü", "Bildirim · müzik · fener", true),
+            "advance/anniu/lddk2.png" to ButtonLabel("桌面胶囊", "无功能 只适用主题内置壁纸", "Masaüstü kapsülü", "Yalnız tema duvar kâğıdı", false),
+            "advance/anniu/lddkg2.png" to ButtonLabel("桌面胶囊", "无功能 只适用主题内置壁纸", "Masaüstü kapsülü", "Yalnız tema duvar kâğıdı", false),
+        )
         val PREVIEW = Regex("advance/menu/widget_(01|2)_preview_(\\d+)\\.png")
         val LOCALIZED_PREVIEWS = setOf("01_0", "01_1", "01_2", "01_6", "01_7", "01_8", "2_0", "2_1", "2_2", "2_3", "2_4", "2_5")
     }

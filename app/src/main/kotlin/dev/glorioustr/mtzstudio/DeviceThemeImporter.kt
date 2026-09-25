@@ -119,7 +119,15 @@ internal class DeviceThemeImporter(
     /** Finds an already imported Xiaomi theme when an older Studio build has no saved mapping. */
     @Synchronized
     fun resolveExistingLocalId(theme: LibraryTheme): String? {
-        val metadata = theme.archive.metadata ?: return null
+        return resolveExistingLocalId(theme.archive.source)
+    }
+
+    /** Recovers the first Xiaomi import link from the unmodified MTZ retained by Studio.
+     * Its title can differ completely from the translated title, so the current archive alone
+     * cannot identify the original record. An ambiguous catalog match is never removed. */
+    @Synchronized
+    fun resolveExistingLocalId(source: Path): String? {
+        val metadata = parser.parse(source).metadata ?: return null
         val title = metadata.name.normalized()
         if (title.isBlank()) return null
         val version = metadata.version.normalized()

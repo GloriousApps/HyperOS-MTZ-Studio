@@ -80,14 +80,14 @@ internal class ExperimentalThemeOcrLocalizer(
                                             nested.entries().asSequence().forEach { asset ->
                                                 nestedOut.putNextEntry(ZipEntry(asset.name).apply { time = asset.time })
                                                 if (!asset.isDirectory) {
-                                                    val replacement = if (processedImages < totalImages && isImage(asset.name)) {
-                                                        processedImages++
-                                                        val value = if (asset.size in 1..MAX_IMAGE_BYTES) {
-                                                            val bytes = nested.getInputStream(asset).use { it.readBytes() }
-                                                            try { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = true) } catch (_: Exception) { null } ?: bytes
+                                                    val replacement = if (processedImages < totalImages && isImage(asset.name) && asset.size in 1..MAX_IMAGE_BYTES) {
+                                                        val bytes = nested.getInputStream(asset).use { it.readBytes() }
+                                                        if (isEligibleImage(bytes)) {
+                                                            processedImages++
+                                                            val value = try { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = true) } catch (_: Exception) { null } ?: bytes
+                                                            onProgress(processedImages, totalImages)
+                                                            value
                                                         } else null
-                                                        onProgress(processedImages, totalImages)
-                                                        value
                                                     } else null
                                                     if (replacement != null) nestedOut.write(replacement)
                                                     else nested.getInputStream(asset).use { it.copyTo(nestedOut) }
@@ -144,13 +144,13 @@ internal class ExperimentalThemeOcrLocalizer(
                             }
                             ZipFile(nestedPath.toFile()).use { nested ->
                                 nested.entries().asSequence().forEach { asset ->
-                                    if (!asset.isDirectory && processedImages < totalImages && isImage(asset.name)) {
-                                        processedImages++
-                                        if (asset.size in 1..MAX_IMAGE_BYTES) {
-                                            val bytes = nested.getInputStream(asset).use { it.readBytes() }
+                                    if (!asset.isDirectory && processedImages < totalImages && isImage(asset.name) && asset.size in 1..MAX_IMAGE_BYTES) {
+                                        val bytes = nested.getInputStream(asset).use { it.readBytes() }
+                                        if (isEligibleImage(bytes)) {
+                                            processedImages++
                                             runCatching { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = false) }
+                                            onProgress(processedImages, totalImages)
                                         }
-                                        onProgress(processedImages, totalImages)
                                     }
                                 }
                             }
@@ -181,7 +181,9 @@ internal class ExperimentalThemeOcrLocalizer(
                     ZipInputStream(stream).use { nested ->
                         while (count < 250) {
                             val entry = nested.nextEntry ?: break
-                            if (!entry.isDirectory && isImage(entry.name)) count++
+                            if (!entry.isDirectory && isImage(entry.name) && entry.size <= MAX_IMAGE_BYTES) {
+                                if (isEligibleImage(nested.readBytes())) count++
+                            }
                         }
                     }
                 }
@@ -197,11 +199,7 @@ internal class ExperimentalThemeOcrLocalizer(
         paddle: PaddleOCR?,
         writeChanges: Boolean,
     ): ByteArray? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        if (bounds.outWidth !in 48..MAX_OCR_WIDTH || bounds.outHeight !in 24..MAX_OCR_HEIGHT ||
-            bounds.outWidth.toLong() * bounds.outHeight > MAX_PIXELS
-        ) return null
+        if (!isEligibleImage(bytes)) return null
         if (scannedImages >= 250) return null
         val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
         scannedImages++
@@ -282,7 +280,10 @@ internal class ExperimentalThemeOcrLocalizer(
                 }
                 val metrics = foreground.fontMetrics
                 val baseline = plan.region.centerY() - (metrics.ascent + metrics.descent) / 2f
+                canvas.save()
+                canvas.clipRect(plan.region)
                 canvas.drawText(translated, plan.region.centerX() - foreground.measureText(translated) / 2f, baseline, foreground)
+                canvas.restore()
             }
             val stream = ByteArrayOutputStream()
             val format = if (name.endsWith(".png", true)) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.WEBP
@@ -302,36 +303,27 @@ internal class ExperimentalThemeOcrLocalizer(
 
     private fun planText(bitmap: Bitmap, box: Rect, text: String, allBoxes: List<Rect>, scale: Int): Plan? {
         val height = box.height().toFloat()
-        val desiredWidth = max(box.width().toFloat() + 8f, text.length * height * .55f + 12f)
-        val width = min(desiredWidth, box.width() * 2.5f)
-        if (width > bitmap.width - 4 || height < 12f) return null
-        val candidateLefts = listOf(box.left.toFloat(), box.centerX() - width / 2f, box.right - width)
-            .map { it.coerceIn(2f, bitmap.width - width - 2f) }.distinct()
-        val chosen = candidateLefts.firstNotNullOfOrNull { left ->
-            val candidate = RectF(left, max(1f, box.top - height * .15f), left + width,
-                min(bitmap.height - 1f, box.bottom + height * .15f))
-            val collides = allBoxes.any { other ->
+        if (height < 12f || box.left < 4 || box.right > bitmap.width - 4) return null
+        val tight = RectF(box.left - 3f, max(1f, box.top - height * .15f),
+            box.right + 3f, min(bitmap.height - 1f, box.bottom + height * .15f))
+        val bg = sampleBackground(bitmap, tight, box) ?: return null
+        // A transparent button asset is composited over an unknown wallpaper at runtime.
+        // Choosing white or black from the asset alone can yield invisible text, so leave it.
+        if (Color.alpha(bg) < 245) return null
+        val surface = solidSurfaceSpan(bitmap, box, bg)
+        val width = (surface.second - surface.first - 4f).coerceAtMost(box.width() * 2.5f)
+        if (width < box.width() || width > bitmap.width - 4f) return null
+        val left = (box.centerX() - width / 2f).coerceIn(surface.first + 2f, surface.second - width - 2f)
+        val region = RectF(left, tight.top, left + width, tight.bottom)
+        if (allBoxes.any { other ->
                 val projected = Rect(other.left / scale, other.top / scale, other.right / scale, other.bottom / scale)
                 (abs(projected.centerX() - box.centerX()) > 1 || abs(projected.centerY() - box.centerY()) > 1) &&
-                    RectF.intersects(candidate, RectF(projected))
-            }
-            if (collides) null else sampleBackground(bitmap, candidate, box)?.let { candidate to it }
-        } ?: return null
-        val (region, bg) = chosen
-        val transparent = Color.alpha(bg) == 0
-        val foreground = if (transparent) {
-            val glyphs = ArrayList<Int>()
-            for (y in box.top until box.bottom step max(1, box.height() / 8))
-                for (x in box.left until box.right step max(1, box.width() / 8)) {
-                    val pixel = bitmap.getPixel(x, y)
-                    if (Color.alpha(pixel) > 100) glyphs += pixel
-                }
-            if (glyphs.isNotEmpty() && glyphs.map { (Color.red(it) + Color.green(it) + Color.blue(it)) / 3 }.average() > 150) Color.WHITE
-            else Color.BLACK
-        } else if ((Color.red(bg) * .299 + Color.green(bg) * .587 + Color.blue(bg) * .114) > 145) Color.BLACK else Color.WHITE
+                    RectF.intersects(region, RectF(projected))
+            }) return null
+        val foreground = if ((Color.red(bg) * .299 + Color.green(bg) * .587 + Color.blue(bg) * .114) > 145) Color.BLACK else Color.WHITE
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         var font = min(48f, height * .91f)
-        while (font >= max(12f, height * .48f)) {
+        while (font >= max(8f, height * .35f)) {
             paint.textSize = font
             if (paint.measureText(text) <= region.width() - 5f && font <= region.height() * .9f)
                 return Plan(region, bg, foreground, font)
@@ -339,6 +331,27 @@ internal class ExperimentalThemeOcrLocalizer(
         }
         return null
     }
+
+    /** Finds the actual solid-color button surface on a row outside the detected glyphs. */
+    private fun solidSurfaceSpan(bitmap: Bitmap, box: Rect, background: Int): Pair<Int, Int> {
+        val rows = listOf(box.top - 3, box.bottom + 2).filter { it in 0 until bitmap.height }
+        for (row in rows) {
+            if (!sameSurface(bitmap.getPixel(box.centerX(), row), background)) continue
+            var left = box.centerX()
+            var right = box.centerX()
+            while (left > 1 && sameSurface(bitmap.getPixel(left - 1, row), background)) left--
+            while (right < bitmap.width - 2 && sameSurface(bitmap.getPixel(right + 1, row), background)) right++
+            if (left <= box.left - 2 && right >= box.right + 2) return left to (right + 1)
+        }
+        // The edge was not measurable: only the original label area is safe to repaint.
+        return (box.left - 3) to (box.right + 3)
+    }
+
+    private fun sameSurface(pixel: Int, background: Int): Boolean =
+        Color.alpha(pixel) >= 245 &&
+            abs(Color.red(pixel) - Color.red(background)) <= 15 &&
+            abs(Color.green(pixel) - Color.green(background)) <= 15 &&
+            abs(Color.blue(pixel) - Color.blue(background)) <= 15
 
     private fun sampleBackground(bitmap: Bitmap, region: RectF, box: Rect): Int? {
         val samples = ArrayList<Int>()
@@ -349,17 +362,31 @@ internal class ExperimentalThemeOcrLocalizer(
             }
         }
         if (samples.size < 12) return null
-        if (samples.all { Color.alpha(it) < 16 }) return Color.TRANSPARENT
-        if (samples.any { Color.alpha(it) < 245 }) return null
-        val red = samples.map(Color::red).average()
-        val green = samples.map(Color::green).average()
-        val blue = samples.map(Color::blue).average()
-        if (samples.any { abs(Color.red(it) - red) > 15 || abs(Color.green(it) - green) > 15 || abs(Color.blue(it) - blue) > 15 }) return null
-        return Color.rgb(red.toInt(), green.toInt(), blue.toInt())
+        if (samples.count { Color.alpha(it) < 16 } >= samples.size * .9) return Color.TRANSPARENT
+        val opaque = samples.filter { Color.alpha(it) >= 245 }
+        if (opaque.size < samples.size * .9) return null
+        // Antialiased glyph edges leak a few tinted pixels beyond OCR's box.
+        // A median surface estimate tolerates those pixels while still
+        // rejecting gradients, photos and multi-colour illustrations.
+        val red = opaque.map(Color::red).sorted()[opaque.size / 2]
+        val green = opaque.map(Color::green).sorted()[opaque.size / 2]
+        val blue = opaque.map(Color::blue).sorted()[opaque.size / 2]
+        if (opaque.count {
+                abs(Color.red(it) - red) <= 18 && abs(Color.green(it) - green) <= 18 && abs(Color.blue(it) - blue) <= 18
+            } < opaque.size * .85
+        ) return null
+        return Color.rgb(red, green, blue)
     }
 
     private fun isImage(name: String): Boolean = !name.endsWith(".9.png", true) &&
         (name.endsWith(".png", true) || name.endsWith(".webp", true))
+
+    private fun isEligibleImage(bytes: ByteArray): Boolean {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        return bounds.outWidth in 48..MAX_OCR_WIDTH && bounds.outHeight in 24..MAX_OCR_HEIGHT &&
+            bounds.outWidth.toLong() * bounds.outHeight <= MAX_PIXELS
+    }
 
     private fun ZipOutputStream.nonClosing(): OutputStream = object : OutputStream() {
         override fun write(b: Int) = this@nonClosing.write(b)
@@ -388,7 +415,14 @@ internal class ExperimentalThemeOcrLocalizer(
                             ZipInputStream(stream).use { nested ->
                                 while (count < 250) {
                                     val entry = nested.nextEntry ?: break
-                                    if (!entry.isDirectory && isEligibleImageName(entry.name)) count++
+                                    if (!entry.isDirectory && isEligibleImageName(entry.name) && entry.size <= MAX_IMAGE_BYTES) {
+                                        val bytes = nested.readBytes()
+                                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                                        if (bounds.outWidth in 48..MAX_OCR_WIDTH && bounds.outHeight in 24..MAX_OCR_HEIGHT &&
+                                            bounds.outWidth.toLong() * bounds.outHeight <= MAX_PIXELS
+                                        ) count++
+                                    }
                                 }
                             }
                         }
