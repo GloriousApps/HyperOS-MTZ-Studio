@@ -26,16 +26,16 @@ internal enum class AiProvider(
     val defaultModel: String,
     val suggestedModels: List<String>,
 ) {
-    GOOGLE_AI_STUDIO("Google AI Studio", "https://generativelanguage.googleapis.com/v1beta", "https://generativelanguage.googleapis.com/v1beta/models", "gemini-flash-lite-latest", listOf("gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-2.5-flash")),
-    GOOGLE_VERTEX("Google Vertex", "https://aiplatform.googleapis.com/v1", null, "gemini-flash-lite-latest", listOf("gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-2.5-flash")),
-    OPENAI("OpenAI", "https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/models", "gpt-5.6-luna", listOf("gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.4", "gpt-5-mini")),
-    GROQ("Groq", "https://api.groq.com/openai/v1/chat/completions", "https://api.groq.com/openai/v1/models", "openai/gpt-oss-120b", listOf("openai/gpt-oss-120b", "llama-3.3-70b-versatile")),
-    DEEPSEEK("DeepSeek", "https://api.deepseek.com/v1/chat/completions", "https://api.deepseek.com/v1/models", "deepseek-v4-flash", listOf("deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner")),
-    XAI("xAI", "https://api.x.ai/v1/chat/completions", "https://api.x.ai/v1/models", "grok-4.1-fast", listOf("grok-4.1-fast")),
-    CEREBRAS("Cerebras", "https://api.cerebras.ai/v1/chat/completions", "https://api.cerebras.ai/v1/models", "gpt-oss-120b", listOf("gpt-oss-120b")),
-    OLLAMA("Ollama Cloud", "https://ollama.com/v1/chat/completions", "https://ollama.com/v1/models", "gemma4:31b", listOf("gemma4:31b")),
-    OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "https://openrouter.ai/api/v1/models", "openrouter/free", listOf("openrouter/free", "google/gemini-2.5-flash", "deepseek/deepseek-chat")),
-    VERCEL_AI_GATEWAY("Vercel AI Gateway", "https://ai-gateway.vercel.sh/v1/chat/completions", "https://ai-gateway.vercel.sh/v1/models", "google/gemini-2.5-flash", listOf("google/gemini-2.5-flash")),
+    GOOGLE_AI_STUDIO("Google AI Studio", "https://generativelanguage.googleapis.com/v1beta", "https://generativelanguage.googleapis.com/v1beta/models", "gemini-2.5-flash", listOf("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-2.0-flash")),
+    GOOGLE_VERTEX("Google Vertex", "https://aiplatform.googleapis.com/v1", null, "gemini-2.5-flash", listOf("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-2.0-flash")),
+    OPENAI("OpenAI", "https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/models", "gpt-4o-mini", listOf("gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1")),
+    GROQ("Groq", "https://api.groq.com/openai/v1/chat/completions", "https://api.groq.com/openai/v1/models", "openai/gpt-oss-120b", listOf("openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b")),
+    DEEPSEEK("DeepSeek", "https://api.deepseek.com/v1/chat/completions", "https://api.deepseek.com/v1/models", "deepseek-chat", listOf("deepseek-chat", "deepseek-reasoner")),
+    XAI("xAI", "https://api.x.ai/v1/chat/completions", "https://api.x.ai/v1/models", "grok-4.1-fast", listOf("grok-4.1-fast", "grok-4.1-mini-fast")),
+    CEREBRAS("Cerebras", "https://api.cerebras.ai/v1/chat/completions", "https://api.cerebras.ai/v1/models", "gpt-oss-120b", listOf("gpt-oss-120b", "llama-3.3-70b")),
+    OLLAMA("Ollama Cloud", "https://ollama.com/v1/chat/completions", "https://ollama.com/v1/models", "gemma3:27b", listOf("gemma3:27b", "llama3.3:70b", "qwen3:32b")),
+    OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "https://openrouter.ai/api/v1/models", "openrouter/free", listOf("openrouter/free", "google/gemini-2.5-flash", "deepseek/deepseek-chat", "openai/gpt-4o-mini")),
+    VERCEL_AI_GATEWAY("Vercel AI Gateway", "https://ai-gateway.vercel.sh/v1/chat/completions", "https://ai-gateway.vercel.sh/v1/models", "google/gemini-2.5-flash", listOf("google/gemini-2.5-flash", "openai/gpt-4o-mini")),
     CUSTOM("Custom (OpenAI compatible)", "", null, "", emptyList());
 }
 

@@ -339,7 +339,7 @@ private fun StudioScreen(
     var pendingBakArchive by remember { mutableStateOf<ThemeManagerBakArchive?>(null) }
     var translateBakToAppLanguage by remember { mutableStateOf(false) }
     var pendingApplyTheme by remember { mutableStateOf<LibraryTheme?>(null) }
-    var pendingTranslateTheme by remember { mutableStateOf<LibraryTheme?>(null) }
+    var pendingOcrTheme by remember { mutableStateOf<LibraryTheme?>(null) }
     var preparedApply by remember { mutableStateOf<PreparedThemeApply?>(null) }
     var themeOperationRunning by remember { mutableStateOf(false) }
     var mtzImportTotal by remember { mutableIntStateOf(0) }
@@ -601,6 +601,10 @@ private fun StudioScreen(
                     loadLibrarySnapshot()
                     destination = StudioDestination.THEMES
                     status = resources.getString(R.string.theme_language_tool_complete)
+                    val translatedTheme = translationProgress.themeId?.let { id ->
+                        themes.firstOrNull { it.id.value == id }
+                    }
+                    if (translatedTheme != null) pendingOcrTheme = translatedTheme
                 } else {
                     status = resources.getString(R.string.theme_language_tool_failed, translationProgress.error)
                     operationError = status
@@ -2003,7 +2007,7 @@ private fun StudioScreen(
                         }
                     }
                 },
-                onTranslateTheme = { pendingTranslateTheme = it },
+                onTranslateTheme = { localizeTheme(it, experimentalOcr = false) },
                 onDeleteTheme = ::deleteTheme,
                 onCustomizeTheme = { theme ->
                     baseThemeId = theme.id.value
@@ -2509,22 +2513,21 @@ private fun StudioScreen(
         )
     }
 
-    pendingTranslateTheme?.let { theme ->
+    pendingOcrTheme?.let { theme ->
         AlertDialog(
-            onDismissRequest = { pendingTranslateTheme = null },
+            onDismissRequest = { pendingOcrTheme = null },
             title = { Text(stringResource(R.string.experimental_ocr_title)) },
             text = { Text(stringResource(R.string.experimental_ocr_description)) },
             confirmButton = {
                 TextButton(onClick = {
-                    pendingTranslateTheme = null
+                    pendingOcrTheme = null
                     localizeTheme(theme, experimentalOcr = true)
                 }) { Text(stringResource(R.string.experimental_ocr_confirm)) }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    pendingTranslateTheme = null
-                    localizeTheme(theme, experimentalOcr = false)
-                }) { Text(stringResource(R.string.experimental_ocr_local_only)) }
+                    pendingOcrTheme = null
+                }) { Text(stringResource(R.string.experimental_ocr_skip)) }
             },
         )
     }

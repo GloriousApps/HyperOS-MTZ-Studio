@@ -478,5 +478,5 @@
     <string name="experimental_ocr_title">OCR-перевод — экспериментальная функция</string>
     <string name="experimental_ocr_description">OCR попытается перевести текст на изображениях темы. Результат может быть неполным или изменить вид изображения. Изображения, которые нельзя безопасно изменить, останутся без изменений.</string>
     <string name="experimental_ocr_confirm">Подтвердить OCR-перевод</string>
-    <string name="experimental_ocr_local_only">Завершить локальным переводом</string>
+    <string name="experimental_ocr_skip">Пропустить</string>
 </resources>

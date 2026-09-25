@@ -478,5 +478,5 @@
     <string name="experimental_ocr_title">OCR-Übersetzung ist experimentell</string>
     <string name="experimental_ocr_description">OCR versucht, Text in Themenbildern zu übersetzen. Ergebnisse können unvollständig sein oder das Bild verändern. Bilder, die sich nicht sicher bearbeiten lassen, bleiben unverändert.</string>
     <string name="experimental_ocr_confirm">OCR-Übersetzung bestätigen</string>
-    <string name="experimental_ocr_local_only">Mit lokaler Übersetzung abschließen</string>
+    <string name="experimental_ocr_skip">Überspringen</string>
 </resources>

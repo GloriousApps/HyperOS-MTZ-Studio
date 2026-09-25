@@ -478,5 +478,5 @@
     <string name="experimental_ocr_title">A tradução OCR é experimental</string>
     <string name="experimental_ocr_description">O OCR tenta traduzir o texto nas imagens do tema. O resultado pode ser incompleto ou alterar a aparência. Imagens que não possam ser editadas com segurança permanecerão intactas.</string>
     <string name="experimental_ocr_confirm">Confirmar tradução OCR</string>
-    <string name="experimental_ocr_local_only">Concluir com tradução local</string>
+    <string name="experimental_ocr_skip">Pular</string>
 </resources>

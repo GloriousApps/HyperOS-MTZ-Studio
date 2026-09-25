@@ -478,5 +478,5 @@
     <string name="experimental_ocr_title">OCR भाषांतर प्रायोगिक आहे</string>
     <string name="experimental_ocr_description">OCR थीमच्या चित्रांमधील मजकूर भाषांतरित करण्याचा प्रयत्न करते. परिणाम अपूर्ण असू शकतो किंवा चित्राचे स्वरूप बदलू शकते. सुरक्षितपणे बदलता न येणारी चित्रे तशीच राहतील.</string>
     <string name="experimental_ocr_confirm">OCR भाषांतर निश्चित करा</string>
-    <string name="experimental_ocr_local_only">स्थानिक भाषांतराने पूर्ण करा</string>
+    <string name="experimental_ocr_skip">वगळा</string>
 </resources>

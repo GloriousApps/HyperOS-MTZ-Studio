@@ -478,5 +478,5 @@
     <string name="experimental_ocr_title">OCR 翻訳は試験的な機能です</string>
     <string name="experimental_ocr_description">OCR はテーマ画像内の文字の翻訳を試みます。結果が不完全だったり、画像の見た目が変わったりする場合があります。安全に編集できない画像は変更しません。</string>
     <string name="experimental_ocr_confirm">OCR 翻訳を確認</string>
-    <string name="experimental_ocr_local_only">ローカル翻訳で完了</string>
+    <string name="experimental_ocr_skip">スキップ</string>
 </resources>

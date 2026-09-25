@@ -478,5 +478,5 @@
     <string name="experimental_ocr_title">OCR అనువాదం ప్రయోగాత్మకం</string>
     <string name="experimental_ocr_description">థీమ్ చిత్రాల్లోని వచనాన్ని OCR అనువదించడానికి ప్రయత్నిస్తుంది. ఫలితం అసంపూర్ణంగా ఉండవచ్చు లేదా చిత్రం రూపం మారవచ్చు. సురక్షితంగా మార్చలేని చిత్రాలు అలాగే ఉంటాయి.</string>
     <string name="experimental_ocr_confirm">OCR అనువాదాన్ని నిర్ధారించండి</string>
-    <string name="experimental_ocr_local_only">స్థానిక అనువాదంతో పూర్తి చేయండి</string>
+    <string name="experimental_ocr_skip">దాటవేయి</string>
 </resources>

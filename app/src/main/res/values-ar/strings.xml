@@ -478,5 +478,5 @@
     <string name="experimental_ocr_title">ترجمة OCR تجريبية</string>
     <string name="experimental_ocr_description">يحاول OCR ترجمة النص داخل صور السمة. قد تكون النتيجة غير مكتملة أو تؤثر في مظهر الصورة. ستبقى الصور التي لا يمكن تعديلها بأمان دون تغيير.</string>
     <string name="experimental_ocr_confirm">تأكيد ترجمة OCR</string>
-    <string name="experimental_ocr_local_only">الإكمال بالترجمة المحلية</string>
+    <string name="experimental_ocr_skip">تخطي</string>
 </resources>
