@@ -69,7 +69,7 @@ internal class ExperimentalThemeOcrLocalizer(
                     outer.entries().asSequence().forEach { entry ->
                         out.putNextEntry(ZipEntry(entry.name).apply { time = entry.time })
                         if (!entry.isDirectory) {
-                            if (entry.name == "lockscreen" || entry.name == "clock_2x4") {
+                            if (isComponentEntry(entry)) {
                                 val nestedPath = Files.createTempFile(output.parent, ".mtz-ocr-", ".zip")
                                 try {
                                     outer.getInputStream(entry).use { input ->
@@ -135,7 +135,7 @@ internal class ExperimentalThemeOcrLocalizer(
         try {
             ZipFile(source.toFile()).use { outer ->
                 outer.entries().asSequence()
-                    .filter { it.name == "lockscreen" || it.name == "clock_2x4" }
+                    .filter { isComponentEntry(it) }
                     .forEach { component ->
                         val nestedPath = Files.createTempFile(source.parent, ".mtz-ocr-scan-", ".zip")
                         try {
@@ -172,12 +172,22 @@ internal class ExperimentalThemeOcrLocalizer(
         )
     }
 
+    /**
+     * A nested zip entry is a component when it is a file whose final path segment
+     * has no extension and is not one of the known non-component entries.
+     */
+    private fun isComponentEntry(entry: ZipEntry): Boolean {
+        if (entry.isDirectory) return false
+        val segment = entry.name.substringAfterLast('/')
+        return '.' !in segment && segment !in NON_COMPONENT_ENTRIES
+    }
+
     private fun selectImages(source: Path): Map<String, Set<String>> {
         val result = linkedMapOf<String, Set<String>>()
         var remaining = MAX_SCANNED_IMAGES
         ZipFile(source.toFile()).use { outer ->
             outer.entries().asSequence()
-                .filter { it.name == "lockscreen" || it.name == "clock_2x4" }
+                .filter { isComponentEntry(it) }
                 .forEach { component ->
                     if (remaining == 0) return@forEach
                     val nestedPath = Files.createTempFile(source.parent, ".mtz-ocr-select-", ".zip")
@@ -232,7 +242,7 @@ internal class ExperimentalThemeOcrLocalizer(
         writeChanges: Boolean,
     ): ByteArray? {
         if (!isEligibleImage(bytes)) return null
-        if (scannedImages >= 250) return null
+        if (scannedImages >= MAX_SCANNED_IMAGES) return null
         val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
         scannedImages++
         try {
@@ -242,13 +252,13 @@ internal class ExperimentalThemeOcrLocalizer(
                 fun recognizeWithMlKit(): List<DetectedLine> =
                     Tasks.await(recognizer.process(InputImage.fromBitmap(observed, 0)), 30, TimeUnit.SECONDS)
                         .textBlocks.flatMap { it.lines }
-                        .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it), .65f) } }
+                        .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it), line.confidence ?: .65f) } }
 
                 if (paddle != null) {
                     runCatching {
                         runBlocking {
                             paddle.recognize(observed).results
-                                .filter { it.confidence >= 0.55f }
+                                .filter { it.confidence >= 0.45f }
                                 .mapNotNull { item ->
                                     val points = item.box.points
                                     val left = points.minOf { it.x }.toInt()
@@ -269,34 +279,32 @@ internal class ExperimentalThemeOcrLocalizer(
             if (!writeChanges) {
                 lines.forEach { line ->
                     if (!CJK.containsMatchIn(line.text)) return@forEach
-                    if (CJK.findAll(line.text).count() < 2) skippedLabels++
-                    else if (line.confidence >= HIGH_CONFIDENCE) highConfidenceLabels++
+                    if (line.confidence >= HIGH_CONFIDENCE) highConfidenceLabels++
                     else mediumConfidenceLabels++
                 }
                 return null
             }
             val plans = mutableListOf<Pair<String, Plan>>()
-            var unsafe = false
             lines.forEach { line ->
                 if (!CJK.containsMatchIn(line.text)) return@forEach
-                if (CJK.findAll(line.text).count() < 2) { skippedLabels++; unsafe = true; return@forEach }
                 if (line.confidence >= HIGH_CONFIDENCE) highConfidenceLabels++ else mediumConfidenceLabels++
                 val originalBox = line.box
                 val box = Rect(originalBox.left / scale, originalBox.top / scale,
                     (originalBox.right + scale - 1) / scale, (originalBox.bottom + scale - 1) / scale)
-                if (box.width() < 8 || box.height() < 8) { skippedLabels++; unsafe = true; return@forEach }
+                if (box.width() < 8 || box.height() < 8) { skippedLabels++; return@forEach }
                 val translated = runCatching { translate(line.text.trim()) }.getOrNull()?.trim().orEmpty()
                 if (translated.isBlank() || CJK.containsMatchIn(translated) || translated == line.text.trim()) {
                     skippedLabels++
-                    unsafe = true
                     return@forEach
                 }
                 val plan = planText(source, box, translated, sourceBoxes, scale)
-                if (plan == null) { skippedLabels++; unsafe = true; return@forEach }
+                if (plan == null) { skippedLabels++; return@forEach }
                 plans += translated to plan
             }
-            // Partial replacement leaves mixed-language or damaged artwork. Commit only a complete image.
-            if (unsafe || plans.isEmpty()) return null
+            // Commit every label that could be planned. A partial replacement leaves some
+            // Chinese untranslated, but that is strictly better than discarding the whole
+            // image's translations, so one unplannable label no longer discards the rest.
+            if (plans.isEmpty()) return null
             val result = source.copy(Bitmap.Config.ARGB_8888, true)
             val canvas = Canvas(result)
             plans.forEach { (translated, plan) ->
@@ -416,7 +424,7 @@ internal class ExperimentalThemeOcrLocalizer(
     private fun isEligibleImage(bytes: ByteArray): Boolean {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        return bounds.outWidth in 48..MAX_OCR_WIDTH && bounds.outHeight in 24..MAX_OCR_HEIGHT &&
+        return bounds.outWidth in 24..MAX_OCR_WIDTH && bounds.outHeight in 12..MAX_OCR_HEIGHT &&
             bounds.outWidth.toLong() * bounds.outHeight <= MAX_PIXELS
     }
 
@@ -430,16 +438,35 @@ internal class ExperimentalThemeOcrLocalizer(
     internal companion object {
         val CJK = Regex("[\\p{IsHan}]")
         const val MAX_IMAGE_BYTES = 4L * 1024 * 1024
-        const val MAX_SCANNED_IMAGES = 250
+        const val MAX_SCANNED_IMAGES = 400
         const val HIGH_CONFIDENCE = .85f
         const val MAX_PIXELS = 5_000_000L
-        // Larger assets tend to be composites or screenshots; do not paint partial text onto them.
-        const val MAX_OCR_WIDTH = 800
-        const val MAX_OCR_HEIGHT = 300
+        // Generous bounds for full lockscreen composites; MAX_PIXELS is the real safety guard.
+        const val MAX_OCR_WIDTH = 1440
+        const val MAX_OCR_HEIGHT = 2560
+        // Entries that look like components but are not theme components.
+        val NON_COMPONENT_ENTRIES = setOf("preview", "icons", "description.xml", "theme_values.xml", "wallpaper", "res", "raw", "fonts", "audio", "boots")
         val SOURCE_REFERENCE = Regex("(?i)<image\\b[^>]*\\bsrc\\s*=\\s*['\"]([^'\"]+)['\"]")
         val BUTTON_CONTENT = Regex("(?is)<(?:Normal|Pressed)\\b[^>]*>(.*?)</(?:Normal|Pressed)>")
         val TEXT_ELEMENT = Regex("(?i)<Text\\b")
-        val UI_IMAGE_NAME = Regex("(?i)(?:button|btn|menu|widget|setting|switch|tab|anniu)")
+        val UI_IMAGE_NAME = Regex(
+            "(?i)(?:" +
+                // Buttons, controls and labels
+                "button|btn|menu|widget|setting|switch|tab|anniu|icon|text|label|title|hint|prompt|dialog|popup|toast|tip|badge|chip|pill|capsule|action|control|key|item|entry|option|toggle|check|radio|slider|seekbar|progress|" +
+                // Clock, weather and status
+                "clock|date|time|weather|music|step|battery|charge|alarm|timer|calendar|note|lock|unlock|power|volume|brightness|flashlight|camera|phone|message|contact|search|" +
+                // Navigation and actions
+                "close|exit|back|home|next|prev|play|pause|stop|add|remove|delete|edit|save|share|refresh|retry|cancel|confirm|ok|yes|no|on|off|open|more|less|arrow|chevron|plus|minus|star|heart|like|favorite|bookmark|download|upload|sync|" +
+                // Connectivity and media
+                "wifi|bluetooth|gps|location|signal|network|data|sim|airplane|dnd|silent|vibrate|ring|mute|speaker|headset|mic|record|video|photo|image|gallery|folder|file|doc|mail|email|sms|call|chat|" +
+                // Identity and security
+                "user|profile|avatar|account|login|logout|password|pin|pattern|fingerprint|face|security|privacy|permission|help|info|about|version|update|install|uninstall|clear|reset|restore|backup|import|export|apply|use|select|choose|pick|set|done|finish|start|end|continue|skip|later|now|today|" +
+                // Time and environment
+                "week|month|year|hour|minute|second|day|night|sun|moon|cloud|rain|snow|wind|fog|hot|cold|high|low|max|min|auto|manual|custom|default|normal|pressed|disabled|enabled|active|inactive|selected|checked|hover|focus|" +
+                // Appearance and size
+                "light|dark|white|black|red|green|blue|yellow|orange|purple|pink|gray|grey|brown|cyan|magenta|solid|gradient|outline|fill|stroke|border|corner|radius|size|small|medium|large" +
+            ")"
+        )
 
         /** Counts exactly the prioritized assets the OCR stage may inspect. */
         fun countEligibleImages(source: Path): Int =

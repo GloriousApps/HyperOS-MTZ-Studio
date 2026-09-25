@@ -290,13 +290,12 @@ class ThemeTextLocalizer(
             }
         }
         // Some lock-screen authors bake short UI labels into their button artwork.
-        // Replacing those bitmaps outright would lose the theme's visual style.  The
-        // matching MAML packages ship a blank mask for the two action buttons, so we
-        // retain that artwork and put a localized Text layer above it instead.
-        //
-        // This is deliberately an opt-in mapping for known, semantic asset names.
-        // A generic image rewrite would be unsafe: most PNG/WebP assets are photos,
-        // icons or previews and must remain byte-identical.
+        // Replacing those bitmaps outright would lose the theme's visual style.
+        // The generic rule below is name-agnostic: sibling Text under a button's
+        // Normal/Pressed block is hidden when the bitmap is the visible label,
+        // and translated normally otherwise. A generic image rewrite would be
+        // unsafe: most PNG/WebP assets are photos, icons or previews and must
+        // remain byte-identical.
         state.nodes += localizeEmbeddedButtonLabels(document, state)
         if (state.collectOnly) return bytes
         if (state.nodes > before) state.nodes += ThemeLayoutOptimizer.optimize(document, targetLanguage)
@@ -313,59 +312,69 @@ class ThemeTextLocalizer(
         val images = document.getElementsByTagName("Image").let { all ->
             (0 until all.length).map { all.item(it) as Element }
         }
-        val hasWidgetPrompt = images.any { it.getAttribute("src") == "menu/add_widget.webp" }
+        val hasWidgetPrompt = images.any { it.getAttribute("src") == WIDGET_PROMPT_SOURCE }
         var changed = 0
         images.forEach { image ->
             val source = image.getAttribute("src")
-            if (source in BAKED_BUTTON_ART) {
+            val parent = image.parentNode as? Element
+            if (parent != null && parent.tagName in setOf("Normal", "Pressed")) {
                 // Some themes place a translated Text *under* a button bitmap
                 // that already contains the Chinese label. The image wins the
                 // draw order, leaving only stray translated letters outside it.
                 // Its lettering is handled in the artwork pass instead.
-                val parent = image.parentNode as? Element
-                if (parent != null && parent.tagName in setOf("Normal", "Pressed")) {
-                    val prior = parent.getElementsByTagName("Text")
-                    for (index in 0 until prior.length) {
-                        val labelNode = prior.item(index) as? Element ?: continue
-                        if (labelNode.getAttribute("visibility") != "0") {
-                            labelNode.setAttribute("visibility", "0")
-                            changed++
-                        }
+                val prior = parent.getElementsByTagName("Text")
+                for (index in 0 until prior.length) {
+                    val labelNode = prior.item(index) as? Element ?: continue
+                    if (labelNode.getAttribute("visibility") != "0") {
+                        labelNode.setAttribute("visibility", "0")
+                        changed++
                     }
                 }
                 return@forEach
             }
-            val label = BITMAP_LABELS[source] ?: return@forEach
-            val translated = state.text(label)
-            // In this narrow action button, the noun form overflows while the
-            // imperative is both clearer and short enough for the artwork.
-            val localized = if (targetLanguage.startsWith("tr") && source == "menu/setting_btn.png") {
-                "Özelleştir"
-            } else translated
-            if (localized == label) return@forEach
-
-            val isWidgetPrompt = source == "menu/add_widget.webp"
-            val originalVisibility = image.getAttribute("visibility")
-            if (isWidgetPrompt) {
-                // This prompt is a text-only WebP.  Hide it and retain the original
-                // visibility expression on the native MAML Text replacement.
-                image.setAttribute("visibility", "0")
-                // The editor may sit on a white wallpaper. A dark capsule keeps
-                // the prompt readable instead of painting white text on white.
-                val backing = document.createElement("Rectangle")
-                backing.setAttribute("x", image.getAttribute("x").ifBlank { "#screen_width/2" })
-                backing.setAttribute("y", image.getAttribute("y").ifBlank { "0" })
-                backing.setAttribute("w", "320")
-                backing.setAttribute("h", "72")
-                backing.setAttribute("align", "center")
-                backing.setAttribute("alignV", "center")
-                backing.setAttribute("cornerRadius", "36")
-                backing.setAttribute("fillColor", "#cc202020")
-                originalVisibility.takeIf(String::isNotBlank)?.let { backing.setAttribute("visibility", it) }
-                image.parentNode.insertBefore(backing, image.nextSibling)
-            } else {
-                image.setAttribute("src", "menu/exit_btn_mask.png")
+            // The previous per-theme map hardcoded both the asset name and the
+            // Chinese source string. Without such a list an arbitrary bitmap's
+            // baked-in text is unknowable, so the safe generic rule is to keep
+            // the sibling Text as the visible label: translate it and never hide
+            // it, and never fabricate a label that is not already in the layout.
+            var label: String? = null
+            if (parent != null) {
+                for (index in 0 until parent.childNodes.length) {
+                    val labelNode = parent.childNodes.item(index) as? Element ?: continue
+                    if (labelNode.tagName != "Text") continue
+                    val original = labelNode.getAttribute("text")
+                    if (original.isNotBlank()) {
+                        // The main pass already translated this Text; only
+                        // re-translate when it still carries Chinese lettering.
+                        val translated = if (CHINESE.containsMatchIn(original)) state.text(original) else original
+                        if (translated != original) {
+                            labelNode.setAttribute("text", translated)
+                            changed++
+                        }
+                        label = translated
+                    }
+                }
             }
+            if (source != WIDGET_PROMPT_SOURCE) return@forEach
+            val localized = label ?: return@forEach
+
+            // This prompt is a text-only WebP.  Hide it and retain the original
+            // visibility expression on the native MAML Text replacement.
+            val originalVisibility = image.getAttribute("visibility")
+            image.setAttribute("visibility", "0")
+            // The editor may sit on a white wallpaper. A dark capsule keeps
+            // the prompt readable instead of painting white text on white.
+            val backing = document.createElement("Rectangle")
+            backing.setAttribute("x", image.getAttribute("x").ifBlank { "#screen_width/2" })
+            backing.setAttribute("y", image.getAttribute("y").ifBlank { "0" })
+            backing.setAttribute("w", "320")
+            backing.setAttribute("h", "72")
+            backing.setAttribute("align", "center")
+            backing.setAttribute("alignV", "center")
+            backing.setAttribute("cornerRadius", "36")
+            backing.setAttribute("fillColor", "#cc202020")
+            originalVisibility.takeIf(String::isNotBlank)?.let { backing.setAttribute("visibility", it) }
+            image.parentNode.insertBefore(backing, image.nextSibling)
 
             val overlay = document.createElement("Text")
             val x = image.getAttribute("x").ifBlank { "#screen_width/2" }
@@ -382,12 +391,8 @@ class ThemeTextLocalizer(
             overlay.setAttribute("align", "center")
             overlay.setAttribute("alignV", image.getAttribute("alignV").ifBlank { "center" })
             overlay.setAttribute("text", localized)
-            // The two action capsules are white; only the standalone widget
-            // prompt sits on a dark surface and needs white lettering.
-            overlay.setAttribute("color", if (isWidgetPrompt) "#ffffffff" else "#ff202020")
-            val buttonSize = (190f / (localized.length.coerceAtLeast(1) * 0.56f))
-                .toInt().coerceIn(22, 34)
-            overlay.setAttribute("size", if (isWidgetPrompt) "42" else buttonSize.toString())
+            overlay.setAttribute("color", "#ffffffff")
+            overlay.setAttribute("size", "42")
             overlay.setAttribute("fontFamily", "mipro-medium")
             originalVisibility.takeIf(String::isNotBlank)?.let { overlay.setAttribute("visibility", it) }
             image.getAttribute("alpha").takeIf(String::isNotBlank)?.let { overlay.setAttribute("alpha", it) }
@@ -485,16 +490,10 @@ class ThemeTextLocalizer(
             "script", "source", "command", "var", "variable", "variablecommand",
             "action", "intent", "method", "function",
         )
-        private val BITMAP_LABELS = mapOf(
-            "menu/exit_btn.png" to "完成",
-            "menu/setting_btn.png" to "自定义",
-            "menu/add_widget.webp" to "添加小组件",
-        )
-        private val BAKED_BUTTON_ART = setOf(
-            "anniu/sz.png", "anniu/zmmhk.png", "anniu/zmmhg.png",
-            "anniu/yyfwg.png", "anniu/yyfwk.png", "anniu/lddk.png",
-            "anniu/lddkg.png", "anniu/lddk2.png", "anniu/lddkg2.png",
-        )
+        // Readability rule, not a theme-specific hack: this prompt is a text-only
+        // WebP that would be invisible on a white wallpaper, so it gets a dark
+        // capsule backing and white lettering instead of the default dark text.
+        private const val WIDGET_PROMPT_SOURCE = "menu/add_widget.webp"
 
         private fun isOpaqueComponent(name: String, depth: Int): Boolean =
             depth == 0 && name.substringAfterLast('/').equals("icons", ignoreCase = true)

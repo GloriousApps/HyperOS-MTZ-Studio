@@ -78,26 +78,31 @@ class ThemeTextLocalizerTest {
         val xml = """<Root>
             <Image x="50" y="160" w="190" h="90" src="menu/exit_btn.png" touchable="true"/>
             <Image x="#screen_width-50" y="160" w="190" h="90" align="right" src="menu/setting_btn.png"/>
-            <Image x="#screen_width/2" y="0" align="center" alignV="center" src="menu/add_widget.webp" visibility="#widget_on==0"/>
+            <Text text="添加小组件"/><Image x="#screen_width/2" y="0" align="center" alignV="center" src="menu/add_widget.webp" visibility="#widget_on==0"/>
         </Root>""".toByteArray()
         val (source, output) = archive(zip("lockscreen" to zip("advance/manifest.xml" to xml)))
 
         val result = ThemeTextLocalizer().rewrite(source, output) { value ->
-            mapOf("完成" to "Tamam", "自定义" to "Özelleştir", "添加小组件" to "Bileşen ekle").getValue(value)
+            mapOf("添加小组件" to "Bileşen ekle").getValue(value)
         }
 
-        assertEquals(3, result.translatedNodes)
+        assertEquals(2, result.translatedNodes)
         val lockscreen = nested(output, "lockscreen")
         val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(entry(lockscreen, "advance/manifest.xml").inputStream())
         val images = doc.getElementsByTagName("Image")
-        assertEquals("menu/exit_btn_mask.png", (images.item(0) as org.w3c.dom.Element).getAttribute("src"))
-        assertEquals("menu/exit_btn_mask.png", (images.item(1) as org.w3c.dom.Element).getAttribute("src"))
+        // Bitmaps without a sibling Text label are left untouched: their baked-in
+        // lettering is unknowable without a per-theme name list.
+        assertEquals("menu/exit_btn.png", (images.item(0) as org.w3c.dom.Element).getAttribute("src"))
+        assertEquals("menu/setting_btn.png", (images.item(1) as org.w3c.dom.Element).getAttribute("src"))
         assertEquals("0", (images.item(2) as org.w3c.dom.Element).getAttribute("visibility"))
         val labels = doc.getElementsByTagName("Text")
-        assertEquals("Tamam", (labels.item(0) as org.w3c.dom.Element).getAttribute("text"))
-        assertEquals("Özelleştir", (labels.item(1) as org.w3c.dom.Element).getAttribute("text"))
-        assertEquals("Bileşen ekle", (labels.item(2) as org.w3c.dom.Element).getAttribute("text"))
-        assertEquals("#widget_on==0", (labels.item(2) as org.w3c.dom.Element).getAttribute("visibility"))
+        // The sibling label is translated and kept visible.
+        assertEquals("Bileşen ekle", (labels.item(0) as org.w3c.dom.Element).getAttribute("text"))
+        // The widget prompt overlay is white 42px text on a dark capsule.
+        assertEquals("Bileşen ekle", (labels.item(1) as org.w3c.dom.Element).getAttribute("text"))
+        assertEquals("#ffffffff", (labels.item(1) as org.w3c.dom.Element).getAttribute("color"))
+        assertEquals("42", (labels.item(1) as org.w3c.dom.Element).getAttribute("size"))
+        assertEquals("#widget_on==0", (labels.item(1) as org.w3c.dom.Element).getAttribute("visibility"))
         val backing = doc.getElementsByTagName("Rectangle").item(0) as org.w3c.dom.Element
         assertEquals("#cc202020", backing.getAttribute("fillColor"))
     }

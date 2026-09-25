@@ -40,6 +40,10 @@ class ORTSessionManager(
         val opts = OrtSession.SessionOptions().apply {
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             setIntraOpNumThreads(config.numThreads)
+            // XNNPACK is unavailable on some ABIs/ORT builds and must degrade gracefully to the default CPU provider.
+            runCatching {
+                addXnnpack(mapOf("intra_op_num_threads" to config.numThreads.toString()))
+            }
         }
         try {
             val ortEnv = env ?: throw OCRError.ModelLoadFailed("OCR", Exception("Environment not initialized"))

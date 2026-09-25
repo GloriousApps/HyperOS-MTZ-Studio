@@ -15,11 +15,13 @@
 package com.paddle.ocr.engine
 
 import android.graphics.Bitmap
+import android.graphics.PointF
 import com.paddle.ocr.PaddleOCRConfig
 import com.paddle.ocr.model.OCRBox
 import com.paddle.ocr.postprocess.DBPostProcessor
 import com.paddle.ocr.preprocess.DetPreprocessResult
 import com.paddle.ocr.preprocess.DetPreprocessor
+import com.paddle.ocr.preprocess.DetUpscaler
 import org.opencv.core.Mat
 
 class DetectionEngine(
@@ -48,18 +50,25 @@ class DetectionEngine(
     }
 
     fun detect(src: Mat): DetectionResult {
-        return detect {
-            DetPreprocessor.preprocess(
-                src,
-                config.detLimitSideLen,
-                config.detLimitType,
-                config.detMaxSideLimit,
-                config.detImgMode,
-            )
+        // Small assets are upscaled for detection; boxes are mapped back to original coordinates.
+        val scale = DetUpscaler.scaleFor(src)
+        val upscaled = DetUpscaler.upscaleIfSmall(src)
+        try {
+            return detect(scale) {
+                DetPreprocessor.preprocess(
+                    upscaled,
+                    config.detLimitSideLen,
+                    config.detLimitType,
+                    config.detMaxSideLimit,
+                    config.detImgMode,
+                )
+            }
+        } finally {
+            if (upscaled !== src) upscaled.release()
         }
     }
 
-    private fun detect(preprocessor: () -> DetPreprocessResult): DetectionResult {
+    private fun detect(scale: Int = 1, preprocessor: () -> DetPreprocessResult): DetectionResult {
         val preStart = System.currentTimeMillis()
         val preResult = preprocessor()
         val preprocessMs = System.currentTimeMillis() - preStart
@@ -81,7 +90,13 @@ class DetectionEngine(
             boxType = config.detBoxType,
             originalH = preResult.originalH,
             originalW = preResult.originalW,
-        )
+        ).map { box ->
+            if (scale > 1) {
+                OCRBox(box.points.map { PointF(it.x / scale, it.y / scale) })
+            } else {
+                box
+            }
+        }
         val postprocessMs = System.currentTimeMillis() - postStart
 
         return DetectionResult(

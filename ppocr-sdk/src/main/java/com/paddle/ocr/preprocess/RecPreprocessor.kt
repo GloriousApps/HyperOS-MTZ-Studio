@@ -42,7 +42,8 @@ object RecPreprocessor {
             val aspectRatio = if (h > 0) w.toDouble() / h else 1.0
             val newW = ceil(FIXED_HEIGHT * aspectRatio).toInt().coerceAtMost(MAX_IMG_W)
             val dst = Mat()
-            Imgproc.resize(rgb, dst, Size(newW.toDouble(), FIXED_HEIGHT.toDouble()), 0.0, 0.0, Imgproc.INTER_LINEAR)
+            // Cubic interpolation preserves glyph edges when a small crop is upscaled to the fixed 48px height.
+            Imgproc.resize(rgb, dst, Size(newW.toDouble(), FIXED_HEIGHT.toDouble()), 0.0, 0.0, Imgproc.INTER_CUBIC)
             rgb.release()
             resizedMats.add(dst)
         }
