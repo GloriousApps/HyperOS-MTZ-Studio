@@ -89,8 +89,11 @@ internal class ThemeWidgetPreviewLocalizer(
         }
         val bitmap = decoded.copy(Bitmap.Config.ARGB_8888, true)
         decoded.recycle()
-        val startX = if (label.hasIcon) 91f else 48f
-        val centerX = (startX + 279f) / 2f
+        val startX = if (label.hasIcon) 83f else 45f
+        // These bitmaps have a rounded right edge. Keep the text and the
+        // repaint inside the flat centre, not merely inside the PNG bounds.
+        val endX = 260f
+        val centerX = (startX + endX) / 2f
         val background = bitmap.getPixel(271, 42)
         val luminance = Color.red(background) * .299 + Color.green(background) * .587 + Color.blue(background) * .114
         val foreground = if (luminance > 145) Color.rgb(25, 25, 25) else Color.WHITE
@@ -100,16 +103,23 @@ internal class ThemeWidgetPreviewLocalizer(
             bitmap.recycle()
             return null
         }
+        // Erase the original Han glyphs all the way to the edge while
+        // retaining each pixel's alpha. A flat rectangle otherwise leaves a
+        // visible square outside the capsule's rounded silhouette.
+        for (y in 35 until 106) for (x in startX.toInt() until 281) {
+            val alpha = Color.alpha(bitmap.getPixel(x, y))
+            if (alpha != 0) bitmap.setPixel(x, y, Color.argb(alpha,
+                Color.red(background), Color.green(background), Color.blue(background)))
+        }
         val canvas = Canvas(bitmap)
-        canvas.drawRect(startX, 35f, 279f, 106f, Paint().apply { color = background })
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = foreground
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         }
         fun line(text: String, baseline: Float, maxSize: Float, minSize: Float) {
             paint.textSize = maxSize
-            while (paint.measureText(text) > 276f - startX && paint.textSize > minSize) paint.textSize -= 1f
-            if (paint.measureText(text) <= 276f - startX) {
+            while (paint.measureText(text) > endX - startX - 8f && paint.textSize > minSize) paint.textSize -= 1f
+            if (paint.measureText(text) <= endX - startX - 8f) {
                 canvas.drawText(text, centerX - paint.measureText(text) / 2f, baseline, paint)
             }
         }
@@ -267,14 +277,14 @@ internal class ThemeWidgetPreviewLocalizer(
         val CJK = Regex("[\\p{IsHan}]")
         val BUTTON_LABELS = mapOf(
             "advance/anniu/sz.png" to ButtonLabel("更多设置", "壁纸/动画/文字/开关", "Diğer ayarlar", "Duvar · animasyon · yazı", true),
-            "advance/anniu/zmmhk.png" to ButtonLabel("桌面模糊", "仅主题内置壁纸", "Masaüstü bulanıklığı", "Tema duvar kâğıdında", true),
-            "advance/anniu/zmmhg.png" to ButtonLabel("桌面模糊", "仅主题内置壁纸", "Masaüstü bulanıklığı", "Tema duvar kâğıdında", true),
+            "advance/anniu/zmmhk.png" to ButtonLabel("桌面模糊", "仅主题内置壁纸", "Duvar bulanıklığı", "Tema duvarında", true),
+            "advance/anniu/zmmhg.png" to ButtonLabel("桌面模糊", "仅主题内置壁纸", "Duvar bulanıklığı", "Tema duvarında", true),
             "advance/anniu/yyfwg.png" to ButtonLabel("音乐氛围", "顶部模糊音乐封面", "Müzik atmosferi", "Üstte bulanık kapak", true),
             "advance/anniu/yyfwk.png" to ButtonLabel("音乐氛围", "顶部模糊音乐封面", "Müzik atmosferi", "Üstte bulanık kapak", true),
-            "advance/anniu/lddk.png" to ButtonLabel("锁屏胶囊", "通知/音乐/手电", "Kilit ekranı kapsülü", "Bildirim · müzik · fener", true),
-            "advance/anniu/lddkg.png" to ButtonLabel("锁屏胶囊", "通知/音乐/手电", "Kilit ekranı kapsülü", "Bildirim · müzik · fener", true),
-            "advance/anniu/lddk2.png" to ButtonLabel("桌面胶囊", "无功能 只适用主题内置壁纸", "Masaüstü kapsülü", "Yalnız tema duvar kâğıdı", false),
-            "advance/anniu/lddkg2.png" to ButtonLabel("桌面胶囊", "无功能 只适用主题内置壁纸", "Masaüstü kapsülü", "Yalnız tema duvar kâğıdı", false),
+            "advance/anniu/lddk.png" to ButtonLabel("锁屏胶囊", "通知/音乐/手电", "Kilit kapsülü", "Bild. · müzik · fener", true),
+            "advance/anniu/lddkg.png" to ButtonLabel("锁屏胶囊", "通知/音乐/手电", "Kilit kapsülü", "Bild. · müzik · fener", true),
+            "advance/anniu/lddk2.png" to ButtonLabel("桌面胶囊", "无功能 只适用主题内置壁纸", "Ana ekran kapsülü", "Yalnız tema duvarı", false),
+            "advance/anniu/lddkg2.png" to ButtonLabel("桌面胶囊", "无功能 只适用主题内置壁纸", "Ana ekran kapsülü", "Yalnız tema duvarı", false),
         )
         val PREVIEW = Regex("advance/menu/widget_(01|2)_preview_(\\d+)\\.png")
         val LOCALIZED_PREVIEWS = setOf("01_0", "01_1", "01_2", "01_6", "01_7", "01_8", "2_0", "2_1", "2_2", "2_3", "2_4", "2_5")

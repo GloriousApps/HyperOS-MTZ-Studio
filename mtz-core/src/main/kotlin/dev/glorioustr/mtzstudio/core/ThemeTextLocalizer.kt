@@ -68,7 +68,13 @@ class ThemeTextLocalizer(
             if (!isTranslationCandidate(value)) return value
             check(!Thread.currentThread().isInterrupted) { "Translation interrupted" }
             return cache.getOrPut(value) {
-                translate(value).also {
+                // A compact settings caption used by lock-screen editors.
+                // Literal machine output ("Kilit ekranı geçiş") both misses
+                // the switch meaning and overruns its fixed-width heading.
+                val localized = if (targetLanguage.startsWith("tr") && value.trim() == "锁屏开关") {
+                    "Kilit ayarları"
+                } else translate(value)
+                localized.also {
                     check(it.isNotBlank()) { "Empty translation result" }
                     if (CHINESE.containsMatchIn(it)) unresolved += value
                 }

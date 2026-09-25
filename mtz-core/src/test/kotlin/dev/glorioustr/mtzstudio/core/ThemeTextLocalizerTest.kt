@@ -123,6 +123,16 @@ class ThemeTextLocalizerTest {
         })
     }
 
+    @Test fun `lock screen switch caption uses compact Turkish wording`() {
+        val xml = """<Root><Var name="Tab_Text" type="string[]" values="'锁屏开关'"/>
+            <Text x="95" size="45" textExp="@Tab_Text[0]"/></Root>""".toByteArray()
+        val (source, output) = archive(zip("manifest.xml" to xml))
+        ThemeTextLocalizer().rewrite(source, output) { "Kilit ekranı geçiş" }
+        val result = entry(Files.readAllBytes(output), "manifest.xml").toString(Charsets.UTF_8)
+        assertTrue(result.contains("Kilit ayarları"))
+        assertTrue(!result.contains("Kilit ekranı geçiş"))
+    }
+
     @Test fun `preserves MAML printf placeholders in translated format expressions`() {
         val xml = """<Root><Text formatExp="'已使用主题%d天 | 版本号：20260910'" paras="#days"/></Root>"""
         val (source, output) = archive(zip("manifest.xml" to xml.toByteArray()))
