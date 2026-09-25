@@ -28,6 +28,7 @@ internal data class ThemeTranslationProgress(
     val running: Boolean = false,
     val completed: Boolean = false,
     val error: String? = null,
+    val apiWarnings: List<String> = emptyList(),
 ) {
     val fraction: Float
         get() = if (!running) 1f else if (total <= 0) 0f else (processed.toFloat() / total).coerceIn(0f, 1f)
@@ -67,18 +68,29 @@ internal class ThemeTranslationService : Service() {
                 val theme = library.load().themes.firstOrNull { it.id.value == themeId }
                     ?: error("Theme is no longer in the library")
                 val translated = ThemeLanguageTool(applicationContext, library)
-                    .translateTextToSystemLanguage(theme, experimentalOcr, experimentalOcr) { processed, total ->
-                        val progress = ThemeTranslationProgress(
-                            themeId = themeId,
-                            themeName = themeName,
-                            processed = processed,
-                            total = total,
-                            running = true,
-                        )
-                        ThemeTranslationProgressStore.update(progress)
-                        getSystemService(NotificationManager::class.java)
-                            .notify(NOTIFICATION_ID, notification(progress))
-                    }
+                    .translateTextToSystemLanguage(
+                        theme,
+                        experimentalOcr,
+                        experimentalOcr,
+                        onProgress = { processed, total ->
+                            val progress = ThemeTranslationProgress(
+                                themeId = themeId,
+                                themeName = themeName,
+                                processed = processed,
+                                total = total,
+                                running = true,
+                            )
+                            ThemeTranslationProgressStore.update(progress)
+                            getSystemService(NotificationManager::class.java)
+                                .notify(NOTIFICATION_ID, notification(progress))
+                        },
+                        onApiWarnings = { warnings ->
+                            val current = ThemeTranslationProgressStore.state.value
+                            ThemeTranslationProgressStore.update(
+                                current.copy(apiWarnings = warnings.distinct()),
+                            )
+                        },
+                    )
                 // Translation replaces Studio's MTZ while Xiaomi Themes keeps its own copy.
                 // Detach the old local ID so the translated archive is imported again before
                 // the next apply instead of silently applying the pre-translation package.
@@ -126,6 +138,7 @@ internal class ThemeTranslationService : Service() {
                     processed = 1,
                     total = 1,
                     completed = true,
+                    apiWarnings = ThemeTranslationProgressStore.state.value.apiWarnings,
                 )
             }.getOrElse { error ->
                 ThemeTranslationProgress(
@@ -133,6 +146,7 @@ internal class ThemeTranslationService : Service() {
                     themeName = themeName,
                     completed = true,
                     error = error.message ?: error::class.simpleName,
+                    apiWarnings = ThemeTranslationProgressStore.state.value.apiWarnings,
                 )
             }.also { result ->
                 ThemeTranslationProgressStore.update(result)

@@ -480,6 +480,7 @@
     <string name="experimental_ocr_confirm">OCR çevirisini onayla</string>
     <string name="experimental_ocr_skip">Atla</string>
     <string name="theme_language_tool_failed">Tema metinleri çevrilemedi: %1$s</string>
+    <string name="theme_language_api_warning">Çevrimiçi çeviri kısmen kullanılamadı; bunun yerine cihaz içi çeviri kullanıldı: %1$s</string>
     <string name="action_translate">Çeviri</string>
     <string name="shizuku_recommended_title">Shizuku gerekli</string>
     <string name="shizuku_recommended_desc">Rootsuz cihazda tema uygulamak için Shizuku veya Shevery gereklidir. Kurulu yöneticiyi Kablosuz hata ayıklama ile başlatın ve MTZ Studio’ya izin verin. İkisi de kurulu değilse önerilen seçenek Shevery’dir.</string>

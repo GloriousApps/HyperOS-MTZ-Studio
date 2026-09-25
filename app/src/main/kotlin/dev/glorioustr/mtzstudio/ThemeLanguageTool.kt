@@ -37,6 +37,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
         experimentalOcr: Boolean,
         allowApiTranslation: Boolean,
         onProgress: (processed: Int, total: Int) -> Unit = { _, _ -> },
+        onApiWarnings: (List<String>) -> Unit = {},
     ): LibraryTheme {
         val locale = appContext.resources.configuration.locales[0] ?: Locale.getDefault()
         val target = translateLanguage(locale.toLanguageTag())
@@ -95,6 +96,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
         } else ProfessionalThemeTranslator.Result(emptyMap(), emptyList())
         val apiTranslations = apiResult.translations
         var apiTranslatedTexts = 0
+        if (apiResult.warnings.isNotEmpty()) onApiWarnings(apiResult.warnings)
 
         fun identifySource(text: String): String? {
             val scriptHint = when {

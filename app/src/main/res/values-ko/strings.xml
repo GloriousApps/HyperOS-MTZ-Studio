@@ -367,6 +367,7 @@
     <string name="theme_language_tool_working">Translating theme text…</string>
     <string name="theme_language_tool_complete">Translated theme added to Themes.</string>
     <string name="theme_language_tool_failed">Theme text could not be translated: %1$s</string>
+    <string name="theme_language_api_warning">온라인 번역을 일부 사용할 수 없어 기기 내 번역을 대신 사용했습니다: %1$s</string>
     <string name="action_translate">번역</string>
     <string name="shizuku_recommended_title">Shizuku recommended</string>
     <string name="shizuku_recommended_desc">For a more reliable rootless apply flow, start Shizuku with Wireless debugging and grant MTZ Studio permission. The Shizuku + BAK Converter path can import to the local Themes library without root.</string>

@@ -601,6 +601,12 @@ private fun StudioScreen(
                     loadLibrarySnapshot()
                     destination = StudioDestination.THEMES
                     status = resources.getString(R.string.theme_language_tool_complete)
+                    if (translationProgress.apiWarnings.isNotEmpty()) {
+                        operationError = resources.getString(
+                            R.string.theme_language_api_warning,
+                            translationProgress.apiWarnings.joinToString(" | "),
+                        )
+                    }
                     val translatedTheme = translationProgress.themeId?.let { id ->
                         themes.firstOrNull { it.id.value == id }
                     }

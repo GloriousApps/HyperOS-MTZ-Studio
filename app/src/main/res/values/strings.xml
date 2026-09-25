@@ -480,6 +480,7 @@
     <string name="experimental_ocr_confirm">Confirm OCR translation</string>
     <string name="experimental_ocr_skip">Skip</string>
     <string name="theme_language_tool_failed">Theme text could not be translated: %1$s</string>
+    <string name="theme_language_api_warning">Online translation was partially unavailable; on-device translation was used instead: %1$s</string>
     <string name="action_translate">Translate</string>
     <string name="shizuku_recommended_title">Shizuku required</string>
     <string name="shizuku_recommended_desc">Theme applying on a non-rooted device requires Shizuku or Shevery. Start the installed manager with Wireless debugging and grant MTZ Studio permission. If neither app is installed, Shevery is the recommended option.</string>

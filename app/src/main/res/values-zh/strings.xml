@@ -367,6 +367,7 @@
     <string name="theme_language_tool_working">正在翻译主题文本…</string>
     <string name="theme_language_tool_complete">已将翻译后的主题添加到主题。</string>
     <string name="theme_language_tool_failed">无法翻译主题文本：%1$s</string>
+    <string name="theme_language_api_warning">在线翻译部分不可用；已改用设备端翻译：%1$s</string>
     <string name="action_translate">翻译</string>
     <string name="shizuku_recommended_title">Shizuku recommended</string>
     <string name="shizuku_recommended_desc">For a more reliable rootless apply flow, start Shizuku with Wireless debugging and grant MTZ Studio permission. The Shizuku + BAK Converter path can import to the local Themes library without root.</string>
