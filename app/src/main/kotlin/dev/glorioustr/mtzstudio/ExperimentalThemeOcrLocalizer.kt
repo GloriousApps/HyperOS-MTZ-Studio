@@ -17,10 +17,15 @@ import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.paddle.ocr.PaddleOCR
 import com.paddle.ocr.util.OpenCVUtils
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -51,6 +56,7 @@ internal class ExperimentalThemeOcrLocalizer(
     private var highConfidenceLabels = 0
     private var mediumConfidenceLabels = 0
     private var skippedLabels = 0
+    private var cloudVisionRequests = 0
 
     fun rewrite(source: Path, output: Path): Result {
         require(source.toAbsolutePath().normalize() != output.toAbsolutePath().normalize())
@@ -254,7 +260,60 @@ internal class ExperimentalThemeOcrLocalizer(
                         .textBlocks.flatMap { it.lines }
                         .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it), line.confidence ?: .65f) } }
 
-                if (paddle != null) {
+                fun recognizeWithCloudVision(): List<DetectedLine>? {
+                    // The online engine is deliberately used only after the user approves OCR
+                    // rewriting. Preview scans remain local and never consume API quota.
+                    if (!writeChanges || BuildConfig.VISION_API_KEY.isBlank() ||
+                        cloudVisionRequests >= MAX_CLOUD_VISION_REQUESTS
+                    ) return null
+                    cloudVisionRequests++
+                    return runCatching {
+                        val png = ByteArrayOutputStream().use { stream ->
+                            check(observed.compress(Bitmap.CompressFormat.PNG, 100, stream))
+                            stream.toByteArray()
+                        }
+                        val request = JSONObject().put("requests", JSONArray().put(
+                            JSONObject()
+                                .put("image", JSONObject().put("content", Base64.getEncoder().encodeToString(png)))
+                                .put("features", JSONArray().put(JSONObject().put("type", "TEXT_DETECTION").put("maxResults", 50)))
+                                .put("imageContext", JSONObject().put("languageHints", JSONArray().put("zh-Hans").put("zh-Hant")))
+                        )).toString()
+                        val connection = (URL("https://vision.googleapis.com/v1/images:annotate?key=${BuildConfig.VISION_API_KEY}")
+                            .openConnection() as HttpURLConnection).apply {
+                            requestMethod = "POST"
+                            connectTimeout = 20_000
+                            readTimeout = 30_000
+                            doOutput = true
+                            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                        }
+                        try {
+                            connection.outputStream.bufferedWriter().use { it.write(request) }
+                            check(connection.responseCode in 200..299) { "Vision HTTP ${connection.responseCode}" }
+                            val response = connection.inputStream.bufferedReader().use { it.readText() }
+                            val annotations = JSONObject(response)
+                                .optJSONArray("responses")?.optJSONObject(0)
+                                ?.optJSONArray("textAnnotations") ?: JSONArray()
+                            // Index 0 is the entire page; following entries retain individual
+                            // bounding boxes that can safely be redrawn by our existing planner.
+                            (1 until annotations.length()).mapNotNull { index ->
+                                val item = annotations.optJSONObject(index) ?: return@mapNotNull null
+                                val vertices = item.optJSONObject("boundingPoly")?.optJSONArray("vertices") ?: return@mapNotNull null
+                                val points = (0 until vertices.length()).mapNotNull { vertex ->
+                                    vertices.optJSONObject(vertex)?.let { it.optInt("x") to it.optInt("y") }
+                                }
+                                if (points.isEmpty()) return@mapNotNull null
+                                val left = points.minOf { it.first }; val top = points.minOf { it.second }
+                                val right = points.maxOf { it.first }; val bottom = points.maxOf { it.second }
+                                item.optString("description").takeIf { right > left && bottom > top && it.isNotBlank() }
+                                    ?.let { DetectedLine(it, Rect(left, top, right, bottom), .96f) }
+                            }
+                        } finally {
+                            connection.disconnect()
+                        }
+                    }.getOrNull()
+                }
+
+                recognizeWithCloudVision()?.takeIf { it.isNotEmpty() } ?: if (paddle != null) {
                     runCatching {
                         runBlocking {
                             paddle.recognize(observed).results
@@ -439,6 +498,8 @@ internal class ExperimentalThemeOcrLocalizer(
         val CJK = Regex("[\\p{IsHan}]")
         const val MAX_IMAGE_BYTES = 4L * 1024 * 1024
         const val MAX_SCANNED_IMAGES = 400
+        // An opt-in online run never uses the whole free monthly Vision allowance.
+        const val MAX_CLOUD_VISION_REQUESTS = 80
         const val HIGH_CONFIDENCE = .85f
         const val MAX_PIXELS = 5_000_000L
         // Generous bounds for full lockscreen composites; MAX_PIXELS is the real safety guard.

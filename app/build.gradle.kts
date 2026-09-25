@@ -16,6 +16,10 @@ android {
         targetSdk = 36
         versionCode = 69
         versionName = "5.1.0"
+        // Supplied only by the protected CI secret. The Google Cloud key itself is
+        // additionally restricted to this signed Android package and Vision API.
+        val visionApiKey = providers.gradleProperty("mtzVisionApiKey").orNull.orEmpty()
+        buildConfigField("String", "VISION_API_KEY", "\"${visionApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     signingConfigs {
