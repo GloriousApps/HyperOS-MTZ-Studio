@@ -85,7 +85,7 @@ internal class ExperimentalThemeOcrLocalizer(
                                                         processedImages++
                                                         val value = if (asset.size in 1..MAX_IMAGE_BYTES) {
                                                             val bytes = nested.getInputStream(asset).use { it.readBytes() }
-                                                            try { scanImage(bytes, asset.name, recognizer, paddle) } catch (_: Exception) { null } ?: bytes
+                                                            try { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = true) } catch (_: Exception) { null } ?: bytes
                                                         } else null
                                                         onProgress(processedImages, totalImages)
                                                         value
@@ -105,6 +105,61 @@ internal class ExperimentalThemeOcrLocalizer(
                         out.closeEntry()
                     }
                 }
+            }
+        } finally {
+            recognizer.close()
+            if (paddle != null) runCatching { runBlocking { paddle.release() } }
+        }
+        return Result(
+            scannedImages,
+            changedImages,
+            translatedLabels,
+            highConfidenceLabels,
+            mediumConfidenceLabels,
+            skippedLabels,
+        )
+    }
+
+    /**
+     * Detects likely visual translation candidates without touching the MTZ. This lets the
+     * ordinary text translation finish first, then gives the user one informed OCR choice.
+     */
+    fun scanOnly(source: Path): Result {
+        val totalImages = countImages(source).coerceAtLeast(1)
+        var processedImages = 0
+        onProgress(0, totalImages)
+        val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+        val paddleContext = context
+        val paddle = if (preferPaddle && paddleContext != null) runCatching {
+            OpenCVUtils.init(paddleContext)
+            runBlocking { PaddleOCR.create(paddleContext) }
+        }.getOrNull() else null
+        try {
+            ZipFile(source.toFile()).use { outer ->
+                outer.entries().asSequence()
+                    .filter { it.name == "lockscreen" || it.name == "clock_2x4" }
+                    .forEach { component ->
+                        val nestedPath = Files.createTempFile(source.parent, ".mtz-ocr-scan-", ".zip")
+                        try {
+                            outer.getInputStream(component).use { input ->
+                                Files.newOutputStream(nestedPath).use { input.copyTo(it) }
+                            }
+                            ZipFile(nestedPath.toFile()).use { nested ->
+                                nested.entries().asSequence().forEach { asset ->
+                                    if (!asset.isDirectory && processedImages < totalImages && isImage(asset.name)) {
+                                        processedImages++
+                                        if (asset.size in 1..MAX_IMAGE_BYTES) {
+                                            val bytes = nested.getInputStream(asset).use { it.readBytes() }
+                                            runCatching { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = false) }
+                                        }
+                                        onProgress(processedImages, totalImages)
+                                    }
+                                }
+                            }
+                        } finally {
+                            Files.deleteIfExists(nestedPath)
+                        }
+                    }
             }
         } finally {
             recognizer.close()
@@ -142,6 +197,7 @@ internal class ExperimentalThemeOcrLocalizer(
         name: String,
         recognizer: com.google.mlkit.vision.text.TextRecognizer,
         paddle: PaddleOCR?,
+        writeChanges: Boolean,
     ): ByteArray? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
@@ -179,6 +235,15 @@ internal class ExperimentalThemeOcrLocalizer(
                 if (observed !== source) observed.recycle()
             }
             val sourceBoxes = lines.map { it.box }
+            if (!writeChanges) {
+                lines.forEach { line ->
+                    if (!CJK.containsMatchIn(line.text)) return@forEach
+                    if (CJK.findAll(line.text).count() < 2) skippedLabels++
+                    else if (line.confidence >= HIGH_CONFIDENCE) highConfidenceLabels++
+                    else mediumConfidenceLabels++
+                }
+                return null
+            }
             val plans = mutableListOf<Pair<String, Plan>>()
             var unsafe = false
             lines.forEach { line ->

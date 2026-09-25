@@ -63,9 +63,11 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
         val totalCandidates = allCandidates.size.coerceAtLeast(1)
         // OCR work is counted by real eligible image files, rather than squeezing the entire
         // visual stage into a fixed final percentage range.
-        val ocrImageCount = if (experimentalOcr) {
+        // Even during a normal translation we scan visual assets once. The scan is read-only;
+        // its result is presented after the text pass so OCR remains an explicit opt-in action.
+        val ocrImageCount = runCatching {
             ExperimentalThemeOcrLocalizer.countEligibleImages(original)
-        } else 0
+        }.getOrDefault(0)
         val totalWork = (totalCandidates + ocrImageCount).coerceAtLeast(1)
         val reportedCandidates = linkedSetOf<String>()
         var ocrStage = false
@@ -229,6 +231,34 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                 null
             }
             val previewOutput = if ((bitmapResult?.changedImages ?: 0) > 0) bitmapOutput else output
+            val scanResult = if (!experimentalOcr && ocrImageCount > 0) runCatching {
+                reportTextProgress(totalCandidates)
+                ocrStage = true
+                ExperimentalThemeOcrLocalizer(
+                    translate = { it },
+                    onProgress = { processed, _ ->
+                        onProgress(
+                            (totalCandidates + processed).coerceAtMost(totalWork),
+                            totalWork,
+                        )
+                    },
+                    context = appContext,
+                    preferPaddle = true,
+                ).scanOnly(previewOutput).also { scan ->
+                    onOcrSummary(
+                        ThemeOcrSummary(
+                            scannedImages = scan.scannedImages,
+                            changedImages = 0,
+                            highConfidenceLabels = scan.highConfidenceLabels,
+                            mediumConfidenceLabels = scan.mediumConfidenceLabels,
+                            skippedLabels = scan.skippedLabels,
+                        ),
+                    )
+                }
+            }.getOrElse { error ->
+                diagnostics.record("theme_experimental_ocr_scan_failed", "OCR ön taraması atlandı; metin çevirisi korundu", error = error)
+                null
+            } else null
             val ocrResult = if (experimentalOcr) runCatching {
                 reportTextProgress(totalCandidates)
                 ocrStage = true
@@ -276,6 +306,8 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                     "previewScannedImages" to bitmapResult?.scannedImages,
                     "previewChangedImages" to bitmapResult?.changedImages,
                     "experimentalOcr" to experimentalOcr,
+                    "ocrPreScanImages" to scanResult?.scannedImages,
+                    "ocrPreScanCandidates" to scanResult?.let { it.highConfidenceLabels + it.mediumConfidenceLabels },
                     "ocrScannedImages" to ocrResult?.scannedImages,
                     "ocrChangedImages" to ocrResult?.changedImages,
                     "ocrTranslatedLabels" to ocrResult?.translatedLabels,

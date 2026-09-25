@@ -340,6 +340,7 @@ private fun StudioScreen(
     var translateBakToAppLanguage by remember { mutableStateOf(false) }
     var pendingApplyTheme by remember { mutableStateOf<LibraryTheme?>(null) }
     var pendingOcrTheme by remember { mutableStateOf<LibraryTheme?>(null) }
+    var pendingOcrScanSummary by remember { mutableStateOf<ThemeOcrSummary?>(null) }
     var completedOcrSummary by remember { mutableStateOf<ThemeOcrSummary?>(null) }
     var preparedApply by remember { mutableStateOf<PreparedThemeApply?>(null) }
     var themeOperationRunning by remember { mutableStateOf(false) }
@@ -613,8 +614,12 @@ private fun StudioScreen(
                     }
                     // A normal text-only pass may offer exactly one optional OCR pass. An OCR
                     // completion must never re-open the same prompt and start a loop.
-                    if (!translationProgress.experimentalOcr && translatedTheme != null) {
+                    val scanSummary = translationProgress.ocrSummary
+                    if (!translationProgress.experimentalOcr && translatedTheme != null &&
+                        scanSummary != null && scanSummary.highConfidenceLabels + scanSummary.mediumConfidenceLabels > 0
+                    ) {
                         pendingOcrTheme = translatedTheme
+                        pendingOcrScanSummary = scanSummary
                     }
                     if (translationProgress.experimentalOcr) {
                         completedOcrSummary = translationProgress.ocrSummary
@@ -2528,19 +2533,42 @@ private fun StudioScreen(
     }
 
     pendingOcrTheme?.let { theme ->
+        val scanSummary = pendingOcrScanSummary
         AlertDialog(
-            onDismissRequest = { pendingOcrTheme = null },
+            onDismissRequest = {
+                pendingOcrTheme = null
+                pendingOcrScanSummary = null
+            },
             title = { Text(stringResource(R.string.experimental_ocr_title)) },
-            text = { Text(stringResource(R.string.experimental_ocr_description)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.experimental_ocr_description))
+                    if (scanSummary != null) {
+                        Text("\nOCR taraması tamamlandı: ${scanSummary.scannedImages} görsel incelendi.")
+                        Text(
+                            "Çevrilebilecek metin: ${scanSummary.highConfidenceLabels + scanSummary.mediumConfidenceLabels}",
+                            color = Color(0xFF178A4B),
+                        )
+                        if (scanSummary.skippedLabels > 0) {
+                            Text(
+                                "Koruma için atlanan metin: ${scanSummary.skippedLabels}",
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     pendingOcrTheme = null
+                    pendingOcrScanSummary = null
                     localizeTheme(theme, experimentalOcr = true)
                 }) { Text(stringResource(R.string.experimental_ocr_confirm)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     pendingOcrTheme = null
+                    pendingOcrScanSummary = null
                 }) { Text(stringResource(R.string.experimental_ocr_skip)) }
             },
         )
