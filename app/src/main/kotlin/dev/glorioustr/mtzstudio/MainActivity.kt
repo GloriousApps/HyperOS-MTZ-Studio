@@ -615,9 +615,7 @@ private fun StudioScreen(
                     // A normal text-only pass may offer exactly one optional OCR pass. An OCR
                     // completion must never re-open the same prompt and start a loop.
                     val scanSummary = translationProgress.ocrSummary
-                    if (!translationProgress.experimentalOcr && translatedTheme != null &&
-                        scanSummary != null && scanSummary.highConfidenceLabels + scanSummary.mediumConfidenceLabels > 0
-                    ) {
+                    if (!translationProgress.experimentalOcr && translatedTheme != null && scanSummary != null) {
                         pendingOcrTheme = translatedTheme
                         pendingOcrScanSummary = scanSummary
                     }
@@ -2534,6 +2532,8 @@ private fun StudioScreen(
 
     pendingOcrTheme?.let { theme ->
         val scanSummary = pendingOcrScanSummary
+        val hasOcrCandidates = scanSummary == null ||
+            scanSummary.highConfidenceLabels + scanSummary.mediumConfidenceLabels > 0
         AlertDialog(
             onDismissRequest = {
                 pendingOcrTheme = null
@@ -2555,6 +2555,9 @@ private fun StudioScreen(
                                 color = MaterialTheme.colorScheme.error,
                             )
                         }
+                        if (!hasOcrCandidates) {
+                            Text("Görsel çeviri için güvenli bir metin adayı bulunamadı.")
+                        }
                     }
                 }
             },
@@ -2562,8 +2565,10 @@ private fun StudioScreen(
                 TextButton(onClick = {
                     pendingOcrTheme = null
                     pendingOcrScanSummary = null
-                    localizeTheme(theme, experimentalOcr = true)
-                }) { Text(stringResource(R.string.experimental_ocr_confirm)) }
+                    if (hasOcrCandidates) localizeTheme(theme, experimentalOcr = true)
+                }) {
+                    Text(stringResource(if (hasOcrCandidates) R.string.experimental_ocr_confirm else R.string.action_close))
+                }
             },
             dismissButton = {
                 TextButton(onClick = {
