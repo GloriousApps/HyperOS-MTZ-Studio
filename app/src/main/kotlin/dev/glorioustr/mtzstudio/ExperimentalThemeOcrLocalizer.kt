@@ -24,7 +24,6 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
-import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.math.abs
 import kotlin.math.max
@@ -55,7 +54,8 @@ internal class ExperimentalThemeOcrLocalizer(
 
     fun rewrite(source: Path, output: Path): Result {
         require(source.toAbsolutePath().normalize() != output.toAbsolutePath().normalize())
-        val totalImages = countImages(source).coerceAtLeast(1)
+        val selectedImages = selectImages(source)
+        val totalImages = selectedImages.values.sumOf(Set<String>::size).coerceAtLeast(1)
         var processedImages = 0
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
@@ -76,18 +76,17 @@ internal class ExperimentalThemeOcrLocalizer(
                                         Files.newOutputStream(nestedPath).use { input.copyTo(it) }
                                     }
                                     ZipFile(nestedPath.toFile()).use { nested ->
+                                        val selected = selectedImages[entry.name].orEmpty()
                                         ZipOutputStream(out.nonClosing()).use { nestedOut ->
                                             nested.entries().asSequence().forEach { asset ->
                                                 nestedOut.putNextEntry(ZipEntry(asset.name).apply { time = asset.time })
                                                 if (!asset.isDirectory) {
-                                                    val replacement = if (processedImages < totalImages && isImage(asset.name) && asset.size in 1..MAX_IMAGE_BYTES) {
+                                                    val replacement = if (asset.name in selected) {
                                                         val bytes = nested.getInputStream(asset).use { it.readBytes() }
-                                                        if (isEligibleImage(bytes)) {
-                                                            processedImages++
-                                                            val value = try { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = true) } catch (_: Exception) { null } ?: bytes
-                                                            onProgress(processedImages, totalImages)
-                                                            value
-                                                        } else null
+                                                        processedImages++
+                                                        val value = try { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = true) } catch (_: Exception) { null } ?: bytes
+                                                        onProgress(processedImages, totalImages)
+                                                        value
                                                     } else null
                                                     if (replacement != null) nestedOut.write(replacement)
                                                     else nested.getInputStream(asset).use { it.copyTo(nestedOut) }
@@ -124,7 +123,8 @@ internal class ExperimentalThemeOcrLocalizer(
      * ordinary text translation finish first, then gives the user one informed OCR choice.
      */
     fun scanOnly(source: Path): Result {
-        val totalImages = countImages(source).coerceAtLeast(1)
+        val selectedImages = selectImages(source)
+        val totalImages = selectedImages.values.sumOf(Set<String>::size).coerceAtLeast(1)
         var processedImages = 0
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
@@ -143,14 +143,13 @@ internal class ExperimentalThemeOcrLocalizer(
                                 Files.newOutputStream(nestedPath).use { input.copyTo(it) }
                             }
                             ZipFile(nestedPath.toFile()).use { nested ->
+                                val selected = selectedImages[component.name].orEmpty()
                                 nested.entries().asSequence().forEach { asset ->
-                                    if (!asset.isDirectory && processedImages < totalImages && isImage(asset.name) && asset.size in 1..MAX_IMAGE_BYTES) {
+                                    if (!asset.isDirectory && asset.name in selected) {
                                         val bytes = nested.getInputStream(asset).use { it.readBytes() }
-                                        if (isEligibleImage(bytes)) {
-                                            processedImages++
-                                            runCatching { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = false) }
-                                            onProgress(processedImages, totalImages)
-                                        }
+                                        processedImages++
+                                        runCatching { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = false) }
+                                        onProgress(processedImages, totalImages)
                                     }
                                 }
                             }
@@ -173,23 +172,56 @@ internal class ExperimentalThemeOcrLocalizer(
         )
     }
 
-    private fun countImages(source: Path): Int {
-        var count = 0
+    private fun selectImages(source: Path): Map<String, Set<String>> {
+        val result = linkedMapOf<String, Set<String>>()
+        var remaining = MAX_SCANNED_IMAGES
         ZipFile(source.toFile()).use { outer ->
-            outer.entries().asSequence().filter { it.name == "lockscreen" || it.name == "clock_2x4" }.forEach { component ->
-                outer.getInputStream(component).use { stream ->
-                    ZipInputStream(stream).use { nested ->
-                        while (count < 250) {
-                            val entry = nested.nextEntry ?: break
-                            if (!entry.isDirectory && isImage(entry.name) && entry.size <= MAX_IMAGE_BYTES) {
-                                if (isEligibleImage(nested.readBytes())) count++
-                            }
+            outer.entries().asSequence()
+                .filter { it.name == "lockscreen" || it.name == "clock_2x4" }
+                .forEach { component ->
+                    if (remaining == 0) return@forEach
+                    val nestedPath = Files.createTempFile(source.parent, ".mtz-ocr-select-", ".zip")
+                    try {
+                        outer.getInputStream(component).use { input ->
+                            Files.newOutputStream(nestedPath).use { input.copyTo(it) }
                         }
+                        ZipFile(nestedPath.toFile()).use { nested ->
+                            val manifest = nested.getEntry("advance/manifest.xml")?.let { entry ->
+                                if (entry.size in 1..MAX_IMAGE_BYTES) nested.getInputStream(entry).bufferedReader().use { it.readText() }
+                                else ""
+                            }.orEmpty()
+                            val referenced = SOURCE_REFERENCE.findAll(manifest).map { it.groupValues[1] }.toSet()
+                            val buttonImages = BUTTON_CONTENT.findAll(manifest)
+                                .filter { TEXT_ELEMENT.containsMatchIn(it.groupValues[1]) }
+                                .flatMap { SOURCE_REFERENCE.findAll(it.groupValues[1]).map { match -> match.groupValues[1] } }
+                                .toSet()
+                            val candidates = nested.entries().asSequence()
+                                .filter { !it.isDirectory && isImage(it.name) && it.size in 1..MAX_IMAGE_BYTES }
+                                .mapNotNull { entry ->
+                                    val bytes = nested.getInputStream(entry).use { it.readBytes() }
+                                    if (!isEligibleImage(bytes)) null else entry.name
+                                }
+                                .sortedWith(compareBy<String> { name ->
+                                    val path = name.removePrefix("advance/")
+                                    when {
+                                        path in buttonImages -> 0
+                                        path in referenced && UI_IMAGE_NAME.containsMatchIn(path) -> 1
+                                        path in referenced -> 2
+                                        UI_IMAGE_NAME.containsMatchIn(path) -> 3
+                                        else -> 4
+                                    }
+                                }.thenBy { it })
+                                .take(remaining)
+                                .toSet()
+                            result[component.name] = candidates
+                            remaining -= candidates.size
+                        }
+                    } finally {
+                        Files.deleteIfExists(nestedPath)
                     }
                 }
-            }
         }
-        return count
+        return result
     }
 
     private fun scanImage(
@@ -398,40 +430,19 @@ internal class ExperimentalThemeOcrLocalizer(
     internal companion object {
         val CJK = Regex("[\\p{IsHan}]")
         const val MAX_IMAGE_BYTES = 4L * 1024 * 1024
+        const val MAX_SCANNED_IMAGES = 250
         const val HIGH_CONFIDENCE = .85f
         const val MAX_PIXELS = 5_000_000L
         // Larger assets tend to be composites or screenshots; do not paint partial text onto them.
         const val MAX_OCR_WIDTH = 800
         const val MAX_OCR_HEIGHT = 300
+        val SOURCE_REFERENCE = Regex("(?i)<image\\b[^>]*\\bsrc\\s*=\\s*['\"]([^'\"]+)['\"]")
+        val BUTTON_CONTENT = Regex("(?is)<(?:Normal|Pressed)\\b[^>]*>(.*?)</(?:Normal|Pressed)>")
+        val TEXT_ELEMENT = Regex("(?i)<Text\\b")
+        val UI_IMAGE_NAME = Regex("(?i)(?:button|btn|menu|widget|setting|switch|tab|anniu)")
 
-        /** Counts exactly the assets the OCR stage may inspect, for truthful progress. */
-        fun countEligibleImages(source: Path): Int {
-            var count = 0
-            ZipFile(source.toFile()).use { outer ->
-                outer.entries().asSequence()
-                    .filter { it.name == "lockscreen" || it.name == "clock_2x4" }
-                    .forEach { component ->
-                        outer.getInputStream(component).use { stream ->
-                            ZipInputStream(stream).use { nested ->
-                                while (count < 250) {
-                                    val entry = nested.nextEntry ?: break
-                                    if (!entry.isDirectory && isEligibleImageName(entry.name) && entry.size <= MAX_IMAGE_BYTES) {
-                                        val bytes = nested.readBytes()
-                                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-                                        if (bounds.outWidth in 48..MAX_OCR_WIDTH && bounds.outHeight in 24..MAX_OCR_HEIGHT &&
-                                            bounds.outWidth.toLong() * bounds.outHeight <= MAX_PIXELS
-                                        ) count++
-                                    }
-                                }
-                            }
-                        }
-                    }
-            }
-            return count
-        }
-
-        private fun isEligibleImageName(name: String): Boolean = !name.endsWith(".9.png", true) &&
-            (name.endsWith(".png", true) || name.endsWith(".webp", true))
+        /** Counts exactly the prioritized assets the OCR stage may inspect. */
+        fun countEligibleImages(source: Path): Int =
+            ExperimentalThemeOcrLocalizer({ it }).selectImages(source).values.sumOf(Set<String>::size)
     }
 }
