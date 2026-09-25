@@ -61,8 +61,7 @@ internal class ExperimentalThemeOcrLocalizer(
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         val paddleContext = context
         val paddle = if (preferPaddle && paddleContext != null) runCatching {
-            OpenCVUtils.init(paddleContext)
-            runBlocking { PaddleOCR.create(paddleContext) }
+            if (OpenCVUtils.init(paddleContext)) runBlocking { PaddleOCR.create(paddleContext) } else null
         }.getOrNull() else null
         try {
             ZipFile(source.toFile()).use { outer ->
@@ -131,8 +130,7 @@ internal class ExperimentalThemeOcrLocalizer(
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         val paddleContext = context
         val paddle = if (preferPaddle && paddleContext != null) runCatching {
-            OpenCVUtils.init(paddleContext)
-            runBlocking { PaddleOCR.create(paddleContext) }
+            if (OpenCVUtils.init(paddleContext)) runBlocking { PaddleOCR.create(paddleContext) } else null
         }.getOrNull() else null
         try {
             ZipFile(source.toFile()).use { outer ->
@@ -211,26 +209,29 @@ internal class ExperimentalThemeOcrLocalizer(
             val scale = if (source.width < 700 && source.height < 700) 2 else 1
             val observed = if (scale == 2) Bitmap.createScaledBitmap(source, source.width * 2, source.height * 2, true) else source
             val lines = try {
-                if (paddle != null) {
-                    runBlocking {
-                        paddle.recognize(observed).results
-                            .filter { it.confidence >= 0.55f }
-                            .mapNotNull { item ->
-                                val points = item.box.points
-                                val left = points.minOf { it.x }.toInt()
-                                val top = points.minOf { it.y }.toInt()
-                                val right = points.maxOf { it.x }.toInt()
-                                val bottom = points.maxOf { it.y }.toInt()
-                                if (right > left && bottom > top) {
-                                    DetectedLine(item.text, Rect(left, top, right, bottom), item.confidence)
-                                } else null
-                            }
-                    }
-                } else {
+                fun recognizeWithMlKit(): List<DetectedLine> =
                     Tasks.await(recognizer.process(InputImage.fromBitmap(observed, 0)), 30, TimeUnit.SECONDS)
                         .textBlocks.flatMap { it.lines }
                         .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it), .65f) } }
-                }
+
+                if (paddle != null) {
+                    runCatching {
+                        runBlocking {
+                            paddle.recognize(observed).results
+                                .filter { it.confidence >= 0.55f }
+                                .mapNotNull { item ->
+                                    val points = item.box.points
+                                    val left = points.minOf { it.x }.toInt()
+                                    val top = points.minOf { it.y }.toInt()
+                                    val right = points.maxOf { it.x }.toInt()
+                                    val bottom = points.maxOf { it.y }.toInt()
+                                    if (right > left && bottom > top) {
+                                        DetectedLine(item.text, Rect(left, top, right, bottom), item.confidence)
+                                    } else null
+                                }
+                        }
+                    }.getOrElse { recognizeWithMlKit() }
+                } else recognizeWithMlKit()
             } finally {
                 if (observed !== source) observed.recycle()
             }
