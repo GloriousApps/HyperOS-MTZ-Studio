@@ -622,6 +622,7 @@ private fun StudioScreen(
                     if (translationProgress.experimentalOcr) {
                         completedOcrSummary = translationProgress.ocrSummary
                     }
+                    ThemeTranslationProgressStore.consumeCompleted()
                 } else {
                     status = resources.getString(R.string.theme_language_tool_failed, translationProgress.error)
                     operationError = status

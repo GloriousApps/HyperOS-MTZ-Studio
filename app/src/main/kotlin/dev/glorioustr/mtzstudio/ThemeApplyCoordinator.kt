@@ -101,8 +101,11 @@ class ThemeApplyCoordinator(
      * native import queue and apply implementation.  The MTZ is never copied into Themes data
      * by Studio itself.
      */
-    fun prepareRootGlobalModuleImportOnly(theme: LibraryTheme): PreparedThemeApply =
-        prepareRootGlobalModuleImport(theme, ThemeManagerOperation.IMPORT_ONLY)
+    fun prepareRootGlobalModuleImportOnly(
+        theme: LibraryTheme,
+        replacedLocalIds: Set<String> = emptySet(),
+    ): PreparedThemeApply =
+        prepareRootGlobalModuleImport(theme, ThemeManagerOperation.IMPORT_ONLY, replacedLocalIds)
 
     /**
      * Imports the current Studio archive through the active root module and applies it with

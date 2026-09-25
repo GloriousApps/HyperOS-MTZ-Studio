@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import dev.glorioustr.mtzstudio.composer.MtzComposer
 import dev.glorioustr.mtzstudio.library.ThemeLibrary
 import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
 import kotlinx.coroutines.CoroutineScope
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,6 +53,12 @@ internal object ThemeTranslationProgressStore {
 
     fun update(progress: ThemeTranslationProgress) {
         mutableState.value = progress
+    }
+
+    /** A completed event is consumed by the UI once; keeping it caused OCR dialogs to reopen
+     * whenever the activity was recreated after returning from Xiaomi Themes. */
+    fun consumeCompleted() {
+        if (mutableState.value.completed) mutableState.value = ThemeTranslationProgress()
     }
 }
 
@@ -120,19 +128,64 @@ internal class ThemeTranslationService : Service() {
                             ThemeTranslationProgressStore.update(current.copy(ocrSummary = summary))
                         },
                     )
-                // Translation replaces Studio's MTZ while Xiaomi Themes keeps its own copy.
-                // Detach the old local ID so the translated archive is imported again before
-                // the next apply instead of silently applying the pre-translation package.
+                val commandRunner = PreferredPrivilegedCommandRunner(applicationContext)
+                val coordinator = ThemeApplyCoordinator(applicationContext, commandRunner)
+                val importer = DeviceThemeImporter(
+                    context = applicationContext,
+                    library = library,
+                    composer = MtzComposer(),
+                    commandRunner = commandRunner,
+                )
+                // Keep a snapshot before invalidating the old hash mapping. The root bridge
+                // receives those IDs so Xiaomi Themes replaces its untranslated record instead
+                // of leaving it beside the newly translated archive.
+                val replacedLocalIds = importer.linkedLocalIdsFor(translated)
+                val localIdsBeforeRefresh = runCatching { importer.localThemeIds() }
+                    .getOrDefault(emptySet())
                 DeviceThemeImporter.invalidateThemeManagerOriginAfterMutation(
                     applicationContext,
                     translated.id.value,
                 )
-                if (SheveryBackupRestorer.state() == SheveryBackupRestorer.State.READY) {
-                    runCatching {
-                        val coordinator = ThemeApplyCoordinator(
-                            applicationContext,
-                            PreferredPrivilegedCommandRunner(applicationContext),
+                when {
+                    coordinator.rootGlobalModuleBridgeReady() -> runCatching {
+                        coordinator.dispatchRootGlobalModuleBridge(
+                            coordinator.prepareRootGlobalModuleImportOnly(translated, replacedLocalIds),
                         )
+                        LiveDiagnosticsRecorder.get(applicationContext).record(
+                            "translation_root_library_refreshed",
+                            "Çevrilen MTZ Root Import modülüyle Xiaomi Temalar kitaplığında değiştirildi",
+                            mapOf("theme" to translated.displayName, "replacedLocalIds" to replacedLocalIds.joinToString()),
+                        )
+                        // The bridge runs in Xiaomi Themes' process. Wait for the new catalog
+                        // record and relink it so the following Apply uses this translated copy
+                        // rather than importing the archive a second time.
+                        var newLocalId: String? = null
+                        repeat(12) {
+                            if (newLocalId == null) {
+                                delay(750)
+                                newLocalId = runCatching {
+                                    importer.resolveImportedLocalId(translated, localIdsBeforeRefresh)
+                                }.getOrNull()
+                            }
+                        }
+                        newLocalId?.let { localId ->
+                            importer.rememberThemeManagerOrigin(localId, translated)
+                            LiveDiagnosticsRecorder.get(applicationContext).record(
+                                "translation_root_library_linked",
+                                "Çevrilen MTZ'nin Xiaomi Temalar kaydı eşleştirildi",
+                                mapOf("theme" to translated.displayName, "localId" to localId),
+                            )
+                        }
+                    }.onFailure { error ->
+                        LiveDiagnosticsRecorder.get(applicationContext).record(
+                            "translation_root_library_refresh_deferred",
+                            "Çevrilen MTZ için Root Temalar eşitlemesi uygulama adımına ertelendi",
+                            mapOf("theme" to translated.displayName),
+                            error,
+                        )
+                    }
+                    SheveryBackupRestorer.state() == SheveryBackupRestorer.State.READY -> {
+                    runCatching {
                         val localId = coordinator.importModernThroughShizukuBackup(translated)
                         DeviceThemeImporter.linkThemeManagerOrigin(
                             applicationContext,
@@ -154,6 +207,7 @@ internal class ThemeTranslationService : Service() {
                             mapOf("theme" to translated.displayName),
                             error,
                         )
+                    }
                     }
                 }
                 MtzPublicExporter.exportToPublicDownloads(
