@@ -34,11 +34,7 @@ data class ModelConfig(
             } catch (t: Throwable) {
                 throw OCRError.ConfigParseFailed(assetPath, t)
             }
-            val charListWithSpace = characterDict.toMutableList().apply {
-                if (lastOrNull() != " ") add(" ")
-            }
-
-            return ModelConfig(characterList = charListWithSpace)
+            return ModelConfig(characterList = characterDict)
         }
 
         private fun extractCharacterDict(content: String, assetPath: String): List<String> {
