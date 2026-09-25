@@ -335,6 +335,43 @@ internal class DeviceThemeImporter(
         linkThemeManagerOrigin(appContext, localId, theme.id.value, theme.archive.sha256)
     }
 
+    /**
+     * Removes only the exact, previously linked Xiaomi Themes records after a Studio archive was
+     * replaced.  The native importer has no in-place archive update API: leaving the old record
+     * visible makes every text/OCR pass look like another theme.  We therefore remove its metadata,
+     * preview and component files only after the new record has been observed successfully.
+     */
+    @Synchronized
+    fun removeReplacedThemeManagerRecords(localIds: Set<String>): Int {
+        val safeIds = localIds.filterTo(linkedSetOf()) { it.matches(SAFE_IDENTIFIER) }
+        if (safeIds.isEmpty()) return 0
+        val records = readRecords().filter { it.localId in safeIds }
+        if (records.isEmpty()) return 0
+        val command = buildString {
+            records.forEach { record ->
+                append("rm -f ").append(shellQuote("$THEME_DATA_ROOT/meta/theme/${record.localId}.mrm")).append('\n')
+                append("rm -rf ").append(shellQuote("$THEME_DATA_ROOT/preview/theme/${record.localId}")).append('\n')
+                record.resources.forEach { resource ->
+                    append("rm -f ").append(
+                        shellQuote("$THEME_DATA_ROOT/content/${resource.resourceCode}/${resource.localId}.mrc"),
+                    ).append('\n')
+                }
+            }
+            append("sync")
+        }
+        val result = commandRunner.run(command, 120)
+        check(result.exitCode == 0) { "Eski Xiaomi Temalar kaydı kaldırılamadı: ${result.output.takeLast(500)}" }
+        val editor = importOrigins.edit()
+        records.forEach { editor.remove(originKey(it.localId)).remove(hiddenKey(it.localId)) }
+        editor.apply()
+        diagnostics.record(
+            "theme_manager_replaced_records_removed",
+            "Çeviri öncesi Xiaomi Temalar kayıtları kaldırıldı",
+            mapOf("localIds" to records.joinToString { it.localId }),
+        )
+        return records.size
+    }
+
     /** Keeps a deliberately removed Studio mirror from being recreated by automatic catalog sync. */
     fun hideThemeManagerOriginFor(theme: LibraryTheme) {
         val localId = localIdFor(theme) ?: return

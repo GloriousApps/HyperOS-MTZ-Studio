@@ -170,10 +170,17 @@ internal class ThemeTranslationService : Service() {
                         }
                         newLocalId?.let { localId ->
                             importer.rememberThemeManagerOrigin(localId, translated)
+                            val removed = importer.removeReplacedThemeManagerRecords(
+                                replacedLocalIds - localId,
+                            )
                             LiveDiagnosticsRecorder.get(applicationContext).record(
                                 "translation_root_library_linked",
-                                "Çevrilen MTZ'nin Xiaomi Temalar kaydı eşleştirildi",
-                                mapOf("theme" to translated.displayName, "localId" to localId),
+                                "Çevrilen MTZ'nin Xiaomi Temalar kaydı eşleştirildi ve eski kayıt temizlendi",
+                                mapOf(
+                                    "theme" to translated.displayName,
+                                    "localId" to localId,
+                                    "removedRecords" to removed,
+                                ),
                             )
                         }
                     }.onFailure { error ->
