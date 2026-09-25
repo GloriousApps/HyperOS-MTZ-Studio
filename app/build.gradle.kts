@@ -68,7 +68,6 @@ dependencies {
     implementation(project(":tester-adapter"))
     implementation(project(":ppocr-sdk"))
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.21.1")
-    implementation("com.quickbirdstudios:opencv:4.5.3")
 
     val composeBom = platform("androidx.compose:compose-bom:2025.12.01")
     implementation(composeBom)

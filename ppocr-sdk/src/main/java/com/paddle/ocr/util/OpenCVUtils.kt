@@ -16,6 +16,7 @@ package com.paddle.ocr.util
 
 import android.content.Context
 import android.util.Log
+import org.opencv.android.OpenCVLoader
 
 object OpenCVUtils {
 
@@ -24,9 +25,11 @@ object OpenCVUtils {
     fun init(context: Context): Boolean {
         if (initialized) return true
         try {
-            System.loadLibrary("opencv_java4")
-            initialized = true
-        } catch (e: UnsatisfiedLinkError) {
+            initialized = OpenCVLoader.initLocal()
+            if (!initialized) {
+                Log.e("OpenCVUtils", "OpenCVLoader could not initialize the local OpenCV runtime")
+            }
+        } catch (e: Throwable) {
             Log.e("OpenCVUtils", "Failed to initialize OpenCV: ${e.message}")
         }
         return initialized
