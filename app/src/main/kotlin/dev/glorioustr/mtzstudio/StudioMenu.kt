@@ -3123,14 +3123,24 @@ private fun ThemeActionDock(
                 ) {
                     if (translationProgress?.running == true) {
                         val progress = translationProgress.fraction.coerceIn(0f, 1f)
-                        ReadableProgressBar(
-                            progress = progress,
-                            label = "${(progress * 100).toInt()}%",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
-                                .height(24.dp),
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            ReadableProgressBar(
+                                progress = progress,
+                                label = "${(progress * 100).toInt()}%",
+                                modifier = Modifier.fillMaxWidth().height(24.dp),
+                            )
+                            if (translationProgress.apiMode.isNotBlank()) {
+                                Text(
+                                    text = translationProgress.apiMode,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     } else {
                         Text(
                             text = stringResource(R.string.action_translate),

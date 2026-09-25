@@ -37,11 +37,20 @@ internal class ExperimentalThemeOcrLocalizer(
     private val context: Context? = null,
     private val preferPaddle: Boolean = false,
 ) {
-    data class Result(val scannedImages: Int, val changedImages: Int, val translatedLabels: Int, val skippedLabels: Int)
+    data class Result(
+        val scannedImages: Int,
+        val changedImages: Int,
+        val translatedLabels: Int,
+        val highConfidenceLabels: Int,
+        val mediumConfidenceLabels: Int,
+        val skippedLabels: Int,
+    )
 
     private var scannedImages = 0
     private var changedImages = 0
     private var translatedLabels = 0
+    private var highConfidenceLabels = 0
+    private var mediumConfidenceLabels = 0
     private var skippedLabels = 0
 
     fun rewrite(source: Path, output: Path): Result {
@@ -101,7 +110,14 @@ internal class ExperimentalThemeOcrLocalizer(
             recognizer.close()
             if (paddle != null) runCatching { runBlocking { paddle.release() } }
         }
-        return Result(scannedImages, changedImages, translatedLabels, skippedLabels)
+        return Result(
+            scannedImages,
+            changedImages,
+            translatedLabels,
+            highConfidenceLabels,
+            mediumConfidenceLabels,
+            skippedLabels,
+        )
     }
 
     private fun countImages(source: Path): Int {
@@ -149,13 +165,15 @@ internal class ExperimentalThemeOcrLocalizer(
                                 val top = points.minOf { it.y }.toInt()
                                 val right = points.maxOf { it.x }.toInt()
                                 val bottom = points.maxOf { it.y }.toInt()
-                                if (right > left && bottom > top) DetectedLine(item.text, Rect(left, top, right, bottom)) else null
+                                if (right > left && bottom > top) {
+                                    DetectedLine(item.text, Rect(left, top, right, bottom), item.confidence)
+                                } else null
                             }
                     }
                 } else {
                     Tasks.await(recognizer.process(InputImage.fromBitmap(observed, 0)), 30, TimeUnit.SECONDS)
                         .textBlocks.flatMap { it.lines }
-                        .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it)) } }
+                        .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it), .65f) } }
                 }
             } finally {
                 if (observed !== source) observed.recycle()
@@ -166,6 +184,7 @@ internal class ExperimentalThemeOcrLocalizer(
             lines.forEach { line ->
                 if (!CJK.containsMatchIn(line.text)) return@forEach
                 if (CJK.findAll(line.text).count() < 2) { skippedLabels++; unsafe = true; return@forEach }
+                if (line.confidence >= HIGH_CONFIDENCE) highConfidenceLabels++ else mediumConfidenceLabels++
                 val originalBox = line.box
                 val box = Rect(originalBox.left / scale, originalBox.top / scale,
                     (originalBox.right + scale - 1) / scale, (originalBox.bottom + scale - 1) / scale)
@@ -213,7 +232,7 @@ internal class ExperimentalThemeOcrLocalizer(
     }
 
     private data class Plan(val region: RectF, val background: Int, val foreground: Int, val fontSize: Float)
-    private data class DetectedLine(val text: String, val box: Rect)
+    private data class DetectedLine(val text: String, val box: Rect, val confidence: Float)
 
     private fun planText(bitmap: Bitmap, box: Rect, text: String, allBoxes: List<Rect>, scale: Int): Plan? {
         val height = box.height().toFloat()
@@ -283,12 +302,36 @@ internal class ExperimentalThemeOcrLocalizer(
         override fun close() = Unit
     }
 
-    private companion object {
+    internal companion object {
         val CJK = Regex("[\\p{IsHan}]")
         const val MAX_IMAGE_BYTES = 4L * 1024 * 1024
+        const val HIGH_CONFIDENCE = .85f
         const val MAX_PIXELS = 5_000_000L
         // Larger assets tend to be composites or screenshots; do not paint partial text onto them.
         const val MAX_OCR_WIDTH = 800
         const val MAX_OCR_HEIGHT = 300
+
+        /** Counts exactly the assets the OCR stage may inspect, for truthful progress. */
+        fun countEligibleImages(source: Path): Int {
+            var count = 0
+            ZipFile(source.toFile()).use { outer ->
+                outer.entries().asSequence()
+                    .filter { it.name == "lockscreen" || it.name == "clock_2x4" }
+                    .forEach { component ->
+                        outer.getInputStream(component).use { stream ->
+                            ZipInputStream(stream).use { nested ->
+                                while (count < 250) {
+                                    val entry = nested.nextEntry ?: break
+                                    if (!entry.isDirectory && isEligibleImageName(entry.name)) count++
+                                }
+                            }
+                        }
+                    }
+            }
+            return count
+        }
+
+        private fun isEligibleImageName(name: String): Boolean = !name.endsWith(".9.png", true) &&
+            (name.endsWith(".png", true) || name.endsWith(".webp", true))
     }
 }

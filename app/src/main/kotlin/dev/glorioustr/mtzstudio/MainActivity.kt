@@ -340,6 +340,7 @@ private fun StudioScreen(
     var translateBakToAppLanguage by remember { mutableStateOf(false) }
     var pendingApplyTheme by remember { mutableStateOf<LibraryTheme?>(null) }
     var pendingOcrTheme by remember { mutableStateOf<LibraryTheme?>(null) }
+    var completedOcrSummary by remember { mutableStateOf<ThemeOcrSummary?>(null) }
     var preparedApply by remember { mutableStateOf<PreparedThemeApply?>(null) }
     var themeOperationRunning by remember { mutableStateOf(false) }
     var mtzImportTotal by remember { mutableIntStateOf(0) }
@@ -610,7 +611,14 @@ private fun StudioScreen(
                     val translatedTheme = translationProgress.themeId?.let { id ->
                         themes.firstOrNull { it.id.value == id }
                     }
-                    if (translatedTheme != null) pendingOcrTheme = translatedTheme
+                    // A normal text-only pass may offer exactly one optional OCR pass. An OCR
+                    // completion must never re-open the same prompt and start a loop.
+                    if (!translationProgress.experimentalOcr && translatedTheme != null) {
+                        pendingOcrTheme = translatedTheme
+                    }
+                    if (translationProgress.experimentalOcr) {
+                        completedOcrSummary = translationProgress.ocrSummary
+                    }
                 } else {
                     status = resources.getString(R.string.theme_language_tool_failed, translationProgress.error)
                     operationError = status
@@ -2534,6 +2542,36 @@ private fun StudioScreen(
                 TextButton(onClick = {
                     pendingOcrTheme = null
                 }) { Text(stringResource(R.string.experimental_ocr_skip)) }
+            },
+        )
+    }
+
+    completedOcrSummary?.let { summary ->
+        AlertDialog(
+            onDismissRequest = { completedOcrSummary = null },
+            title = { Text("OCR çeviri özeti") },
+            text = {
+                Column {
+                    Text("Taranan görsel: ${summary.scannedImages}")
+                    Text("Güvenle düzenlenen görsel: ${summary.changedImages}")
+                    Text(
+                        "Yüksek güven: ${summary.highConfidenceLabels}",
+                        color = Color(0xFF178A4B),
+                    )
+                    Text(
+                        "Orta güven: ${summary.mediumConfidenceLabels}",
+                        color = Color(0xFFD48806),
+                    )
+                    Text(
+                        "Atlanan metin: ${summary.skippedLabels}",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { completedOcrSummary = null }) {
+                    Text(stringResource(R.string.action_close))
+                }
             },
         )
     }

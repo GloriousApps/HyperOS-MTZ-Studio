@@ -29,10 +29,21 @@ internal data class ThemeTranslationProgress(
     val completed: Boolean = false,
     val error: String? = null,
     val apiWarnings: List<String> = emptyList(),
+    val experimentalOcr: Boolean = false,
+    val apiMode: String = "",
+    val ocrSummary: ThemeOcrSummary? = null,
 ) {
     val fraction: Float
         get() = if (!running) 1f else if (total <= 0) 0f else (processed.toFloat() / total).coerceIn(0f, 1f)
 }
+
+internal data class ThemeOcrSummary(
+    val scannedImages: Int = 0,
+    val changedImages: Int = 0,
+    val highConfidenceLabels: Int = 0,
+    val mediumConfidenceLabels: Int = 0,
+    val skippedLabels: Int = 0,
+)
 
 internal object ThemeTranslationProgressStore {
     private val mutableState = MutableStateFlow(ThemeTranslationProgress())
@@ -59,7 +70,18 @@ internal class ThemeTranslationService : Service() {
         if (runningJob?.isActive == true) return START_NOT_STICKY
         val themeName = intent.getStringExtra(EXTRA_THEME_NAME).orEmpty()
         val experimentalOcr = intent.getBooleanExtra(EXTRA_EXPERIMENTAL_OCR, false)
-        val initial = ThemeTranslationProgress(themeId, themeName, running = true)
+        val apiSettings = AiTranslationSettingsStore(applicationContext).load()
+        val initial = ThemeTranslationProgress(
+            themeId = themeId,
+            themeName = themeName,
+            running = true,
+            experimentalOcr = experimentalOcr,
+            apiMode = if (experimentalOcr && apiSettings.isReady) {
+                "API: ${apiSettings.provider.title}"
+            } else {
+                "Yerel çeviri"
+            },
+        )
         ThemeTranslationProgressStore.update(initial)
         startForeground(NOTIFICATION_ID, notification(initial))
         runningJob = scope.launch {
@@ -79,6 +101,9 @@ internal class ThemeTranslationService : Service() {
                                 processed = processed,
                                 total = total,
                                 running = true,
+                                experimentalOcr = experimentalOcr,
+                                apiMode = ThemeTranslationProgressStore.state.value.apiMode,
+                                ocrSummary = ThemeTranslationProgressStore.state.value.ocrSummary,
                             )
                             ThemeTranslationProgressStore.update(progress)
                             getSystemService(NotificationManager::class.java)
@@ -89,6 +114,10 @@ internal class ThemeTranslationService : Service() {
                             ThemeTranslationProgressStore.update(
                                 current.copy(apiWarnings = warnings.distinct()),
                             )
+                        },
+                        onOcrSummary = { summary ->
+                            val current = ThemeTranslationProgressStore.state.value
+                            ThemeTranslationProgressStore.update(current.copy(ocrSummary = summary))
                         },
                     )
                 // Translation replaces Studio's MTZ while Xiaomi Themes keeps its own copy.
@@ -139,6 +168,9 @@ internal class ThemeTranslationService : Service() {
                     total = 1,
                     completed = true,
                     apiWarnings = ThemeTranslationProgressStore.state.value.apiWarnings,
+                    experimentalOcr = experimentalOcr,
+                    apiMode = ThemeTranslationProgressStore.state.value.apiMode,
+                    ocrSummary = ThemeTranslationProgressStore.state.value.ocrSummary,
                 )
             }.getOrElse { error ->
                 ThemeTranslationProgress(
@@ -147,6 +179,9 @@ internal class ThemeTranslationService : Service() {
                     completed = true,
                     error = error.message ?: error::class.simpleName,
                     apiWarnings = ThemeTranslationProgressStore.state.value.apiWarnings,
+                    experimentalOcr = experimentalOcr,
+                    apiMode = ThemeTranslationProgressStore.state.value.apiMode,
+                    ocrSummary = ThemeTranslationProgressStore.state.value.ocrSummary,
                 )
             }.also { result ->
                 ThemeTranslationProgressStore.update(result)

@@ -38,6 +38,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
         allowApiTranslation: Boolean,
         onProgress: (processed: Int, total: Int) -> Unit = { _, _ -> },
         onApiWarnings: (List<String>) -> Unit = {},
+        onOcrSummary: (ThemeOcrSummary) -> Unit = {},
     ): LibraryTheme {
         val locale = appContext.resources.configuration.locales[0] ?: Locale.getDefault()
         val target = translateLanguage(locale.toLanguageTag())
@@ -60,12 +61,17 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
             shouldTranslate = TranslationTextFilter::isCandidate,
         ).collectCandidates(original).map(String::trim).filter(String::isNotBlank).distinct()
         val totalCandidates = allCandidates.size.coerceAtLeast(1)
+        // OCR work is counted by real eligible image files, rather than squeezing the entire
+        // visual stage into a fixed final percentage range.
+        val ocrImageCount = if (experimentalOcr) {
+            ExperimentalThemeOcrLocalizer.countEligibleImages(original)
+        } else 0
+        val totalWork = (totalCandidates + ocrImageCount).coerceAtLeast(1)
         val reportedCandidates = linkedSetOf<String>()
         var ocrStage = false
         fun reportTextProgress(processed: Int) {
             if (!ocrStage) {
-                if (experimentalOcr) onProgress(processed * 800 / totalCandidates, 1000)
-                else onProgress(processed, totalCandidates)
+                onProgress(processed.coerceAtMost(totalCandidates), totalWork)
             }
         }
         reportTextProgress(0)
@@ -229,11 +235,24 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                 ExperimentalThemeOcrLocalizer(
                     translate = ::translate,
                     onProgress = { processed, total ->
-                        onProgress(800 + processed * 200 / total.coerceAtLeast(1), 1000)
+                        onProgress(
+                            (totalCandidates + processed).coerceAtMost(totalWork),
+                            totalWork,
+                        )
                     },
                     context = appContext,
                     preferPaddle = true,
-                ).rewrite(previewOutput, ocrOutput)
+                ).rewrite(previewOutput, ocrOutput).also { ocr ->
+                    onOcrSummary(
+                        ThemeOcrSummary(
+                            scannedImages = ocr.scannedImages,
+                            changedImages = ocr.changedImages,
+                            highConfidenceLabels = ocr.highConfidenceLabels,
+                            mediumConfidenceLabels = ocr.mediumConfidenceLabels,
+                            skippedLabels = ocr.skippedLabels,
+                        ),
+                    )
+                }
             }.getOrElse { error ->
                 diagnostics.record("theme_experimental_ocr_failed", "Deneysel OCR atlandı; metin çevirisi korundu", error = error)
                 null
