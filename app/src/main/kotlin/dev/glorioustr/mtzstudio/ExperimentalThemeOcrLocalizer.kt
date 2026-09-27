@@ -17,15 +17,15 @@ import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.paddle.ocr.PaddleOCR
 import com.paddle.ocr.util.OpenCVUtils
 import kotlinx.coroutines.runBlocking
-import org.json.JSONArray
-import org.json.JSONObject
+import org.opencv.android.Utils
+import org.opencv.core.Core
+import org.opencv.core.Mat
+import org.opencv.core.Size
+import org.opencv.imgproc.Imgproc
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Base64
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -56,7 +56,8 @@ internal class ExperimentalThemeOcrLocalizer(
     private var highConfidenceLabels = 0
     private var mediumConfidenceLabels = 0
     private var skippedLabels = 0
-    private var cloudVisionRequests = 0
+    // OCR selection is deliberately based on pixels, never on a global image count.
+    private val openCvReady by lazy { context?.let { OpenCVUtils.init(it) } == true }
 
     fun rewrite(source: Path, output: Path): Result {
         require(source.toAbsolutePath().normalize() != output.toAbsolutePath().normalize())
@@ -190,47 +191,27 @@ internal class ExperimentalThemeOcrLocalizer(
 
     private fun selectImages(source: Path): Map<String, Set<String>> {
         val result = linkedMapOf<String, Set<String>>()
-        var remaining = MAX_SCANNED_IMAGES
         ZipFile(source.toFile()).use { outer ->
             outer.entries().asSequence()
                 .filter { isComponentEntry(it) }
                 .forEach { component ->
-                    if (remaining == 0) return@forEach
                     val nestedPath = Files.createTempFile(source.parent, ".mtz-ocr-select-", ".zip")
                     try {
                         outer.getInputStream(component).use { input ->
                             Files.newOutputStream(nestedPath).use { input.copyTo(it) }
                         }
                         ZipFile(nestedPath.toFile()).use { nested ->
-                            val manifest = nested.getEntry("advance/manifest.xml")?.let { entry ->
-                                if (entry.size in 1..MAX_IMAGE_BYTES) nested.getInputStream(entry).bufferedReader().use { it.readText() }
-                                else ""
-                            }.orEmpty()
-                            val referenced = SOURCE_REFERENCE.findAll(manifest).map { it.groupValues[1] }.toSet()
-                            val buttonImages = BUTTON_CONTENT.findAll(manifest)
-                                .filter { TEXT_ELEMENT.containsMatchIn(it.groupValues[1]) }
-                                .flatMap { SOURCE_REFERENCE.findAll(it.groupValues[1]).map { match -> match.groupValues[1] } }
-                                .toSet()
+                            // Do not trust an MTZ manifest or a filename to decide whether an
+                            // image contains text.  Widgets and clock faces commonly store their
+                            // labels under opaque names or omit their manifest references.
                             val candidates = nested.entries().asSequence()
-                                .filter { !it.isDirectory && isImage(it.name) && it.size in 1..MAX_IMAGE_BYTES }
+                                .filter { !it.isDirectory && mayContainRaster(it.name) }
                                 .mapNotNull { entry ->
                                     val bytes = nested.getInputStream(entry).use { it.readBytes() }
-                                    if (!isEligibleImage(bytes)) null else entry.name
+                                    if (isEligibleImage(bytes) && isLikelyTextAsset(bytes)) entry.name else null
                                 }
-                                .sortedWith(compareBy<String> { name ->
-                                    val path = name.removePrefix("advance/")
-                                    when {
-                                        path in buttonImages -> 0
-                                        path in referenced && UI_IMAGE_NAME.containsMatchIn(path) -> 1
-                                        path in referenced -> 2
-                                        UI_IMAGE_NAME.containsMatchIn(path) -> 3
-                                        else -> 4
-                                    }
-                                }.thenBy { it })
-                                .take(remaining)
-                                .toSet()
+                                .toCollection(linkedSetOf())
                             result[component.name] = candidates
-                            remaining -= candidates.size
                         }
                     } finally {
                         Files.deleteIfExists(nestedPath)
@@ -248,7 +229,6 @@ internal class ExperimentalThemeOcrLocalizer(
         writeChanges: Boolean,
     ): ByteArray? {
         if (!isEligibleImage(bytes)) return null
-        if (scannedImages >= MAX_SCANNED_IMAGES) return null
         val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
         scannedImages++
         try {
@@ -260,60 +240,7 @@ internal class ExperimentalThemeOcrLocalizer(
                         .textBlocks.flatMap { it.lines }
                         .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it), line.confidence ?: .65f) } }
 
-                fun recognizeWithCloudVision(): List<DetectedLine>? {
-                    // The online engine is deliberately used only after the user approves OCR
-                    // rewriting. Preview scans remain local and never consume API quota.
-                    if (!writeChanges || BuildConfig.VISION_API_KEY.isBlank() ||
-                        cloudVisionRequests >= MAX_CLOUD_VISION_REQUESTS
-                    ) return null
-                    cloudVisionRequests++
-                    return runCatching {
-                        val png = ByteArrayOutputStream().use { stream ->
-                            check(observed.compress(Bitmap.CompressFormat.PNG, 100, stream))
-                            stream.toByteArray()
-                        }
-                        val request = JSONObject().put("requests", JSONArray().put(
-                            JSONObject()
-                                .put("image", JSONObject().put("content", Base64.getEncoder().encodeToString(png)))
-                                .put("features", JSONArray().put(JSONObject().put("type", "TEXT_DETECTION").put("maxResults", 50)))
-                                .put("imageContext", JSONObject().put("languageHints", JSONArray().put("zh-Hans").put("zh-Hant")))
-                        )).toString()
-                        val connection = (URL("https://vision.googleapis.com/v1/images:annotate?key=${BuildConfig.VISION_API_KEY}")
-                            .openConnection() as HttpURLConnection).apply {
-                            requestMethod = "POST"
-                            connectTimeout = 20_000
-                            readTimeout = 30_000
-                            doOutput = true
-                            setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                        }
-                        try {
-                            connection.outputStream.bufferedWriter().use { it.write(request) }
-                            check(connection.responseCode in 200..299) { "Vision HTTP ${connection.responseCode}" }
-                            val response = connection.inputStream.bufferedReader().use { it.readText() }
-                            val annotations = JSONObject(response)
-                                .optJSONArray("responses")?.optJSONObject(0)
-                                ?.optJSONArray("textAnnotations") ?: JSONArray()
-                            // Index 0 is the entire page; following entries retain individual
-                            // bounding boxes that can safely be redrawn by our existing planner.
-                            (1 until annotations.length()).mapNotNull { index ->
-                                val item = annotations.optJSONObject(index) ?: return@mapNotNull null
-                                val vertices = item.optJSONObject("boundingPoly")?.optJSONArray("vertices") ?: return@mapNotNull null
-                                val points = (0 until vertices.length()).mapNotNull { vertex ->
-                                    vertices.optJSONObject(vertex)?.let { it.optInt("x") to it.optInt("y") }
-                                }
-                                if (points.isEmpty()) return@mapNotNull null
-                                val left = points.minOf { it.first }; val top = points.minOf { it.second }
-                                val right = points.maxOf { it.first }; val bottom = points.maxOf { it.second }
-                                item.optString("description").takeIf { right > left && bottom > top && it.isNotBlank() }
-                                    ?.let { DetectedLine(it, Rect(left, top, right, bottom), .96f) }
-                            }
-                        } finally {
-                            connection.disconnect()
-                        }
-                    }.getOrNull()
-                }
-
-                recognizeWithCloudVision()?.takeIf { it.isNotEmpty() } ?: if (paddle != null) {
+                if (paddle != null) {
                     runCatching {
                         runBlocking {
                             paddle.recognize(observed).results
@@ -385,7 +312,13 @@ internal class ExperimentalThemeOcrLocalizer(
                 canvas.restore()
             }
             val stream = ByteArrayOutputStream()
-            val format = if (name.endsWith(".png", true)) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.WEBP
+            // JPEG must remain JPEG: some MTZ renderers select a decoder from the filename,
+            // rather than sniffing the image header.  PNG/WebP retain their existing format.
+            val format = when {
+                name.endsWith(".png", true) -> Bitmap.CompressFormat.PNG
+                name.endsWith(".jpg", true) || name.endsWith(".jpeg", true) -> Bitmap.CompressFormat.JPEG
+                else -> Bitmap.CompressFormat.WEBP
+            }
             val encoded = result.compress(format, 100, stream)
             result.recycle()
             if (!encoded) return null
@@ -477,14 +410,105 @@ internal class ExperimentalThemeOcrLocalizer(
         return Color.rgb(red, green, blue)
     }
 
-    private fun isImage(name: String): Boolean = !name.endsWith(".9.png", true) &&
-        (name.endsWith(".png", true) || name.endsWith(".webp", true))
+    /**
+     * Retains every asset that BitmapFactory may plausibly decode.  File extensions are only
+     * used to avoid known non-raster payloads; extension-less bitmaps are intentionally kept.
+     */
+    private fun mayContainRaster(name: String): Boolean {
+        val lower = name.lowercase()
+        return NON_RASTER_SUFFIXES.none(lower::endsWith)
+    }
 
     private fun isEligibleImage(bytes: ByteArray): Boolean {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        return bounds.outWidth in 24..MAX_OCR_WIDTH && bounds.outHeight in 12..MAX_OCR_HEIGHT &&
-            bounds.outWidth.toLong() * bounds.outHeight <= MAX_PIXELS
+        return bounds.outWidth > 0 && bounds.outHeight > 0
+    }
+
+    /**
+     * Cheap, high-recall local gate before either OCR engine receives an image.  It analyses a
+     * sampled bitmap, so a 4K clock face costs roughly the same as a small icon.  The gate is
+     * deliberately permissive: a false positive costs one local OCR pass, while a false
+     * negative would permanently hide a translated label from the user.
+     */
+    private fun isLikelyTextAsset(bytes: ByteArray): Boolean {
+        if (!openCvReady) return true
+        val preview = decodeForPreflight(bytes) ?: return false
+        val rgba = Mat()
+        val gray = Mat()
+        val blurred = Mat()
+        val edges = Mat()
+        val darkText = Mat()
+        val lightText = Mat()
+        val mask = Mat()
+        val labels = Mat()
+        val stats = Mat()
+        val centroids = Mat()
+        try {
+            Utils.bitmapToMat(preview, rgba)
+            Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGBA2GRAY)
+            Imgproc.GaussianBlur(gray, blurred, Size(3.0, 3.0), 0.0)
+            Imgproc.Canny(blurred, edges, 55.0, 145.0)
+            val edgeDensity = Core.countNonZero(edges).toFloat() / (edges.rows() * edges.cols())
+
+            Imgproc.adaptiveThreshold(
+                blurred, darkText, 255.0,
+                Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 31, 7.0,
+            )
+            Imgproc.adaptiveThreshold(
+                blurred, lightText, 255.0,
+                Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 31, 7.0,
+            )
+            Core.bitwise_or(darkText, lightText, mask)
+
+            val componentCount = Imgproc.connectedComponentsWithStats(mask, labels, stats, centroids)
+            val minimumHeight = max(4, preview.height / 260)
+            val maximumHeight = max(minimumHeight + 1, preview.height / 2)
+            val minimumArea = max(6, preview.width * preview.height / 180_000)
+            var glyphs = 0
+            val rows = hashMapOf<Int, Int>()
+
+            for (label in 1 until componentCount) {
+                val x = stats.get(label, Imgproc.CC_STAT_LEFT)[0].toInt()
+                val y = stats.get(label, Imgproc.CC_STAT_TOP)[0].toInt()
+                val width = stats.get(label, Imgproc.CC_STAT_WIDTH)[0].toInt()
+                val height = stats.get(label, Imgproc.CC_STAT_HEIGHT)[0].toInt()
+                val area = stats.get(label, Imgproc.CC_STAT_AREA)[0].toInt()
+                val aspect = width.toFloat() / height.coerceAtLeast(1)
+                if (x >= 0 && y >= 0 && area >= minimumArea && width >= 2 &&
+                    height in minimumHeight..maximumHeight && aspect in 0.07f..14f
+                ) {
+                    glyphs++
+                    rows[y / max(minimumHeight, 8)] = (rows[y / max(minimumHeight, 8)] ?: 0) + 1
+                }
+            }
+
+            val lineLikeGroups = rows.values.count { it >= 2 }
+            // Keep ambiguous assets.  Text may be one or two large CJK glyphs in a widget.
+            return glyphs >= 3 || lineLikeGroups > 0 || (glyphs >= 1 && edgeDensity in 0.004f..0.30f)
+        } catch (_: Exception) {
+            // A native OpenCV failure must never turn into a missed translation candidate.
+            return true
+        } finally {
+            preview.recycle()
+            rgba.release(); gray.release(); blurred.release(); edges.release()
+            darkText.release(); lightText.release(); mask.release()
+            labels.release(); stats.release(); centroids.release()
+        }
+    }
+
+    private fun decodeForPreflight(bytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (bounds.outWidth / sample > PREFLIGHT_MAX_SIDE || bounds.outHeight / sample > PREFLIGHT_MAX_SIDE) {
+            sample *= 2
+        }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        })
     }
 
     private fun ZipOutputStream.nonClosing(): OutputStream = object : OutputStream() {
@@ -496,41 +520,19 @@ internal class ExperimentalThemeOcrLocalizer(
 
     internal companion object {
         val CJK = Regex("[\\p{IsHan}]")
-        const val MAX_IMAGE_BYTES = 4L * 1024 * 1024
-        const val MAX_SCANNED_IMAGES = 400
-        // An opt-in online run never uses the whole free monthly Vision allowance.
-        const val MAX_CLOUD_VISION_REQUESTS = 80
         const val HIGH_CONFIDENCE = .85f
-        const val MAX_PIXELS = 5_000_000L
-        // Generous bounds for full lockscreen composites; MAX_PIXELS is the real safety guard.
-        const val MAX_OCR_WIDTH = 1440
-        const val MAX_OCR_HEIGHT = 2560
+        const val PREFLIGHT_MAX_SIDE = 1024
         // Entries that look like components but are not theme components.
         val NON_COMPONENT_ENTRIES = setOf("preview", "icons", "description.xml", "theme_values.xml", "wallpaper", "res", "raw", "fonts", "audio", "boots")
-        val SOURCE_REFERENCE = Regex("(?i)<image\\b[^>]*\\bsrc\\s*=\\s*['\"]([^'\"]+)['\"]")
-        val BUTTON_CONTENT = Regex("(?is)<(?:Normal|Pressed)\\b[^>]*>(.*?)</(?:Normal|Pressed)>")
-        val TEXT_ELEMENT = Regex("(?i)<Text\\b")
-        val UI_IMAGE_NAME = Regex(
-            "(?i)(?:" +
-                // Buttons, controls and labels
-                "button|btn|menu|widget|setting|switch|tab|anniu|icon|text|label|title|hint|prompt|dialog|popup|toast|tip|badge|chip|pill|capsule|action|control|key|item|entry|option|toggle|check|radio|slider|seekbar|progress|" +
-                // Clock, weather and status
-                "clock|date|time|weather|music|step|battery|charge|alarm|timer|calendar|note|lock|unlock|power|volume|brightness|flashlight|camera|phone|message|contact|search|" +
-                // Navigation and actions
-                "close|exit|back|home|next|prev|play|pause|stop|add|remove|delete|edit|save|share|refresh|retry|cancel|confirm|ok|yes|no|on|off|open|more|less|arrow|chevron|plus|minus|star|heart|like|favorite|bookmark|download|upload|sync|" +
-                // Connectivity and media
-                "wifi|bluetooth|gps|location|signal|network|data|sim|airplane|dnd|silent|vibrate|ring|mute|speaker|headset|mic|record|video|photo|image|gallery|folder|file|doc|mail|email|sms|call|chat|" +
-                // Identity and security
-                "user|profile|avatar|account|login|logout|password|pin|pattern|fingerprint|face|security|privacy|permission|help|info|about|version|update|install|uninstall|clear|reset|restore|backup|import|export|apply|use|select|choose|pick|set|done|finish|start|end|continue|skip|later|now|today|" +
-                // Time and environment
-                "week|month|year|hour|minute|second|day|night|sun|moon|cloud|rain|snow|wind|fog|hot|cold|high|low|max|min|auto|manual|custom|default|normal|pressed|disabled|enabled|active|inactive|selected|checked|hover|focus|" +
-                // Appearance and size
-                "light|dark|white|black|red|green|blue|yellow|orange|purple|pink|gray|grey|brown|cyan|magenta|solid|gradient|outline|fill|stroke|border|corner|radius|size|small|medium|large" +
-            ")"
+        val NON_RASTER_SUFFIXES = setOf(
+            ".xml", ".json", ".maml", ".txt", ".js", ".css", ".ttf", ".otf", ".mp3", ".wav", ".ogg", ".zip",
         )
 
-        /** Counts exactly the prioritized assets the OCR stage may inspect. */
-        fun countEligibleImages(source: Path): Int =
-            ExperimentalThemeOcrLocalizer({ it }).selectImages(source).values.sumOf(Set<String>::size)
+        /** Counts the same image-content candidates that the local OCR stage will receive. */
+        fun countEligibleImages(source: Path, context: Context): Int =
+            ExperimentalThemeOcrLocalizer({ it }, context = context)
+                .selectImages(source)
+                .values
+                .sumOf(Set<String>::size)
     }
 }

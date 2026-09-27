@@ -16,10 +16,6 @@ android {
         targetSdk = 36
         versionCode = 69
         versionName = "5.1.0"
-        // Supplied only by the protected CI secret. The Google Cloud key itself is
-        // additionally restricted to this signed Android package and Vision API.
-        val visionApiKey = providers.gradleProperty("mtzVisionApiKey").orNull.orEmpty()
-        buildConfigField("String", "VISION_API_KEY", "\"${visionApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     signingConfigs {
@@ -71,6 +67,8 @@ dependencies {
     implementation(project(":mtz-composer"))
     implementation(project(":tester-adapter"))
     implementation(project(":ppocr-sdk"))
+    // Used by the local image-content prefilter before OCR.
+    implementation("org.opencv:opencv:4.14.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.21.1")
 
     val composeBom = platform("androidx.compose:compose-bom:2025.12.01")

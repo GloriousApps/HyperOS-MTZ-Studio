@@ -66,7 +66,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
         // Even during a normal translation we scan visual assets once. The scan is read-only;
         // its result is presented after the text pass so OCR remains an explicit opt-in action.
         val ocrImageCount = runCatching {
-            ExperimentalThemeOcrLocalizer.countEligibleImages(original)
+            ExperimentalThemeOcrLocalizer.countEligibleImages(original, appContext)
         }.getOrDefault(0)
         val totalWork = (totalCandidates + ocrImageCount).coerceAtLeast(1)
         val reportedCandidates = linkedSetOf<String>()

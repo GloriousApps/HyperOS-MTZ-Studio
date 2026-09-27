@@ -55,8 +55,7 @@ jobs:
           MTZ_RELEASE_STORE_PASSWORD: ${{ secrets.MTZ_RELEASE_STORE_PASSWORD }}
           MTZ_RELEASE_KEY_ALIAS: ${{ secrets.MTZ_RELEASE_KEY_ALIAS }}
           MTZ_RELEASE_KEY_PASSWORD: ${{ secrets.MTZ_RELEASE_KEY_PASSWORD }}
-          MTZ_VISION_API_KEY: ${{ secrets.MTZ_VISION_API_KEY }}
-        run: ./gradlew assembleRelease -PmtzVisionApiKey="$MTZ_VISION_API_KEY" --stacktrace
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: Determine Tag and Title
         id: release_meta
