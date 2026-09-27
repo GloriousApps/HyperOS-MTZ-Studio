@@ -204,14 +204,21 @@ internal class ExperimentalThemeOcrLocalizer(
                             // Do not trust an MTZ manifest or a filename to decide whether an
                             // image contains text.  Widgets and clock faces commonly store their
                             // labels under opaque names or omit their manifest references.
-                            val candidates = nested.entries().asSequence()
+                            val decodable = linkedSetOf<String>()
+                            val textLike = linkedSetOf<String>()
+                            nested.entries().asSequence()
                                 .filter { !it.isDirectory && mayContainRaster(it.name) }
-                                .mapNotNull { entry ->
+                                .forEach { entry ->
                                     val bytes = nested.getInputStream(entry).use { it.readBytes() }
-                                    if (isEligibleImage(bytes) && isLikelyTextAsset(bytes)) entry.name else null
+                                    if (isEligibleImage(bytes)) {
+                                        decodable += entry.name
+                                        if (isLikelyTextAsset(bytes)) textLike += entry.name
+                                    }
                                 }
-                                .toCollection(linkedSetOf())
-                            result[component.name] = candidates
+                            // A content gate may be imperfect on a highly stylised theme.  Never
+                            // let it suppress an entire component (especially lockscreen or
+                            // clock widgets): OCR is the safe, local fallback in that case.
+                            result[component.name] = if (textLike.isNotEmpty()) textLike else decodable
                         }
                     } finally {
                         Files.deleteIfExists(nestedPath)
