@@ -342,7 +342,10 @@ internal class ThemeWidgetPreviewLocalizer(
             color = Color.BLACK
             typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
         }
-        val gray = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(216, 216, 216) }
+        // Preview images are tinted again by the MAML <Image> element. An opaque
+        // gray fill therefore becomes a solid theme-color block and hides every
+        // label beneath it. Keep surfaces as low-alpha masks like the originals.
+        val gray = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(42, 0, 0, 0) }
         fun clear(y: Float = 0f) = canvas.drawRect(0f, y, image.width.toFloat(), image.height.toFloat(),
             Paint().apply { xfermode = android.graphics.PorterDuffXfermode(PorterDuff.Mode.CLEAR) })
         fun label(value: String, x: Float, baseline: Float, maxWidth: Float, size: Float, center: Boolean = false) {
