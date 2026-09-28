@@ -19,9 +19,13 @@ import com.paddle.ocr.util.OpenCVUtils
 import kotlinx.coroutines.runBlocking
 import org.opencv.android.Utils
 import org.opencv.core.Core
+import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.Point
+import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
+import org.opencv.photo.Photo
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.nio.file.Files
@@ -91,7 +95,7 @@ internal class ExperimentalThemeOcrLocalizer(
                                                     val replacement = if (asset.name in selected) {
                                                         val bytes = nested.getInputStream(asset).use { it.readBytes() }
                                                         processedImages++
-                                                        val value = try { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = true) } catch (_: Exception) { null } ?: bytes
+                                                        val value = try { scanImage(bytes, "${entry.name}!/${asset.name}", recognizer, paddle, writeChanges = true) } catch (_: Exception) { null } ?: bytes
                                                         onProgress(processedImages, totalImages)
                                                         value
                                                     } else null
@@ -155,7 +159,7 @@ internal class ExperimentalThemeOcrLocalizer(
                                     if (!asset.isDirectory && asset.name in selected) {
                                         val bytes = nested.getInputStream(asset).use { it.readBytes() }
                                         processedImages++
-                                        runCatching { scanImage(bytes, asset.name, recognizer, paddle, writeChanges = false) }
+                                        runCatching { scanImage(bytes, "${component.name}!/${asset.name}", recognizer, paddle, writeChanges = false) }
                                         onProgress(processedImages, totalImages)
                                     }
                                 }
@@ -284,14 +288,24 @@ internal class ExperimentalThemeOcrLocalizer(
                 val originalBox = line.box
                 val box = Rect(originalBox.left / scale, originalBox.top / scale,
                     (originalBox.right + scale - 1) / scale, (originalBox.bottom + scale - 1) / scale)
-                if (box.width() < 8 || box.height() < 8) { skippedLabels++; return@forEach }
+                if (box.width() < 5 || box.height() < 5) {
+                    skippedLabels++
+                    recordOcrDecision(name, line, "atlandi", "algilanan alan cok kucuk")
+                    return@forEach
+                }
                 val translated = runCatching { translate(line.text.trim()) }.getOrNull()?.trim().orEmpty()
                 if (translated.isBlank() || CJK.containsMatchIn(translated) || translated == line.text.trim()) {
                     skippedLabels++
+                    recordOcrDecision(name, line, "atlandi", "yerel ceviri sonucu uygun degil", translated)
                     return@forEach
                 }
                 val plan = planText(source, box, translated, sourceBoxes, scale)
-                if (plan == null) { skippedLabels++; return@forEach }
+                if (plan == null) {
+                    skippedLabels++
+                    recordOcrDecision(name, line, "atlandi", "guvenli temizleme veya metin yerlesimi bulunamadi", translated)
+                    return@forEach
+                }
+                recordOcrDecision(name, line, "cevrildi", if (plan.background == null) "opencv inpaint" else "duz yuzey", translated)
                 plans += translated to plan
             }
             // Commit every label that could be planned. A partial replacement leaves some
@@ -299,13 +313,17 @@ internal class ExperimentalThemeOcrLocalizer(
             // image's translations, so one unplannable label no longer discards the rest.
             if (plans.isEmpty()) return null
             val result = source.copy(Bitmap.Config.ARGB_8888, true)
+            val inpaintRegions = plans.mapNotNull { (_, plan) -> if (plan.background == null) plan.sourceRegion else null }
+            if (inpaintRegions.isNotEmpty() && !inpaintRegions(result, inpaintRegions)) return null
             val canvas = Canvas(result)
             plans.forEach { (translated, plan) ->
-                val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = plan.background
-                    if (Color.alpha(plan.background) == 0) xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+                plan.background?.let { backgroundColor ->
+                    val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = backgroundColor
+                        if (Color.alpha(backgroundColor) == 0) xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+                    }
+                    canvas.drawRect(plan.region, background)
                 }
-                canvas.drawRect(plan.region, background)
                 val foreground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = plan.foreground
                     textSize = plan.fontSize
@@ -337,38 +355,131 @@ internal class ExperimentalThemeOcrLocalizer(
         }
     }
 
-    private data class Plan(val region: RectF, val background: Int, val foreground: Int, val fontSize: Float)
+    private data class Plan(
+        val region: RectF,
+        val sourceRegion: Rect,
+        val background: Int?,
+        val foreground: Int,
+        val fontSize: Float,
+    )
     private data class DetectedLine(val text: String, val box: Rect, val confidence: Float)
 
     private fun planText(bitmap: Bitmap, box: Rect, text: String, allBoxes: List<Rect>, scale: Int): Plan? {
         val height = box.height().toFloat()
-        if (height < 12f || box.left < 4 || box.right > bitmap.width - 4) return null
+        if (height < 5f || box.left < 1 || box.right > bitmap.width - 1) return null
         val tight = RectF(box.left - 3f, max(1f, box.top - height * .15f),
             box.right + 3f, min(bitmap.height - 1f, box.bottom + height * .15f))
-        val bg = sampleBackground(bitmap, tight, box) ?: return null
-        // A transparent button asset is composited over an unknown wallpaper at runtime.
-        // Choosing white or black from the asset alone can yield invisible text, so leave it.
-        if (Color.alpha(bg) < 245) return null
-        val surface = solidSurfaceSpan(bitmap, box, bg)
-        val width = (surface.second - surface.first - 4f).coerceAtMost(box.width() * 2.5f)
-        if (width < box.width() || width > bitmap.width - 4f) return null
+        val bg = sampleBackground(bitmap, tight, box)
+        val estimatedBackground = bg ?: estimateLocalBackground(bitmap, tight, box) ?: return null
+        // A transparent asset is composited over an unknown wallpaper at runtime. Repainting it
+        // would make a visible rectangle, so only opaque preview/card artwork is handled here.
+        if (Color.alpha(estimatedBackground) < 245) return null
+        val projectedBoxes = allBoxes.map { other ->
+            Rect(other.left / scale, other.top / scale, other.right / scale, other.bottom / scale)
+        }
+        val surface = if (bg != null) solidSurfaceSpan(bitmap, box, bg) else safeHorizontalSpan(bitmap, box, projectedBoxes)
+        val widthLimit = if (bg != null) box.width() * 2.5f else box.width() * 4f
+        val width = (surface.second - surface.first - 4f).coerceAtMost(widthLimit)
+        if (width < box.width() || width > bitmap.width - 2f) return null
         val left = (box.centerX() - width / 2f).coerceIn(surface.first + 2f, surface.second - width - 2f)
         val region = RectF(left, tight.top, left + width, tight.bottom)
-        if (allBoxes.any { other ->
-                val projected = Rect(other.left / scale, other.top / scale, other.right / scale, other.bottom / scale)
+        if (projectedBoxes.any { projected ->
                 (abs(projected.centerX() - box.centerX()) > 1 || abs(projected.centerY() - box.centerY()) > 1) &&
                     RectF.intersects(region, RectF(projected))
             }) return null
-        val foreground = if ((Color.red(bg) * .299 + Color.green(bg) * .587 + Color.blue(bg) * .114) > 145) Color.BLACK else Color.WHITE
+        val foreground = if ((Color.red(estimatedBackground) * .299 + Color.green(estimatedBackground) * .587 + Color.blue(estimatedBackground) * .114) > 145) Color.BLACK else Color.WHITE
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         var font = min(48f, height * .91f)
-        while (font >= max(8f, height * .35f)) {
+        while (font >= max(5f, height * .25f)) {
             paint.textSize = font
             if (paint.measureText(text) <= region.width() - 5f && font <= region.height() * .9f)
-                return Plan(region, bg, foreground, font)
+                return Plan(region, Rect(box), bg, foreground, font)
             font -= 1f
         }
         return null
+    }
+
+    /** Limits a translated label to free horizontal space without trusting filenames/layout XML. */
+    private fun safeHorizontalSpan(bitmap: Bitmap, box: Rect, boxes: List<Rect>): Pair<Int, Int> {
+        var left = 1
+        var right = bitmap.width - 1
+        boxes.forEach { other ->
+            if (other == box || other.bottom < box.top || other.top > box.bottom) return@forEach
+            if (other.right <= box.left) left = max(left, other.right + 2)
+            if (other.left >= box.right) right = min(right, other.left - 2)
+        }
+        return left to right
+    }
+
+    /**
+     * Returns a median colour even for gradients/textures, while rejecting transparent assets.
+     * It is used for contrast selection; OpenCV reconstructs the actual varying background.
+     */
+    private fun estimateLocalBackground(bitmap: Bitmap, region: RectF, box: Rect): Int? {
+        val samples = ArrayList<Int>()
+        for (y in region.top.toInt().coerceAtLeast(0) until region.bottom.toInt().coerceAtMost(bitmap.height)) {
+            for (x in region.left.toInt().coerceAtLeast(0) until region.right.toInt().coerceAtMost(bitmap.width)) {
+                if (x in box.left until box.right && y in box.top until box.bottom) continue
+                samples += bitmap.getPixel(x, y)
+            }
+        }
+        if (samples.size < 6 || samples.count { Color.alpha(it) >= 245 } < samples.size * .9) return null
+        val opaque = samples.filter { Color.alpha(it) >= 245 }
+        return Color.rgb(
+            opaque.map(Color::red).sorted()[opaque.size / 2],
+            opaque.map(Color::green).sorted()[opaque.size / 2],
+            opaque.map(Color::blue).sorted()[opaque.size / 2],
+        )
+    }
+
+    /** Removes detected source glyphs while preserving gradients, photos and textured cards. */
+    private fun inpaintRegions(bitmap: Bitmap, regions: List<Rect>): Boolean {
+        if (!openCvReady) return false
+        val rgba = Mat()
+        val rgb = Mat()
+        val alpha = Mat()
+        val mask = Mat.zeros(bitmap.height, bitmap.width, CvType.CV_8UC1)
+        val repaired = Mat()
+        val repairedRgba = Mat()
+        return try {
+            Utils.bitmapToMat(bitmap, rgba)
+            Imgproc.cvtColor(rgba, rgb, Imgproc.COLOR_RGBA2RGB)
+            Core.extractChannel(rgba, alpha, 3)
+            regions.forEach { region ->
+                val pad = max(1, min(region.width(), region.height()) / 8)
+                val left = (region.left - pad).coerceAtLeast(0)
+                val top = (region.top - pad).coerceAtLeast(0)
+                val right = (region.right + pad).coerceAtMost(bitmap.width - 1)
+                val bottom = (region.bottom + pad).coerceAtMost(bitmap.height - 1)
+                Imgproc.rectangle(mask, Point(left.toDouble(), top.toDouble()), Point(right.toDouble(), bottom.toDouble()), Scalar(255.0), -1)
+            }
+            Photo.inpaint(rgb, mask, repaired, 3.0, Photo.INPAINT_TELEA)
+            Imgproc.cvtColor(repaired, repairedRgba, Imgproc.COLOR_RGB2RGBA)
+            Core.insertChannel(alpha, repairedRgba, 3)
+            Utils.matToBitmap(repairedRgba, bitmap)
+            true
+        } catch (_: Exception) {
+            false
+        } finally {
+            rgba.release(); rgb.release(); alpha.release(); mask.release(); repaired.release(); repairedRgba.release()
+        }
+    }
+
+    private fun recordOcrDecision(path: String, line: DetectedLine, status: String, reason: String, translated: String = "") {
+        context?.let { appContext ->
+            LiveDiagnosticsRecorder.get(appContext).record(
+                "theme_ocr_label_$status",
+                "OCR etiketi $status",
+                mapOf(
+                    "path" to path,
+                    "source" to line.text,
+                    "translated" to translated,
+                    "confidence" to line.confidence,
+                    "box" to "${line.box.left},${line.box.top},${line.box.right},${line.box.bottom}",
+                    "reason" to reason,
+                ),
+            )
+        }
     }
 
     /** Finds the actual solid-color button surface on a row outside the detected glyphs. */
