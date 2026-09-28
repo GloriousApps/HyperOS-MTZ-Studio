@@ -124,7 +124,7 @@ class ThemeTextLocalizerTest {
         val variables = doc.getElementsByTagName("Var")
         assertTrue((0 until variables.length).any { index ->
             val variable = variables.item(index) as org.w3c.dom.Element
-            variable.getAttribute("name") == "select_text_color" && variable.getAttribute("expression").contains("select_bg_light_ani")
+            variable.getAttribute("name") == "select_text_color" && variable.getAttribute("expression") == "'#ffffffff'"
         })
     }
 
@@ -136,6 +136,37 @@ class ThemeTextLocalizerTest {
         val result = entry(Files.readAllBytes(output), "manifest.xml").toString(Charsets.UTF_8)
         assertTrue(result.contains("Kilit ayarları"))
         assertTrue(!result.contains("Kilit ekranı geçiş"))
+    }
+
+    @Test fun `panel labels stay light on the dark customization panel`() {
+        val xml = """<Root>
+            <Image w="1036" src="menu/menu_bg.9.png" alpha="#setting_bg_alpha"/>
+            <Var name="select_text_color" expression="ifelse(#select_bg_light_ani}0.5,'#ff202020','#ffffffff')"/>
+            <Text x="540" color="@select_text_color" text="小组件"/>
+            </Root>""".toByteArray()
+        val (source, output) = archive(zip("lockscreen" to zip("advance/manifest.xml" to xml)))
+        ThemeTextLocalizer().rewrite(source, output) { if (it == "小组件") "Bileşen" else it }
+        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(entry(nested(output, "lockscreen"), "advance/manifest.xml").inputStream())
+        val variables = doc.getElementsByTagName("Var")
+        val color = (0 until variables.length).map { variables.item(it) as org.w3c.dom.Element }
+            .first { it.getAttribute("name") == "select_text_color" }
+        assertEquals("'#ffffffff'", color.getAttribute("expression"))
+    }
+
+    @Test fun `panel contrast rule ignores documents without the panel background`() {
+        val xml = """<Root>
+            <Var name="select_text_color" expression="ifelse(#select_bg_light_ani}0.5,'#ff202020','#ffffffff')"/>
+            <Text x="540" color="@select_text_color" text="小组件"/>
+            </Root>""".toByteArray()
+        val (source, output) = archive(zip("lockscreen" to zip("advance/manifest.xml" to xml)))
+        ThemeTextLocalizer().rewrite(source, output) { if (it == "小组件") "Bileşen" else it }
+        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(entry(nested(output, "lockscreen"), "advance/manifest.xml").inputStream())
+        val variables = doc.getElementsByTagName("Var")
+        val color = (0 until variables.length).map { variables.item(it) as org.w3c.dom.Element }
+            .first { it.getAttribute("name") == "select_text_color" }
+        assertTrue(color.getAttribute("expression").contains("select_bg_light_ani"))
     }
 
     @Test fun `preserves MAML printf placeholders in translated format expressions`() {

@@ -432,9 +432,9 @@ internal class ExperimentalThemeOcrLocalizer(
                 (abs(projected.centerX() - box.centerX()) > 1 || abs(projected.centerY() - box.centerY()) > 1) &&
                     RectF.intersects(region, RectF(projected))
             }) return null
-        val foreground = if (transparentLayer) sampleGlyphColor(bitmap, box) else {
+        val foreground = if (transparentLayer) visibleGlyphColor(bitmap, box, sampleGlyphColor(bitmap, box)) else {
             val surfaceColor = estimatedBackground!!
-            if ((Color.red(surfaceColor) * .299 + Color.green(surfaceColor) * .587 + Color.blue(surfaceColor) * .114) > 145) Color.BLACK else Color.WHITE
+            if (luminance(surfaceColor) > 145) Color.BLACK else Color.WHITE
         }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         var font = min(48f, height * .91f)
@@ -534,6 +534,46 @@ internal class ExperimentalThemeOcrLocalizer(
             pixels.map(Color::blue).sorted()[pixels.size / 2],
         )
     }
+
+    /**
+     * A transparent overlay keeps its own glyph colour, but that colour was chosen for the
+     * surface the theme author had in mind. When the host draws the layer over a surface of
+     * similar luminance the translated label disappears, so fall back to a contrasting
+     * colour. The decision uses only the layer's own pixels, so it stays theme-agnostic.
+     */
+    private fun visibleGlyphColor(bitmap: Bitmap, box: Rect, glyph: Int): Int {
+        val backdrop = overlayBackdropLuminance(bitmap, box) ?: return glyph
+        val glyphLuminance = luminance(glyph)
+        if (abs(glyphLuminance - backdrop) >= MIN_GLYPH_CONTRAST) return glyph
+        return if (backdrop > 145) Color.BLACK else Color.WHITE
+    }
+
+    /**
+     * Estimates the luminance the overlay will sit on. A transparent layer carries no
+     * backdrop of its own, so the surrounding opaque artwork inside the same asset is the
+     * closest available proxy; when the asset is fully transparent there is nothing to
+     * measure and the caller keeps the sampled colour.
+     */
+    private fun overlayBackdropLuminance(bitmap: Bitmap, box: Rect): Int? {
+        val samples = ArrayList<Int>()
+        val pad = max(4, box.height() / 2)
+        val left = (box.left - pad).coerceAtLeast(0)
+        val right = (box.right + pad).coerceAtMost(bitmap.width)
+        val top = (box.top - pad).coerceAtLeast(0)
+        val bottom = (box.bottom + pad).coerceAtMost(bitmap.height)
+        for (y in top until bottom) {
+            for (x in left until right) {
+                if (x in box.left until box.right && y in box.top until box.bottom) continue
+                val pixel = bitmap.getPixel(x, y)
+                if (Color.alpha(pixel) >= 245) samples += pixel
+            }
+        }
+        if (samples.size < 8) return null
+        return samples.map(::luminance).sorted()[samples.size / 2]
+    }
+
+    private fun luminance(color: Int): Int =
+        (Color.red(color) * .299 + Color.green(color) * .587 + Color.blue(color) * .114).toInt()
 
     /** Removes detected source glyphs while preserving gradients, photos and textured cards. */
     private fun inpaintRegions(bitmap: Bitmap, regions: List<Rect>): Boolean {
@@ -734,6 +774,9 @@ internal class ExperimentalThemeOcrLocalizer(
         val CJK = Regex("[\\p{IsHan}]")
         const val HIGH_CONFIDENCE = .85f
         const val MIN_CONFIDENCE = .50f
+        // Minimum luminance gap between a translated label and the surface it sits on.
+        // Below this the label is unreadable, so a contrasting colour is substituted.
+        const val MIN_GLYPH_CONTRAST = 60
         const val PREFLIGHT_MAX_SIDE = 512
         // Entries that look like components but are not theme components.
         val NON_COMPONENT_ENTRIES = setOf("preview", "icons", "description.xml", "theme_values.xml", "wallpaper", "res", "raw", "fonts", "audio", "boots")

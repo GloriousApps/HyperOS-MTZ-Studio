@@ -312,7 +312,6 @@ class ThemeTextLocalizer(
         val images = document.getElementsByTagName("Image").let { all ->
             (0 until all.length).map { all.item(it) as Element }
         }
-        val hasWidgetPrompt = images.any { it.getAttribute("src") == WIDGET_PROMPT_SOURCE }
         var changed = 0
         images.forEach { image ->
             val source = image.getAttribute("src")
@@ -400,21 +399,38 @@ class ThemeTextLocalizer(
             image.parentNode.insertBefore(overlay, image.nextSibling)
             changed++
         }
-        if (hasWidgetPrompt &&
-            (0 until document.getElementsByTagName("Var").length).any {
-                (document.getElementsByTagName("Var").item(it) as? Element)?.getAttribute("name") == "select_bg_light_ani"
-            }
-        ) {
-            val variables = document.getElementsByTagName("Var")
-            for (index in 0 until variables.length) {
-                val variable = variables.item(index) as? Element ?: continue
-                if (variable.getAttribute("name") == "select_text_color" &&
-                    variable.getAttribute("expression") == "'#ffffffff'"
-                ) {
-                    variable.setAttribute("expression", "ifelse(#select_bg_light_ani}0.5,'#ff202020','#ffffffff')")
-                    changed++
-                }
-            }
+        changed += ensurePanelTextContrast(document)
+        return changed
+    }
+
+    /**
+     * The customization panel is painted by a fully opaque black nine-patch, so its surface is
+     * dark no matter what wallpaper sits behind it. Themes still derive the panel label colour
+     * from the wallpaper, which leaves dark text on the dark panel and makes the headings
+     * unreadable. Any label that resolves to a dark colour while the panel is open is forced to
+     * white. The rule keys off the panel's own background asset, so it stays theme-agnostic.
+     */
+    private fun ensurePanelTextContrast(document: Document): Int {
+        val images = document.getElementsByTagName("Image")
+        val panelBackgrounds = (0 until images.length).mapNotNull { images.item(it) as? Element }
+            .filter { it.getAttribute("src") in PANEL_BACKGROUNDS }
+        if (panelBackgrounds.isEmpty()) return 0
+        val panelAlpha = panelBackgrounds.firstNotNullOfOrNull { element ->
+            element.getAttribute("alpha").takeIf(String::isNotBlank)
+        }
+        // A translucent panel still reads as dark: the nine-patch is pure black and the theme
+        // caps its alpha well below opaque, so the composite stays far from white.
+        if (panelAlpha != null && !panelAlpha.contains("setting_bg_alpha")) return 0
+        var changed = 0
+        val variables = document.getElementsByTagName("Var")
+        for (index in 0 until variables.length) {
+            val variable = variables.item(index) as? Element ?: continue
+            if (variable.getAttribute("name") != "select_text_color") continue
+            // The wallpaper-derived expression already mentions white as one branch, so the
+            // check must be for the literal-only form rather than a substring match.
+            if (variable.getAttribute("expression") == "'#ffffffff'") continue
+            variable.setAttribute("expression", "'#ffffffff'")
+            changed++
         }
         return changed
     }
@@ -494,6 +510,9 @@ class ThemeTextLocalizer(
         // WebP that would be invisible on a white wallpaper, so it gets a dark
         // capsule backing and white lettering instead of the default dark text.
         private const val WIDGET_PROMPT_SOURCE = "menu/add_widget.webp"
+        // The customization panel is drawn by a pure black nine-patch, so labels on it
+        // must stay light regardless of the wallpaper-derived theme colour.
+        private val PANEL_BACKGROUNDS = setOf("menu/menu_bg.9.png", "menu/menu_bg_boder.9.png")
 
         private fun isOpaqueComponent(name: String, depth: Int): Boolean =
             depth == 0 && name.substringAfterLast('/').equals("icons", ignoreCase = true)
