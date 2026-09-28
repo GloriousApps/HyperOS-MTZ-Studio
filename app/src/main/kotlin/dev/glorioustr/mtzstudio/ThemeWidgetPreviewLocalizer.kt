@@ -67,6 +67,10 @@ internal class ThemeWidgetPreviewLocalizer(
                                                         scanned++
                                                         renderSuper19Artwork(component.name, bytes)
                                                     }
+                                                    matchingTheme && component.name == "advance/menu/add_widget.webp" -> {
+                                                        scanned++
+                                                        renderSuperDuoAddWidget(bytes)
+                                                    }
                                                     matchingTheme && PREVIEW.matches(component.name) -> {
                                                         scanned++
                                                         render(component.name, bytes)
@@ -328,6 +332,35 @@ internal class ThemeWidgetPreviewLocalizer(
         val stream = ByteArrayOutputStream()
         val saved = bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
         bitmap.recycle()
+        return if (saved) stream.toByteArray() else null
+    }
+
+    private fun renderSuperDuoAddWidget(bytes: ByteArray): ByteArray? {
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val image = Bitmap.createBitmap(decoded.width, decoded.height, Bitmap.Config.ARGB_8888)
+        decoded.recycle()
+        val canvas = Canvas(image)
+        val white = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        val symbol = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(105, 105, 105)
+            strokeWidth = 4f
+            strokeCap = Paint.Cap.ROUND
+        }
+        canvas.drawCircle(29f, image.height / 2f, 24f, white)
+        canvas.drawLine(20f, image.height / 2f, 38f, image.height / 2f, symbol)
+        canvas.drawLine(29f, image.height / 2f - 9f, 29f, image.height / 2f + 9f, symbol)
+        val text = "Küçük bileşen ekle"
+        val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+            textSize = 27f
+        }
+        while (label.measureText(text) > image.width - 65f && label.textSize > 18f) label.textSize -= 1f
+        val baseline = image.height / 2f - (label.ascent() + label.descent()) / 2f
+        canvas.drawText(text, 60f, baseline, label)
+        val stream = ByteArrayOutputStream()
+        val saved = image.compress(Bitmap.CompressFormat.PNG, 100, stream)
+        image.recycle()
         return if (saved) stream.toByteArray() else null
     }
 
