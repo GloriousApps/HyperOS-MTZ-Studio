@@ -243,7 +243,10 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                         )
                     },
                     context = appContext,
-                    preferPaddle = true,
+                    // Paddle/OpenCV can terminate the whole process with a native SIGSEGV on
+                    // unusual MTZ bitmaps. ML Kit's on-device Chinese recognizer is isolated
+                    // from that native failure path and remains fully local.
+                    preferPaddle = false,
                 ).scanOnly(previewOutput).also { scan ->
                     onOcrSummary(
                         ThemeOcrSummary(
@@ -271,7 +274,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                         )
                     },
                     context = appContext,
-                    preferPaddle = true,
+                    preferPaddle = false,
                 ).rewrite(previewOutput, ocrOutput).also { ocr ->
                     onOcrSummary(
                         ThemeOcrSummary(
