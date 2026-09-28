@@ -276,7 +276,9 @@ internal class ExperimentalThemeOcrLocalizer(
                 lines.forEach { line ->
                     if (!CJK.containsMatchIn(line.text)) return@forEach
                     if (line.confidence < MIN_CONFIDENCE) {
-                        skippedLabels++
+                        // Low-confidence Han-shaped fragments are overwhelmingly clock
+                        // strokes and pictograms, not protected translation candidates.
+                        // Keep them out of the user-facing "skipped text" count.
                         return@forEach
                     }
                     if (line.confidence >= HIGH_CONFIDENCE) highConfidenceLabels++
@@ -288,7 +290,6 @@ internal class ExperimentalThemeOcrLocalizer(
             lines.forEach { line ->
                 if (!CJK.containsMatchIn(line.text)) return@forEach
                 if (line.confidence < MIN_CONFIDENCE) {
-                    skippedLabels++
                     recordOcrDecision(name, line, "atlandi", "ocr guveni dusuk")
                     return@forEach
                 }

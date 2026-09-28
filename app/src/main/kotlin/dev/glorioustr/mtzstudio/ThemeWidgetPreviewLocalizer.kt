@@ -61,6 +61,8 @@ internal class ThemeWidgetPreviewLocalizer(
                                                 val replacement = when {
                                                     matchingSuper19Artwork && component.name == "advance/manifest.xml" ->
                                                         rewriteSuper19Manifest(bytes)
+                                                    matchingTheme && component.name == "advance/manifest.xml" ->
+                                                        rewriteSuperDuoManifest(bytes)
                                                     matchingSuper19Artwork && component.name in SUPER19_ARTWORK -> {
                                                         scanned++
                                                         renderSuper19Artwork(component.name, bytes)
@@ -104,10 +106,73 @@ internal class ThemeWidgetPreviewLocalizer(
                 "textExp=\"'M ay d gün e Ay takvimi n ay e'\"",
                 "textExp=\"formatDate('MMMM d EEEE',#time_sys)\"",
             )
+            // The theme's lunar variables are exposed as numeric engine values on
+            // some HyperOS builds (for example 18/71). Use stable Gregorian cards.
+            .replace(
+                "textExp=\"formatDate('d',#time_sys)+' '+formatDate('MMMM',#time_sys)+' '+formatDate('E',#time_sys)+'·'+#year_lunar+'Çin takvimi '+#date_lunar+'/'+(#month_lunar+1)+''\"",
+                "textExp=\"formatDate('d MMM E',#time_sys)+' · '+formatDate('yyyy',#time_sys)\"",
+            )
+            .replace(
+                "textExp=\"formatDate('M',#time_sys)+'·'+formatDate('d',#time_sys)+' Çin takvimi '+#date_lunar+'/'+(#month_lunar+1)+''\"",
+                "textExp=\"formatDate('M.d E',#time_sys)\"",
+            )
             // NNNN is a MAML lunar-month token and produces Han glyphs at runtime.
             .replace("format=\"d E NNNN\"", "format=\"d E MMMM\"")
             .replace("+'Çin takvimi '", "+'Ay takvimi '")
             .replace("+' Çin takvimi '", "+' · Ay takvimi '")
+        return localized.toByteArray(Charsets.UTF_8)
+    }
+
+    private fun rewriteSuperDuoManifest(bytes: ByteArray): ByteArray {
+        var localized = bytes.toString(Charsets.UTF_8)
+            // Date templates are MAML format expressions, not prose. The generic
+            // translator otherwise turns their tokens into nonsensical sentences.
+            .replace("textExp=\"'M ay d gün e t'\"", "textExp=\"formatDate('d MMMM E',#time_sys)\"")
+            .replace("textExp=\"'YYA N-ay e'\"", "textExp=\"formatDate('yyyy',#time_sys)\"")
+            .replace("textExp=\"'M ay d japon, yyyya, çift'\"", "textExp=\"formatDate('M.d E · yyyy',#time_sys)\"")
+            // Widget position feedback shown inside the customization screen.
+            .replace(
+                "ifelse(#widget_order,'Küçük bileşen altına ayarlandı','Küçük bileşen transfer edildi')",
+                "ifelse(#widget_order,'Widget alta taşındı','Widget üste taşındı')",
+            )
+            // Correct the generic translations used by the live widget layouts.
+            .replace("'Güncel'+ifelse", "'Bugün · '+ifelse")
+            .replace("'Tüketmek  '+", "'Yakılan  '+")
+            .replace("'Tüketmek')", "'Yakılan')")
+            .replace("Tempeggle", "Sıcaklık ")
+            .replace("+' Çıkış '+", "+' Doğuş '+")
+            .replace("+' Düşmek'", "+' Batış'")
+            .replace("'Önyükleme '+ifelse", "'Açık kalma: '+ifelse")
+            .replace("'Zaten önyükleme'", "'Açık kalma'")
+            .replace("'Estimated battery life'", "'Tahmini pil ömrü'")
+            .replace("'Bugünün kilidi açıldı'", "'Bugünkü kilit açma'")
+            .replace("'Geri kalan'", "'Kalan bakiye'")
+            .replace("'Cep telefonu çöpü'", "'Telefon temizliği'")
+            .replace("#unlock_times+'Orta'", "#unlock_times+' kez'")
+            .replace("'Mm puan ss saniye'", "'mm dk ss sn'")
+            .replace("'Mm ne zaman'", "'k sa mm dk'")
+            .replace("'Km puanlar'", "'k sa mm dk'")
+            .replace("'D gün k'", "'d gün k sa'")
+            .replace("'Geçerli güç'", "'Pil '")
+
+        // These helper variables are visible values, but their machine-produced
+        // translations retained Chinese minute suffixes. Replace the complete
+        // generated variables while leaving the original comparison variables intact.
+        val endurance = "ifelse(ge(int(#_enduranceTime/3600000),0),int(#_enduranceTime/3600000)+' sa ','')+int((#_enduranceTime%3600000)/60000)+' dk'"
+        val charging = "ifelse(ge(int(#_leftChargeTime/3600000),1),int(#_leftChargeTime/3600000)+' sa ','')+int((#_leftChargeTime%3600000)/60000)+' dk sonra dolu'"
+        val uptime = "ifelse(lt(#time,60000),int(#time/1000)+' sn',lt(#time,3600000),int(#time/60000)+' dk',lt(#time,86400000),int(#time/3600000)+' sa '+int((#time%3600000)/60000)+' dk',int(#time/86400000)+' gün '+int((#time%86400000)/3600000)+' sa')"
+        fun replaceLocaleVariable(name: String, expression: String) {
+            localized = Regex("""<Var name="$name".*?/>""").replace(
+                localized,
+                "<Var name=\"$name\" expression=\"$expression\" type=\"string\"/>",
+            )
+        }
+        replaceLocaleVariable("__mtz_locale_3", charging)
+        replaceLocaleVariable("__mtz_locale_4", endurance)
+        replaceLocaleVariable("__mtz_locale_5", uptime)
+        replaceLocaleVariable("__mtz_locale_6", endurance)
+        replaceLocaleVariable("__mtz_locale_7", uptime)
+        replaceLocaleVariable("__mtz_locale_8", charging)
         return localized.toByteArray(Charsets.UTF_8)
     }
 
@@ -145,10 +210,30 @@ internal class ThemeWidgetPreviewLocalizer(
                 text("En yüksek 30°", 215f, 46f, 160f, 13f)
                 text("En düşük 15°", 215f, 66f, 160f, 13f)
             }
-            "2p.png", "2n.png" -> {
+            "2p.png", "2n.png", "2sp.png", "2sn.png" -> {
                 // Preserve the four pictograms; only replace the tiny Han step label.
-                canvas.drawRect(bitmap.width * .72f, bitmap.height * .62f, bitmap.width.toFloat(), bitmap.height.toFloat(), clearPaint)
-                text("adım", bitmap.width * .86f, bitmap.height - 4f, bitmap.width * .25f, 13f, center = true)
+                canvas.drawRect(bitmap.width * .25f, bitmap.height * .57f, bitmap.width * .45f, bitmap.height.toFloat(), clearPaint)
+                text("adım", bitmap.width * .35f, bitmap.height - 4f, bitmap.width * .18f, 13f, center = true)
+            }
+            "dyymrh.webp" -> {
+                // This decorative music placeholder contains a small, rotated
+                // "暂无封面" label. Cover only that label and retain the artwork.
+                val centerX = bitmap.width * .226f
+                val centerY = bitmap.height * .50f
+                canvas.save()
+                canvas.rotate(90f, centerX, centerY)
+                val backdrop = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.argb(190, 24, 70, 69)
+                }
+                canvas.drawRoundRect(
+                    RectF(centerX - 58f, centerY - 14f, centerX + 58f, centerY + 14f),
+                    9f,
+                    9f,
+                    backdrop,
+                )
+                paint.color = Color.rgb(205, 220, 215)
+                text("Kapak yok", centerX, centerY + 6f, 104f, 18f, center = true)
+                canvas.restore()
             }
             "4p.png", "4n.png" -> {
                 clearAll()
@@ -404,9 +489,10 @@ internal class ThemeWidgetPreviewLocalizer(
         val LOCALIZED_PREVIEWS = setOf("01_0", "01_1", "01_2", "01_6", "01_7", "01_8", "2_0", "2_1", "2_2", "2_3", "2_4", "2_5")
         val SUPER19_ARTWORK = setOf(
             "advance/1p.png", "advance/1n.png",
-            "advance/2p.png", "advance/2n.png",
+            "advance/2p.png", "advance/2n.png", "advance/2sp.png", "advance/2sn.png",
             "advance/4p.png", "advance/4n.png",
             "advance/5p.png", "advance/5n.png",
+            "advance/dyymrh.webp",
             "advance/zj/zj1p.png", "advance/zj/zj1n.png",
             "advance/zj/zj2p.png", "advance/zj/zj2n.png",
             "advance/zj/zj3p.png", "advance/zj/zj3n.png",
