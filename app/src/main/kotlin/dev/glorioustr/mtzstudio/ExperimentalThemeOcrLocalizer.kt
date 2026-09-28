@@ -275,6 +275,10 @@ internal class ExperimentalThemeOcrLocalizer(
             if (!writeChanges) {
                 lines.forEach { line ->
                     if (!CJK.containsMatchIn(line.text)) return@forEach
+                    if (line.confidence < MIN_CONFIDENCE) {
+                        skippedLabels++
+                        return@forEach
+                    }
                     if (line.confidence >= HIGH_CONFIDENCE) highConfidenceLabels++
                     else mediumConfidenceLabels++
                 }
@@ -283,6 +287,11 @@ internal class ExperimentalThemeOcrLocalizer(
             val plans = mutableListOf<Pair<String, Plan>>()
             lines.forEach { line ->
                 if (!CJK.containsMatchIn(line.text)) return@forEach
+                if (line.confidence < MIN_CONFIDENCE) {
+                    skippedLabels++
+                    recordOcrDecision(name, line, "atlandi", "ocr guveni dusuk")
+                    return@forEach
+                }
                 if (line.confidence >= HIGH_CONFIDENCE) highConfidenceLabels++ else mediumConfidenceLabels++
                 val originalBox = line.box
                 val box = Rect(originalBox.left / scale, originalBox.top / scale,
@@ -659,6 +668,7 @@ internal class ExperimentalThemeOcrLocalizer(
     internal companion object {
         val CJK = Regex("[\\p{IsHan}]")
         const val HIGH_CONFIDENCE = .85f
+        const val MIN_CONFIDENCE = .50f
         const val PREFLIGHT_MAX_SIDE = 512
         // Entries that look like components but are not theme components.
         val NON_COMPONENT_ENTRIES = setOf("preview", "icons", "description.xml", "theme_values.xml", "wallpaper", "res", "raw", "fonts", "audio", "boots")
