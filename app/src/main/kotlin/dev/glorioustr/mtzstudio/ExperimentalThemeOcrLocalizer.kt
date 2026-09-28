@@ -248,7 +248,29 @@ internal class ExperimentalThemeOcrLocalizer(
                 fun recognizeWithMlKit(): List<DetectedLine> =
                     Tasks.await(recognizer.process(InputImage.fromBitmap(observed, 0)), 30, TimeUnit.SECONDS)
                         .textBlocks.flatMap { it.lines }
-                        .mapNotNull { line -> line.boundingBox?.let { DetectedLine(line.text, Rect(it), line.confidence ?: .65f) } }
+                        .mapNotNull { line ->
+                            // Element boxes exclude adjacent pictograms that ML Kit may
+                            // include in the wider line rectangle (for example a plus icon
+                            // beside a Chinese "add widget" label). Keep the elements joined
+                            // so the translation engine still receives the complete phrase.
+                            val textElements = line.elements.filter { CJK.containsMatchIn(it.text) }
+                            val elementBoxes = textElements.mapNotNull { it.boundingBox }
+                            if (elementBoxes.isNotEmpty()) {
+                                DetectedLine(
+                                    textElements.joinToString("") { it.text },
+                                    Rect(
+                                        elementBoxes.minOf { it.left },
+                                        elementBoxes.minOf { it.top },
+                                        elementBoxes.maxOf { it.right },
+                                        elementBoxes.maxOf { it.bottom },
+                                    ),
+                                    textElements.mapNotNull { it.confidence }.average().takeIf { !it.isNaN() }?.toFloat()
+                                        ?: line.confidence ?: .65f,
+                                )
+                            } else {
+                                line.boundingBox?.let { DetectedLine(line.text, Rect(it), line.confidence ?: .65f) }
+                            }
+                        }
 
                 if (paddle != null) {
                     runCatching {
@@ -396,8 +418,11 @@ internal class ExperimentalThemeOcrLocalizer(
             Rect(other.left / scale, other.top / scale, other.right / scale, other.bottom / scale)
         }
         val solidBackground = bg?.takeIf { Color.alpha(it) >= 245 }
-        val surface = if (solidBackground != null) solidSurfaceSpan(bitmap, box, solidBackground)
-            else safeHorizontalSpan(bitmap, box, projectedBoxes)
+        val surface = when {
+            solidBackground != null -> solidSurfaceSpan(bitmap, box, solidBackground)
+            transparentLayer -> safeTransparentSpan(bitmap, box, projectedBoxes)
+            else -> safeHorizontalSpan(bitmap, box, projectedBoxes)
+        }
         val widthLimit = if (solidBackground != null) box.width() * 2.5f else box.width() * 4f
         val width = (surface.second - surface.first - 4f).coerceAtMost(widthLimit)
         if (width < box.width() || width > bitmap.width - 2f) return null
@@ -415,11 +440,50 @@ internal class ExperimentalThemeOcrLocalizer(
         var font = min(48f, height * .91f)
         while (font >= max(5f, height * .25f)) {
             paint.textSize = font
-            if (paint.measureText(text) <= region.width() - 5f && font <= region.height() * .9f)
-                return Plan(region, Rect(box), if (transparentLayer) Color.TRANSPARENT else solidBackground, foreground, font)
+            if (paint.measureText(text) <= region.width() - 5f && font <= region.height() * .9f) {
+                val cleanupPad = max(2, (height * .08f).toInt())
+                val cleanup = Rect(
+                    (box.left - cleanupPad).coerceAtLeast(surface.first),
+                    (box.top - cleanupPad).coerceAtLeast(0),
+                    (box.right + cleanupPad).coerceAtMost(surface.second),
+                    (box.bottom + cleanupPad).coerceAtMost(bitmap.height),
+                )
+                return Plan(region, cleanup, if (transparentLayer) Color.TRANSPARENT else solidBackground, foreground, font)
+            }
             font -= 1f
         }
         return null
+    }
+
+    /**
+     * Finds non-text opaque artwork beside a label on a transparent layer and keeps it
+     * outside the translated text region. This protects arbitrary icons without relying
+     * on a filename, manifest entry, theme name or language-specific coordinates.
+     */
+    private fun safeTransparentSpan(bitmap: Bitmap, box: Rect, boxes: List<Rect>): Pair<Int, Int> {
+        var (left, right) = safeHorizontalSpan(bitmap, box, boxes)
+        val top = (box.top - box.height() / 3).coerceAtLeast(0)
+        val bottom = (box.bottom + box.height() / 3).coerceAtMost(bitmap.height)
+        val occupied = BooleanArray(bitmap.width)
+        for (x in 0 until bitmap.width) {
+            if (x in box.left until box.right) continue
+            var pixels = 0
+            for (y in top until bottom) if (Color.alpha(bitmap.getPixel(x, y)) >= 64) pixels++
+            occupied[x] = pixels >= max(2, (bottom - top) / 12)
+        }
+        var x = 0
+        while (x < bitmap.width) {
+            if (!occupied[x]) { x++; continue }
+            val start = x
+            while (x + 1 < bitmap.width && occupied[x + 1]) x++
+            val end = x
+            if (end - start >= 2) {
+                if (end < box.left) left = max(left, end + 4)
+                if (start > box.right) right = min(right, start - 3)
+            }
+            x++
+        }
+        return left to right
     }
 
     /** Limits a translated label to free horizontal space without trusting filenames/layout XML. */

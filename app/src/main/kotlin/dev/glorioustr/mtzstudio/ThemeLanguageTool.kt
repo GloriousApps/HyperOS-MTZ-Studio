@@ -45,7 +45,6 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
             ?: translateLanguage(locale.language)
             ?: TranslateLanguage.ENGLISH
         val output = library.newExportPath("${theme.displayName}-translated")
-        val bitmapOutput = library.newExportPath("${theme.displayName}-widget-preview")
         val ocrOutput = library.newExportPath("${theme.displayName}-experimental-ocr")
         val identifier = LanguageIdentification.getClient(
             LanguageIdentificationOptions.Builder().setConfidenceThreshold(0.45f).build(),
@@ -224,13 +223,9 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                 translateAllDisplayText = true,
                 shouldTranslate = TranslationTextFilter::isCandidate,
             ).rewrite(original, output, ::translate)
-            val bitmapResult = runCatching {
-                ThemeWidgetPreviewLocalizer(target, ::translate).rewrite(output, bitmapOutput)
-            }.getOrElse { error ->
-                diagnostics.record("theme_widget_preview_failed", "Bileşen önizlemesi düzenlenemedi", error = error)
-                null
-            }
-            val previewOutput = if ((bitmapResult?.changedImages ?: 0) > 0) bitmapOutput else output
+            // Every raster label now follows the same content-driven OCR path. Do not
+            // inject theme names, Turkish strings or hand-authored pixel coordinates.
+            val previewOutput = output
             val scanResult = if (!experimentalOcr && ocrImageCount > 0) runCatching {
                 reportTextProgress(totalCandidates)
                 ocrStage = true
@@ -290,7 +285,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                 diagnostics.record("theme_experimental_ocr_failed", "Deneysel OCR atlandı; metin çevirisi korundu", error = error)
                 null
             } else null
-            require(result.translatedNodes > 0 || (bitmapResult?.changedImages ?: 0) > 0 || (ocrResult?.changedImages ?: 0) > 0) {
+            require(result.translatedNodes > 0 || (ocrResult?.changedImages ?: 0) > 0) {
                 "Çevrilebilen tema metni veya güvenle düzenlenebilen görsel bulunamadı; tema değiştirilmedi (${result.skippedFiles.size} bölüm atlandı)."
             }
             val finalOutput = if ((ocrResult?.changedImages ?: 0) > 0) ocrOutput else previewOutput
@@ -306,8 +301,6 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                     "undeterminedTextCount" to undetermined.size,
                     "changedFiles" to result.changedFiles.joinToString(),
                     "translatedNodes" to result.translatedNodes,
-                    "previewScannedImages" to bitmapResult?.scannedImages,
-                    "previewChangedImages" to bitmapResult?.changedImages,
                     "experimentalOcr" to experimentalOcr,
                     "ocrPreScanImages" to scanResult?.scannedImages,
                     "ocrPreScanCandidates" to scanResult?.let { it.highConfidenceLabels + it.mediumConfidenceLabels },
@@ -334,7 +327,6 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
             identifier.close()
             translators.values.forEach { it.translator.close() }
             Files.deleteIfExists(output)
-            Files.deleteIfExists(bitmapOutput)
             Files.deleteIfExists(ocrOutput)
         }
     }
