@@ -23,7 +23,6 @@ import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.Point
 import org.opencv.core.Scalar
-import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import org.opencv.photo.Photo
 import java.io.ByteArrayOutputStream
@@ -305,7 +304,12 @@ internal class ExperimentalThemeOcrLocalizer(
                     recordOcrDecision(name, line, "atlandi", "guvenli temizleme veya metin yerlesimi bulunamadi", translated)
                     return@forEach
                 }
-                recordOcrDecision(name, line, "cevrildi", if (plan.background == null) "opencv inpaint" else "duz yuzey", translated)
+                val cleanup = when {
+                    plan.background == null -> "opencv inpaint"
+                    Color.alpha(plan.background) == 0 -> "seffaf metin katmani"
+                    else -> "duz yuzey"
+                }
+                recordOcrDecision(name, line, "cevrildi", cleanup, translated)
                 plans += translated to plan
             }
             // Commit every label that could be planned. A partial replacement leaves some
@@ -322,7 +326,12 @@ internal class ExperimentalThemeOcrLocalizer(
                         color = backgroundColor
                         if (Color.alpha(backgroundColor) == 0) xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
                     }
-                    canvas.drawRect(plan.region, background)
+                    // Transparent PNG/WebP assets are overlay layers. Clear only the source
+                    // glyphs; clearing the wider translated-text region could erase an icon.
+                    canvas.drawRect(
+                        if (Color.alpha(backgroundColor) == 0) RectF(plan.sourceRegion) else plan.region,
+                        background,
+                    )
                 }
                 val foreground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = plan.foreground
@@ -370,15 +379,16 @@ internal class ExperimentalThemeOcrLocalizer(
         val tight = RectF(box.left - 3f, max(1f, box.top - height * .15f),
             box.right + 3f, min(bitmap.height - 1f, box.bottom + height * .15f))
         val bg = sampleBackground(bitmap, tight, box)
-        val estimatedBackground = bg ?: estimateLocalBackground(bitmap, tight, box) ?: return null
-        // A transparent asset is composited over an unknown wallpaper at runtime. Repainting it
-        // would make a visible rectangle, so only opaque preview/card artwork is handled here.
-        if (Color.alpha(estimatedBackground) < 245) return null
+        val transparentLayer = bg != null && Color.alpha(bg) < 16
+        val estimatedBackground = if (transparentLayer) null else bg ?: estimateLocalBackground(bitmap, tight, box) ?: return null
+        if (!transparentLayer && Color.alpha(estimatedBackground!!) < 245) return null
         val projectedBoxes = allBoxes.map { other ->
             Rect(other.left / scale, other.top / scale, other.right / scale, other.bottom / scale)
         }
-        val surface = if (bg != null) solidSurfaceSpan(bitmap, box, bg) else safeHorizontalSpan(bitmap, box, projectedBoxes)
-        val widthLimit = if (bg != null) box.width() * 2.5f else box.width() * 4f
+        val solidBackground = bg?.takeIf { Color.alpha(it) >= 245 }
+        val surface = if (solidBackground != null) solidSurfaceSpan(bitmap, box, solidBackground)
+            else safeHorizontalSpan(bitmap, box, projectedBoxes)
+        val widthLimit = if (solidBackground != null) box.width() * 2.5f else box.width() * 4f
         val width = (surface.second - surface.first - 4f).coerceAtMost(widthLimit)
         if (width < box.width() || width > bitmap.width - 2f) return null
         val left = (box.centerX() - width / 2f).coerceIn(surface.first + 2f, surface.second - width - 2f)
@@ -387,13 +397,16 @@ internal class ExperimentalThemeOcrLocalizer(
                 (abs(projected.centerX() - box.centerX()) > 1 || abs(projected.centerY() - box.centerY()) > 1) &&
                     RectF.intersects(region, RectF(projected))
             }) return null
-        val foreground = if ((Color.red(estimatedBackground) * .299 + Color.green(estimatedBackground) * .587 + Color.blue(estimatedBackground) * .114) > 145) Color.BLACK else Color.WHITE
+        val foreground = if (transparentLayer) sampleGlyphColor(bitmap, box) else {
+            val surfaceColor = estimatedBackground!!
+            if ((Color.red(surfaceColor) * .299 + Color.green(surfaceColor) * .587 + Color.blue(surfaceColor) * .114) > 145) Color.BLACK else Color.WHITE
+        }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         var font = min(48f, height * .91f)
         while (font >= max(5f, height * .25f)) {
             paint.textSize = font
             if (paint.measureText(text) <= region.width() - 5f && font <= region.height() * .9f)
-                return Plan(region, Rect(box), bg, foreground, font)
+                return Plan(region, Rect(box), if (transparentLayer) Color.TRANSPARENT else solidBackground, foreground, font)
             font -= 1f
         }
         return null
@@ -429,6 +442,22 @@ internal class ExperimentalThemeOcrLocalizer(
             opaque.map(Color::red).sorted()[opaque.size / 2],
             opaque.map(Color::green).sorted()[opaque.size / 2],
             opaque.map(Color::blue).sorted()[opaque.size / 2],
+        )
+    }
+
+    /** Uses the actual opaque glyph pixels when an asset is a transparent overlay layer. */
+    private fun sampleGlyphColor(bitmap: Bitmap, box: Rect): Int {
+        val pixels = ArrayList<Int>()
+        for (y in box.top.coerceAtLeast(0) until box.bottom.coerceAtMost(bitmap.height)) {
+            for (x in box.left.coerceAtLeast(0) until box.right.coerceAtMost(bitmap.width)) {
+                bitmap.getPixel(x, y).takeIf { Color.alpha(it) >= 96 }?.let(pixels::add)
+            }
+        }
+        if (pixels.isEmpty()) return Color.WHITE
+        return Color.rgb(
+            pixels.map(Color::red).sorted()[pixels.size / 2],
+            pixels.map(Color::green).sorted()[pixels.size / 2],
+            pixels.map(Color::blue).sorted()[pixels.size / 2],
         )
     }
 
@@ -544,75 +573,66 @@ internal class ExperimentalThemeOcrLocalizer(
     }
 
     /**
-     * Cheap, high-recall local gate before either OCR engine receives an image.  It analyses a
-     * sampled bitmap, so a 4K clock face costs roughly the same as a small icon.  The gate is
-     * deliberately permissive: a false positive costs one local OCR pass, while a false
-     * negative would permanently hide a translated label from the user.
+     * Cheap, high-recall local gate before either OCR engine receives an image. It deliberately
+     * avoids native OpenCV calls: malformed and unusual MTZ bitmaps must not be able to crash the
+     * app during a scan of thousands of files. A sampled bitmap keeps the cost bounded, and a
+     * false positive only costs one local OCR pass.
      */
     private fun isLikelyTextAsset(bytes: ByteArray): Boolean {
-        if (!openCvReady) return true
         val preview = decodeForPreflight(bytes) ?: return false
-        val rgba = Mat()
-        val gray = Mat()
-        val blurred = Mat()
-        val edges = Mat()
-        val darkText = Mat()
-        val lightText = Mat()
-        val mask = Mat()
-        val labels = Mat()
-        val stats = Mat()
-        val centroids = Mat()
         try {
-            Utils.bitmapToMat(preview, rgba)
-            Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGBA2GRAY)
-            Imgproc.GaussianBlur(gray, blurred, Size(3.0, 3.0), 0.0)
-            Imgproc.Canny(blurred, edges, 55.0, 145.0)
-            val edgeDensity = Core.countNonZero(edges).toFloat() / (edges.rows() * edges.cols())
-
-            Imgproc.adaptiveThreshold(
-                blurred, darkText, 255.0,
-                Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 31, 7.0,
-            )
-            Imgproc.adaptiveThreshold(
-                blurred, lightText, 255.0,
-                Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 31, 7.0,
-            )
-            Core.bitwise_or(darkText, lightText, mask)
-
-            val componentCount = Imgproc.connectedComponentsWithStats(mask, labels, stats, centroids)
-            val minimumHeight = max(4, preview.height / 260)
-            val maximumHeight = max(minimumHeight + 1, preview.height / 2)
-            val minimumArea = max(6, preview.width * preview.height / 180_000)
-            var glyphs = 0
-            val rows = hashMapOf<Int, Int>()
-
-            for (label in 1 until componentCount) {
-                val x = stats.get(label, Imgproc.CC_STAT_LEFT)[0].toInt()
-                val y = stats.get(label, Imgproc.CC_STAT_TOP)[0].toInt()
-                val width = stats.get(label, Imgproc.CC_STAT_WIDTH)[0].toInt()
-                val height = stats.get(label, Imgproc.CC_STAT_HEIGHT)[0].toInt()
-                val area = stats.get(label, Imgproc.CC_STAT_AREA)[0].toInt()
-                val aspect = width.toFloat() / height.coerceAtLeast(1)
-                if (x >= 0 && y >= 0 && area >= minimumArea && width >= 2 &&
-                    height in minimumHeight..maximumHeight && aspect in 0.07f..14f
-                ) {
-                    glyphs++
-                    rows[y / max(minimumHeight, 8)] = (rows[y / max(minimumHeight, 8)] ?: 0) + 1
+            val width = preview.width
+            val height = preview.height
+            if (width < 3 || height < 3) return false
+            val pixels = IntArray(width * height)
+            preview.getPixels(pixels, 0, width, 0, 0, width, height)
+            val step = if (width * height > 160_000) 2 else 1
+            var tested = 0
+            var strongEdges = 0
+            var textLikeRows = 0
+            var globalMin = 255
+            var globalMax = 0
+            for (y in step until height step step) {
+                var rowEdges = 0
+                for (x in step until width step step) {
+                    val current = compositedLuminancePair(pixels[y * width + x])
+                    val left = compositedLuminancePair(pixels[y * width + x - step])
+                    val above = compositedLuminancePair(pixels[(y - step) * width + x])
+                    val currentBlack = current ushr 8
+                    val currentWhite = current and 0xff
+                    val localEdge = max(
+                        max(abs(currentBlack - (left ushr 8)), abs(currentWhite - (left and 0xff))),
+                        max(abs(currentBlack - (above ushr 8)), abs(currentWhite - (above and 0xff))),
+                    )
+                    globalMin = min(globalMin, min(currentBlack, currentWhite))
+                    globalMax = max(globalMax, max(currentBlack, currentWhite))
+                    tested++
+                    if (localEdge >= 34) {
+                        strongEdges++
+                        rowEdges++
+                    }
                 }
+                if (rowEdges >= max(3, width / (42 * step))) textLikeRows++
             }
-
-            val lineLikeGroups = rows.values.count { it >= 2 }
-            // Keep ambiguous assets.  Text may be one or two large CJK glyphs in a widget.
-            return glyphs >= 3 || lineLikeGroups > 0 || (glyphs >= 1 && edgeDensity in 0.004f..0.30f)
+            val edgeDensity = strongEdges.toFloat() / tested.coerceAtLeast(1)
+            val contrast = globalMax - globalMin
+            // This is deliberately high-recall. Photos may proceed to OCR, while a flat colour
+            // can be discarded without invoking native image code thousands of times.
+            return contrast >= 28 && (edgeDensity in 0.0025f..0.58f || textLikeRows >= 2)
         } catch (_: Exception) {
-            // A native OpenCV failure must never turn into a missed translation candidate.
             return true
         } finally {
             preview.recycle()
-            rgba.release(); gray.release(); blurred.release(); edges.release()
-            darkText.release(); lightText.release(); mask.release()
-            labels.release(); stats.release(); centroids.release()
         }
+    }
+
+    /** Luminance over black and white composites; detects glyphs in transparent overlays too. */
+    private fun compositedLuminancePair(pixel: Int): Int {
+        val alpha = Color.alpha(pixel)
+        val luminance = (Color.red(pixel) * 299 + Color.green(pixel) * 587 + Color.blue(pixel) * 114) / 1000
+        val onBlack = luminance * alpha / 255
+        val onWhite = 255 - (255 - luminance) * alpha / 255
+        return (onBlack shl 8) or onWhite
     }
 
     private fun decodeForPreflight(bytes: ByteArray): Bitmap? {
@@ -639,7 +659,7 @@ internal class ExperimentalThemeOcrLocalizer(
     internal companion object {
         val CJK = Regex("[\\p{IsHan}]")
         const val HIGH_CONFIDENCE = .85f
-        const val PREFLIGHT_MAX_SIDE = 1024
+        const val PREFLIGHT_MAX_SIDE = 512
         // Entries that look like components but are not theme components.
         val NON_COMPONENT_ENTRIES = setOf("preview", "icons", "description.xml", "theme_values.xml", "wallpaper", "res", "raw", "fonts", "audio", "boots")
         val NON_RASTER_SUFFIXES = setOf(
