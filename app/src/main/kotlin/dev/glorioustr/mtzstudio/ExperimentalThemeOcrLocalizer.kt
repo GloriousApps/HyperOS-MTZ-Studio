@@ -354,14 +354,15 @@ internal class ExperimentalThemeOcrLocalizer(
             val canvas = Canvas(result)
             plans.forEach { (translated, plan) ->
                 plan.background?.let { backgroundColor ->
+                    val isTransparent = Color.alpha(backgroundColor) == 0
                     val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = backgroundColor
-                        if (Color.alpha(backgroundColor) == 0) xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+                        if (isTransparent) xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
                     }
                     // Transparent PNG/WebP assets are overlay layers. Clear only the source
                     // glyphs; clearing the wider translated-text region could erase an icon.
                     canvas.drawRect(
-                        if (Color.alpha(backgroundColor) == 0) RectF(plan.sourceRegion) else plan.region,
+                        if (isTransparent) RectF(plan.sourceRegion) else plan.region,
                         background,
                     )
                 }
@@ -432,9 +433,13 @@ internal class ExperimentalThemeOcrLocalizer(
                 (abs(projected.centerX() - box.centerX()) > 1 || abs(projected.centerY() - box.centerY()) > 1) &&
                     RectF.intersects(region, RectF(projected))
             }) return null
-        val foreground = if (transparentLayer) visibleGlyphColor(bitmap, box, sampleGlyphColor(bitmap, box)) else {
-            val surfaceColor = estimatedBackground!!
-            if (luminance(surfaceColor) > 145) Color.BLACK else Color.WHITE
+        // Only the glyph paint changes. In particular, never draw a backdrop behind a
+        // transparent theme layer: its alpha mask can be tinted by MAML at runtime and a
+        // painted rectangle would recolour the entire widget rather than its label.
+        val foreground = if (transparentLayer) {
+            visibleGlyphColor(bitmap, box, sampleGlyphColor(bitmap, box))
+        } else {
+            highestContrastTextColor(estimatedBackground!!)
         }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         var font = min(48f, height * .91f)
@@ -528,11 +533,36 @@ internal class ExperimentalThemeOcrLocalizer(
             }
         }
         if (pixels.isEmpty()) return Color.WHITE
-        return Color.rgb(
+        return Color.argb(
+            pixels.map(Color::alpha).sorted()[pixels.size / 2],
             pixels.map(Color::red).sorted()[pixels.size / 2],
             pixels.map(Color::green).sorted()[pixels.size / 2],
             pixels.map(Color::blue).sorted()[pixels.size / 2],
         )
+    }
+
+    /** Chooses the text pixel with the greatest WCAG contrast against an opaque surface. */
+    private fun highestContrastTextColor(background: Int): Int =
+        if (contrastRatio(Color.BLACK, background) >= contrastRatio(Color.WHITE, background)) {
+            Color.BLACK
+        } else {
+            Color.WHITE
+        }
+
+    private fun contrastRatio(first: Int, second: Int): Double {
+        val firstLuminance = relativeLuminance(first)
+        val secondLuminance = relativeLuminance(second)
+        return (max(firstLuminance, secondLuminance) + 0.05) / (min(firstLuminance, secondLuminance) + 0.05)
+    }
+
+    private fun relativeLuminance(color: Int): Double {
+        fun linear(channel: Int): Double {
+            val value = channel / 255.0
+            return if (value <= 0.04045) value / 12.92 else Math.pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(Color.red(color)) +
+            0.7152 * linear(Color.green(color)) +
+            0.0722 * linear(Color.blue(color))
     }
 
     /**
