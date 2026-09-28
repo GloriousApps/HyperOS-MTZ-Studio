@@ -43,12 +43,28 @@ internal class ThemeWidgetPreviewLocalizer(
                                     val matchingButtonTheme = manifestText.let { xml ->
                                         "anniu/sz.png" in xml && "anniu/lddk.png" in xml && "anniu/yyfwg.png" in xml
                                     }
+                                    // Some MAML themes keep separate normal/pressed artwork. OCR may
+                                    // correctly translate the high-contrast `p` asset while the
+                                    // customization screen actually displays the dark `n` sibling.
+                                    // Recognize this artwork family from its manifest structure and
+                                    // localize both states together.
+                                    val matchingSuper19Artwork = targetLanguage.startsWith("tr") && manifestText.let { xml ->
+                                        "src=\"1p.png\"" in xml &&
+                                            "src=\"zj/zj1p.png\"" in xml &&
+                                            "@Rec_colord8" in xml
+                                    }
                                     ZipOutputStream(rewritten.nonClosing()).use { nestedOut ->
                                         lockscreen.entries().asSequence().forEach { component ->
                                             nestedOut.putNextEntry(ZipEntry(component.name).apply { time = component.time })
                                             if (!component.isDirectory) {
                                                 val bytes = lockscreen.getInputStream(component).use { it.readBytes() }
                                                 val replacement = when {
+                                                    matchingSuper19Artwork && component.name == "advance/manifest.xml" ->
+                                                        rewriteSuper19Manifest(bytes)
+                                                    matchingSuper19Artwork && component.name in SUPER19_ARTWORK -> {
+                                                        scanned++
+                                                        renderSuper19Artwork(component.name, bytes)
+                                                    }
                                                     matchingTheme && PREVIEW.matches(component.name) -> {
                                                         scanned++
                                                         render(component.name, bytes)
@@ -78,6 +94,104 @@ internal class ThemeWidgetPreviewLocalizer(
             }
         }
         return Result(scanned, changed)
+    }
+
+    private fun rewriteSuper19Manifest(bytes: ByteArray): ByteArray {
+        val source = bytes.toString(Charsets.UTF_8)
+        val localized = source
+            // The generic translator treated this date-format expression as prose.
+            .replace(
+                "textExp=\"'M ay d gün e Ay takvimi n ay e'\"",
+                "textExp=\"formatDate('MMMM d EEEE',#time_sys)\"",
+            )
+            // NNNN is a MAML lunar-month token and produces Han glyphs at runtime.
+            .replace("format=\"d E NNNN\"", "format=\"d E MMMM\"")
+            .replace("+'Çin takvimi '", "+'Ay takvimi '")
+            .replace("+' Çin takvimi '", "+' · Ay takvimi '")
+        return localized.toByteArray(Charsets.UTF_8)
+    }
+
+    private fun renderSuper19Artwork(path: String, bytes: ByteArray): ByteArray? {
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val bitmap = decoded.copy(Bitmap.Config.ARGB_8888, true)
+        decoded.recycle()
+        val canvas = Canvas(bitmap)
+        val foreground = if (path.endsWith("p.png")) Color.WHITE else Color.rgb(16, 16, 16)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = foreground
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        }
+        val clearPaint = Paint().apply {
+            xfermode = android.graphics.PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+        }
+        fun clearAll() = canvas.drawRect(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat(), clearPaint)
+        fun text(value: String, x: Float, baseline: Float, maxWidth: Float, initialSize: Float, center: Boolean = false) {
+            paint.textSize = initialSize
+            while (paint.measureText(value) > maxWidth && paint.textSize > 8f) paint.textSize -= 1f
+            val left = if (center) x - paint.measureText(value) / 2f else x
+            canvas.drawText(value, left, baseline, paint)
+        }
+        fun line(left: Float, right: Float, y: Float, width: Float = 5f) {
+            canvas.drawRoundRect(RectF(left, y, right, y + width), width / 2f, width / 2f, paint)
+        }
+
+        when (path.substringAfter("advance/")) {
+            "1p.png", "1n.png" -> {
+                clearAll()
+                text("Pil %40", 8f, 23f, 180f, 18f)
+                text("Güzel şeyler yakında", 8f, 48f, 190f, 14f)
+                line(8f, 190f, 65f)
+                text("Bulutlu · 26°", 215f, 24f, 160f, 18f)
+                text("En yüksek 30°", 215f, 46f, 160f, 13f)
+                text("En düşük 15°", 215f, 66f, 160f, 13f)
+            }
+            "2p.png", "2n.png" -> {
+                // Preserve the four pictograms; only replace the tiny Han step label.
+                canvas.drawRect(bitmap.width * .72f, bitmap.height * .62f, bitmap.width.toFloat(), bitmap.height.toFloat(), clearPaint)
+                text("adım", bitmap.width * .86f, bitmap.height - 4f, bitmap.width * .25f, 13f, center = true)
+            }
+            "4p.png", "4n.png" -> {
+                clearAll()
+                text("Tutkunu koru", bitmap.width / 2f, 29f, bitmap.width - 12f, 24f, center = true)
+                text("Yeni ufuklara ilerle", bitmap.width / 2f, 61f, bitmap.width - 12f, 22f, center = true)
+            }
+            "5p.png", "5n.png" -> {
+                clearAll()
+                text("Her gün güzel hisset", bitmap.width / 2f, 35f, bitmap.width - 12f, 25f, center = true)
+                text("Güzel bir gün seni bekliyor", bitmap.width / 2f, 64f, bitmap.width - 12f, 17f, center = true)
+            }
+            "zj/zj1p.png", "zj/zj1n.png" -> {
+                clearAll()
+                text("Pil %40", 9f, 35f, bitmap.width - 18f, 27f)
+                text("Güzel şeyler yakında", 9f, 77f, bitmap.width - 18f, 22f)
+                line(9f, bitmap.width - 9f, 105f, 8f)
+            }
+            "zj/zj2p.png", "zj/zj2n.png" -> {
+                clearAll()
+                text("Bulutlu · 26°", bitmap.width / 2f, 40f, bitmap.width - 12f, 27f, center = true)
+                text("En yüksek 30°", bitmap.width / 2f, 79f, bitmap.width - 12f, 22f, center = true)
+                text("En düşük 15°", bitmap.width / 2f, 112f, bitmap.width - 12f, 22f, center = true)
+            }
+            "zj/zj3p.png", "zj/zj3n.png" -> {
+                clearAll()
+                text("26°", bitmap.width * .25f, 55f, bitmap.width * .42f, 34f, center = true)
+                text("5059", bitmap.width * .75f, 55f, bitmap.width * .42f, 32f, center = true)
+                text("adım", bitmap.width * .75f, 91f, bitmap.width * .42f, 20f, center = true)
+            }
+            "zj/zj7p.png", "zj/zj7n.png" -> {
+                clearAll()
+                text("Bulutlu", bitmap.width / 2f, 48f, bitmap.width - 12f, 31f, center = true)
+                text("Bugün", bitmap.width / 2f, 91f, bitmap.width - 12f, 27f, center = true)
+            }
+            else -> {
+                bitmap.recycle()
+                return null
+            }
+        }
+        val stream = ByteArrayOutputStream()
+        val saved = bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+        bitmap.recycle()
+        return if (saved) stream.toByteArray() else null
     }
 
     private fun renderButton(path: String, bytes: ByteArray): ByteArray? {
@@ -288,5 +402,15 @@ internal class ThemeWidgetPreviewLocalizer(
         )
         val PREVIEW = Regex("advance/menu/widget_(01|2)_preview_(\\d+)\\.png")
         val LOCALIZED_PREVIEWS = setOf("01_0", "01_1", "01_2", "01_6", "01_7", "01_8", "2_0", "2_1", "2_2", "2_3", "2_4", "2_5")
+        val SUPER19_ARTWORK = setOf(
+            "advance/1p.png", "advance/1n.png",
+            "advance/2p.png", "advance/2n.png",
+            "advance/4p.png", "advance/4n.png",
+            "advance/5p.png", "advance/5n.png",
+            "advance/zj/zj1p.png", "advance/zj/zj1n.png",
+            "advance/zj/zj2p.png", "advance/zj/zj2n.png",
+            "advance/zj/zj3p.png", "advance/zj/zj3n.png",
+            "advance/zj/zj7p.png", "advance/zj/zj7n.png",
+        )
     }
 }
