@@ -45,6 +45,9 @@ internal class ExperimentalThemeOcrLocalizer(
     private val translate: (String) -> String,
     private val onProgress: (Int, Int) -> Unit = { _, _ -> },
     private val context: Context? = null,
+    // ONNX Runtime can abort the entire process on some devices; never enable it for the
+    // ordinary translation path until that native engine has passed device-specific validation.
+    private val enablePaddle: Boolean = false,
 ) {
     data class Result(
         val scannedImages: Int,
@@ -72,7 +75,7 @@ internal class ExperimentalThemeOcrLocalizer(
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         val paddleContext = context
-        val paddle = if (paddleContext != null) runCatching {
+        val paddle = if (enablePaddle && paddleContext != null) runCatching {
             if (OpenCVUtils.init(paddleContext)) runBlocking { PaddleOCR.create(paddleContext) } else null
         }.getOrNull() else null
         try {
@@ -141,7 +144,7 @@ internal class ExperimentalThemeOcrLocalizer(
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         val paddleContext = context
-        val paddle = if (paddleContext != null) runCatching {
+        val paddle = if (enablePaddle && paddleContext != null) runCatching {
             if (OpenCVUtils.init(paddleContext)) runBlocking { PaddleOCR.create(paddleContext) } else null
         }.getOrNull() else null
         try {
