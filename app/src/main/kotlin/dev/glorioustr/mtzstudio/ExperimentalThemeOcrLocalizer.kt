@@ -277,8 +277,9 @@ internal class ExperimentalThemeOcrLocalizer(
                 fun recognizeWithMlKit(): List<DetectedLine> {
                     val variants = listOf(
                         observed,
-                        makeOcrVariant(observed, contrast = 1.8f, brightness = 0f, invert = false),
-                        makeOcrVariant(observed, contrast = 2.2f, brightness = 18f, invert = true),
+                        makeOcrVariant(observed, contrast = 1.8f, brightness = 0f, invert = false, background = Color.WHITE),
+                        makeOcrVariant(observed, contrast = 1.8f, brightness = 0f, invert = false, background = Color.BLACK),
+                        makeOcrVariant(observed, contrast = 2.2f, brightness = 18f, invert = true, background = Color.WHITE),
                     )
                     return try {
                         variants
@@ -744,9 +745,11 @@ internal class ExperimentalThemeOcrLocalizer(
         contrast: Float,
         brightness: Float,
         invert: Boolean,
+        background: Int,
     ): Bitmap {
         val output = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
+        canvas.drawColor(background)
         val matrix = ColorMatrix().apply {
             set(floatArrayOf(
                 contrast * if (invert) -1f else 1f, 0f, 0f, 0f,
@@ -760,6 +763,7 @@ internal class ExperimentalThemeOcrLocalizer(
         }
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             colorFilter = ColorMatrixColorFilter(matrix)
+            alpha = 255
             canvas.drawBitmap(source, 0f, 0f, this)
         }
         return output
