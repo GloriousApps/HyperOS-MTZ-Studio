@@ -18,6 +18,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.paddle.ocr.PaddleOCR
 import com.paddle.ocr.util.OpenCVUtils
+import dev.glorioustr.mtzstudio.core.OcrDetectionFusion
 import kotlinx.coroutines.runBlocking
 import org.opencv.android.Utils
 import org.opencv.core.Core
@@ -44,7 +45,6 @@ internal class ExperimentalThemeOcrLocalizer(
     private val translate: (String) -> String,
     private val onProgress: (Int, Int) -> Unit = { _, _ -> },
     private val context: Context? = null,
-    private val preferPaddle: Boolean = false,
 ) {
     data class Result(
         val scannedImages: Int,
@@ -72,7 +72,7 @@ internal class ExperimentalThemeOcrLocalizer(
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         val paddleContext = context
-        val paddle = if (preferPaddle && paddleContext != null) runCatching {
+        val paddle = if (paddleContext != null) runCatching {
             if (OpenCVUtils.init(paddleContext)) runBlocking { PaddleOCR.create(paddleContext) } else null
         }.getOrNull() else null
         try {
@@ -141,7 +141,7 @@ internal class ExperimentalThemeOcrLocalizer(
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         val paddleContext = context
-        val paddle = if (preferPaddle && paddleContext != null) runCatching {
+        val paddle = if (paddleContext != null) runCatching {
             if (OpenCVUtils.init(paddleContext)) runBlocking { PaddleOCR.create(paddleContext) } else null
         }.getOrNull() else null
         try {
@@ -282,21 +282,14 @@ internal class ExperimentalThemeOcrLocalizer(
                         makeOcrVariant(observed, contrast = 2.2f, brightness = 18f, invert = true, background = Color.WHITE),
                     )
                     return try {
-                        variants
-                            .map(::recognizeBitmap)
-                            .maxByOrNull { lines ->
-                                lines.sumOf { line ->
-                                    line.text.count { CJK.containsMatchIn(it.toString()) } * 100 +
-                                        (line.confidence * 10).toInt()
-                                }
-                            }
-                            .orEmpty()
+                        fuseDetections(variants.map(::recognizeBitmap))
                     } finally {
                         variants.drop(1).forEach(Bitmap::recycle)
                     }
                 }
 
-                if (paddle != null) {
+                val mlKitLines = recognizeWithMlKit()
+                val paddleLines = if (paddle != null) {
                     runCatching {
                         runBlocking {
                             paddle.recognize(observed).results
@@ -312,8 +305,9 @@ internal class ExperimentalThemeOcrLocalizer(
                                     } else null
                                 }
                         }
-                    }.getOrElse { recognizeWithMlKit() }
-                } else recognizeWithMlKit()
+                    }.getOrDefault(emptyList())
+                } else emptyList()
+                fuseDetections(listOf(mlKitLines, paddleLines))
             } finally {
                 if (observed !== source) observed.recycle()
             }
@@ -429,6 +423,35 @@ internal class ExperimentalThemeOcrLocalizer(
         val fontSize: Float,
     )
     private data class DetectedLine(val text: String, val box: Rect, val confidence: Float)
+
+    private fun fuseDetections(detectorResults: List<List<DetectedLine>>): List<DetectedLine> =
+        OcrDetectionFusion.fuse(
+            detectorResults.map { detections ->
+                detections.map { detection ->
+                    OcrDetectionFusion.Detection(
+                        text = detection.text,
+                        bounds = OcrDetectionFusion.Bounds(
+                            detection.box.left,
+                            detection.box.top,
+                            detection.box.right,
+                            detection.box.bottom,
+                        ),
+                        confidence = detection.confidence,
+                    )
+                }
+            },
+        ).map { detection ->
+            DetectedLine(
+                text = detection.text,
+                box = Rect(
+                    detection.bounds.left,
+                    detection.bounds.top,
+                    detection.bounds.right,
+                    detection.bounds.bottom,
+                ),
+                confidence = detection.confidence,
+            )
+        }
 
     private fun planText(bitmap: Bitmap, box: Rect, text: String, allBoxes: List<Rect>, scale: Int): Plan? {
         val height = box.height().toFloat()

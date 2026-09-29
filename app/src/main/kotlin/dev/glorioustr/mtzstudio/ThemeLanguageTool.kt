@@ -239,7 +239,6 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                         )
                     },
                     context = appContext,
-                    preferPaddle = false,
                 ).rewrite(previewOutput, ocrOutput).also { ocr ->
                     onOcrSummary(
                         ThemeOcrSummary(
