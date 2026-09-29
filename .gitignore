@@ -10,3 +10,6 @@ release-signing.jks
 captures/
 .externalNativeBuild/
 .cxx/
+# Local build and test artifacts
+*.apk
+circle_test.mtz
