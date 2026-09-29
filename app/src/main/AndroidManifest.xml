@@ -81,11 +81,6 @@
             android:foregroundServiceType="dataSync" />
 
         <service
-            android:name=".PaddleOcrFallbackService"
-            android:exported="false"
-            android:process=":paddle_ocr" />
-
-        <service
             android:name=".CloudTransferService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />

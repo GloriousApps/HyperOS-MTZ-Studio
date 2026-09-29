@@ -41,7 +41,7 @@ class ORTSessionManager(
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             setIntraOpNumThreads(config.numThreads)
             // XNNPACK is unavailable on some ABIs/ORT builds and must degrade gracefully to the default CPU provider.
-            if (config.enableXnnpack) runCatching {
+            runCatching {
                 addXnnpack(mapOf("intra_op_num_threads" to config.numThreads.toString()))
             }
         }

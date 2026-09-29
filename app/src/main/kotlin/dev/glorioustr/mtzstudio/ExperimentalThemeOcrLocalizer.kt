@@ -59,7 +59,6 @@ internal class ExperimentalThemeOcrLocalizer(
     private var highConfidenceLabels = 0
     private var mediumConfidenceLabels = 0
     private var skippedLabels = 0
-    private var paddleFallbackAttempts = 0
     // OCR selection is deliberately based on pixels, never on a global image count.
     private val openCvReady by lazy { context?.let { OpenCVUtils.init(it) } == true }
 
@@ -270,26 +269,19 @@ internal class ExperimentalThemeOcrLocalizer(
                         makeOcrVariant(observed, contrast = 2.2f, brightness = 18f, invert = true, background = Color.WHITE),
                     )
                     return try {
-                        fuseDetections(variants.map(::recognizeBitmap))
+                        val primary = fuseDetections(variants.map(::recognizeBitmap))
+                        if (primary.any { CJK.containsMatchIn(it.text) && it.confidence >= MIN_CONFIDENCE }) {
+                            primary
+                        } else {
+                            fuseDetections(listOf(primary, recognizeTiles(observed, ::recognizeBitmap)))
+                        }
                     } finally {
                         variants.drop(1).forEach(Bitmap::recycle)
                     }
                 }
 
                 val mlKitLines = recognizeWithMlKit()
-                val paddleLines = if (
-                    context != null &&
-                    paddleFallbackAttempts < MAX_PADDLE_FALLBACK_ATTEMPTS &&
-                    mlKitLines.none { CJK.containsMatchIn(it.text) && it.confidence >= MIN_CONFIDENCE }
-                ) {
-                    paddleFallbackAttempts++
-                    PaddleOcrFallback.recognize(context, observed).mapNotNull { line ->
-                        if (line.right > line.left && line.bottom > line.top) {
-                            DetectedLine(line.text, Rect(line.left, line.top, line.right, line.bottom), line.confidence)
-                        } else null
-                    }
-                } else emptyList()
-                fuseDetections(listOf(mlKitLines, paddleLines))
+                mlKitLines
             } finally {
                 if (observed !== source) observed.recycle()
             }
@@ -405,6 +397,43 @@ internal class ExperimentalThemeOcrLocalizer(
         val fontSize: Float,
     )
     private data class DetectedLine(val text: String, val box: Rect, val confidence: Float)
+
+    /** Retries failed OCR on overlapping crops so small labels get more pixels without native OCR. */
+    private fun recognizeTiles(
+        source: Bitmap,
+        recognize: (Bitmap) -> List<DetectedLine>,
+    ): List<DetectedLine> {
+        val horizontalTiles = if (source.width >= source.height) 3 else 2
+        val verticalTiles = if (source.height > source.width * 1.25f) 3 else 2
+        val overlap = max(16, min(source.width, source.height) / 12)
+        val results = mutableListOf<DetectedLine>()
+        for (row in 0 until verticalTiles) {
+            for (column in 0 until horizontalTiles) {
+                val baseLeft = column * source.width / horizontalTiles
+                val baseTop = row * source.height / verticalTiles
+                val baseRight = (column + 1) * source.width / horizontalTiles
+                val baseBottom = (row + 1) * source.height / verticalTiles
+                val left = (baseLeft - overlap).coerceAtLeast(0)
+                val top = (baseTop - overlap).coerceAtLeast(0)
+                val right = (baseRight + overlap).coerceAtMost(source.width)
+                val bottom = (baseBottom + overlap).coerceAtMost(source.height)
+                val tile = Bitmap.createBitmap(source, left, top, right - left, bottom - top)
+                try {
+                    recognize(tile).forEach { line ->
+                        results += line.copy(box = Rect(
+                            line.box.left + left,
+                            line.box.top + top,
+                            line.box.right + left,
+                            line.box.bottom + top,
+                        ))
+                    }
+                } finally {
+                    tile.recycle()
+                }
+            }
+        }
+        return results
+    }
 
     private fun fuseDetections(detectorResults: List<List<DetectedLine>>): List<DetectedLine> =
         OcrDetectionFusion.fuse(
@@ -866,7 +895,6 @@ internal class ExperimentalThemeOcrLocalizer(
         // Below this the label is unreadable, so a contrasting colour is substituted.
         const val MIN_GLYPH_CONTRAST = 60
         const val PREFLIGHT_MAX_SIDE = 512
-        const val MAX_PADDLE_FALLBACK_ATTEMPTS = 3
         // Entries that look like components but are not theme components.
         val NON_COMPONENT_ENTRIES = setOf("preview", "icons", "description.xml", "theme_values.xml", "wallpaper", "res", "raw", "fonts", "audio", "boots")
         val NON_RASTER_SUFFIXES = setOf(
