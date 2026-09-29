@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
@@ -245,8 +247,8 @@ internal class ExperimentalThemeOcrLocalizer(
             val scale = if (source.width < 700 && source.height < 700) 2 else 1
             val observed = if (scale == 2) Bitmap.createScaledBitmap(source, source.width * 2, source.height * 2, true) else source
             val lines = try {
-                fun recognizeWithMlKit(): List<DetectedLine> =
-                    Tasks.await(recognizer.process(InputImage.fromBitmap(observed, 0)), 30, TimeUnit.SECONDS)
+                fun recognizeBitmap(bitmap: Bitmap): List<DetectedLine> =
+                    Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0)), 30, TimeUnit.SECONDS)
                         .textBlocks.flatMap { it.lines }
                         .mapNotNull { line ->
                             // Element boxes exclude adjacent pictograms that ML Kit may
@@ -271,6 +273,27 @@ internal class ExperimentalThemeOcrLocalizer(
                                 line.boundingBox?.let { DetectedLine(line.text, Rect(it), line.confidence ?: .65f) }
                             }
                         }
+
+                fun recognizeWithMlKit(): List<DetectedLine> {
+                    val variants = listOf(
+                        observed,
+                        makeOcrVariant(observed, contrast = 1.8f, brightness = 0f, invert = false),
+                        makeOcrVariant(observed, contrast = 2.2f, brightness = 18f, invert = true),
+                    )
+                    return try {
+                        variants
+                            .map(::recognizeBitmap)
+                            .maxByOrNull { lines ->
+                                lines.sumOf { line ->
+                                    line.text.count { CJK.containsMatchIn(it.toString()) } * 100 +
+                                        (line.confidence * 10).toInt()
+                                }
+                            }
+                            .orEmpty()
+                    } finally {
+                        variants.drop(1).forEach(Bitmap::recycle)
+                    }
+                }
 
                 if (paddle != null) {
                     runCatching {
@@ -714,6 +737,32 @@ internal class ExperimentalThemeOcrLocalizer(
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         return bounds.outWidth > 0 && bounds.outHeight > 0
+    }
+
+    private fun makeOcrVariant(
+        source: Bitmap,
+        contrast: Float,
+        brightness: Float,
+        invert: Boolean,
+    ): Bitmap {
+        val output = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        val matrix = ColorMatrix().apply {
+            set(floatArrayOf(
+                contrast * if (invert) -1f else 1f, 0f, 0f, 0f,
+                    brightness + if (invert) 255f else 0f,
+                0f, contrast * if (invert) -1f else 1f, 0f, 0f,
+                    brightness + if (invert) 255f else 0f,
+                0f, 0f, contrast * if (invert) -1f else 1f, 0f,
+                    brightness + if (invert) 255f else 0f,
+                0f, 0f, 0f, 1f, 0f,
+            ))
+        }
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = ColorMatrixColorFilter(matrix)
+            canvas.drawBitmap(source, 0f, 0f, this)
+        }
+        return output
     }
 
     /**
