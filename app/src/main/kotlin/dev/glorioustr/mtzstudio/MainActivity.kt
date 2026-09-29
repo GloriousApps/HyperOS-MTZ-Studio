@@ -339,8 +339,6 @@ private fun StudioScreen(
     var pendingBakArchive by remember { mutableStateOf<ThemeManagerBakArchive?>(null) }
     var translateBakToAppLanguage by remember { mutableStateOf(false) }
     var pendingApplyTheme by remember { mutableStateOf<LibraryTheme?>(null) }
-    var pendingOcrTheme by remember { mutableStateOf<LibraryTheme?>(null) }
-    var pendingOcrScanSummary by remember { mutableStateOf<ThemeOcrSummary?>(null) }
     var completedOcrSummary by remember { mutableStateOf<ThemeOcrSummary?>(null) }
     var preparedApply by remember { mutableStateOf<PreparedThemeApply?>(null) }
     var themeOperationRunning by remember { mutableStateOf(false) }
@@ -609,19 +607,9 @@ private fun StudioScreen(
                             translationProgress.apiWarnings.joinToString(" | "),
                         )
                     }
-                    val translatedTheme = translationProgress.themeId?.let { id ->
-                        themes.firstOrNull { it.id.value == id }
-                    }
-                    // A normal text-only pass may offer exactly one optional OCR pass. An OCR
-                    // completion must never re-open the same prompt and start a loop.
-                    val scanSummary = translationProgress.ocrSummary
-                    if (!translationProgress.experimentalOcr && translatedTheme != null && scanSummary != null) {
-                        pendingOcrTheme = translatedTheme
-                        pendingOcrScanSummary = scanSummary
-                    }
-                    if (translationProgress.experimentalOcr) {
-                        completedOcrSummary = translationProgress.ocrSummary
-                    }
+                    // OCR is part of every translation pass. Show its result once, but do not
+                    // launch a second translation pass for the same theme.
+                    completedOcrSummary = translationProgress.ocrSummary
                     ThemeTranslationProgressStore.consumeCompleted()
                 } else {
                     status = resources.getString(R.string.theme_language_tool_failed, translationProgress.error)
@@ -2527,55 +2515,6 @@ private fun StudioScreen(
             text = { Text(message) },
             confirmButton = {
                 TextButton(onClick = { operationError = null }) { Text(stringResource(R.string.action_close)) }
-            },
-        )
-    }
-
-    pendingOcrTheme?.let { theme ->
-        val scanSummary = pendingOcrScanSummary
-        val hasOcrCandidates = scanSummary == null ||
-            scanSummary.highConfidenceLabels + scanSummary.mediumConfidenceLabels > 0
-        AlertDialog(
-            onDismissRequest = {
-                pendingOcrTheme = null
-                pendingOcrScanSummary = null
-            },
-            title = { Text(stringResource(R.string.experimental_ocr_title)) },
-            text = {
-                Column {
-                    Text(stringResource(R.string.experimental_ocr_description))
-                    if (scanSummary != null) {
-                        Text("\nOCR taraması tamamlandı: ${scanSummary.scannedImages} görsel incelendi.")
-                        Text(
-                            "Çevrilebilecek metin: ${scanSummary.highConfidenceLabels + scanSummary.mediumConfidenceLabels}",
-                            color = Color(0xFF178A4B),
-                        )
-                        if (scanSummary.skippedLabels > 0) {
-                            Text(
-                                "Koruma için atlanan metin: ${scanSummary.skippedLabels}",
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                        if (!hasOcrCandidates) {
-                            Text("Görsel çeviri için güvenli bir metin adayı bulunamadı.")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    pendingOcrTheme = null
-                    pendingOcrScanSummary = null
-                    if (hasOcrCandidates) localizeTheme(theme, experimentalOcr = true)
-                }) {
-                    Text(stringResource(if (hasOcrCandidates) R.string.experimental_ocr_confirm else R.string.action_close))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    pendingOcrTheme = null
-                    pendingOcrScanSummary = null
-                }) { Text(stringResource(R.string.experimental_ocr_skip)) }
             },
         )
     }

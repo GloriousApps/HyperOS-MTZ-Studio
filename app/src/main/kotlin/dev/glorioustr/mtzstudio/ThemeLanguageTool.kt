@@ -62,8 +62,9 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
         val totalCandidates = allCandidates.size.coerceAtLeast(1)
         // OCR work is counted by real eligible image files, rather than squeezing the entire
         // visual stage into a fixed final percentage range.
-        // Even during a normal translation we scan visual assets once. The scan is read-only;
-        // its result is presented after the text pass so OCR remains an explicit opt-in action.
+        // Visual assets are part of the normal translation pass. OCR used to be only a
+        // read-only pre-scan unless the user accepted a second experimental step, which meant
+        // lock-screen/widget labels were detected but never translated in the normal flow.
         val ocrImageCount = runCatching {
             ExperimentalThemeOcrLocalizer.countEligibleImages(original, appContext)
         }.getOrDefault(0)
@@ -226,38 +227,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
             // Every raster label now follows the same content-driven OCR path. Do not
             // inject theme names, Turkish strings or hand-authored pixel coordinates.
             val previewOutput = output
-            val scanResult = if (!experimentalOcr && ocrImageCount > 0) runCatching {
-                reportTextProgress(totalCandidates)
-                ocrStage = true
-                ExperimentalThemeOcrLocalizer(
-                    translate = { it },
-                    onProgress = { processed, _ ->
-                        onProgress(
-                            (totalCandidates + processed).coerceAtMost(totalWork),
-                            totalWork,
-                        )
-                    },
-                    context = appContext,
-                    // Paddle/OpenCV can terminate the whole process with a native SIGSEGV on
-                    // unusual MTZ bitmaps. ML Kit's on-device Chinese recognizer is isolated
-                    // from that native failure path and remains fully local.
-                    preferPaddle = false,
-                ).scanOnly(previewOutput).also { scan ->
-                    onOcrSummary(
-                        ThemeOcrSummary(
-                            scannedImages = scan.scannedImages,
-                            changedImages = 0,
-                            highConfidenceLabels = scan.highConfidenceLabels,
-                            mediumConfidenceLabels = scan.mediumConfidenceLabels,
-                            skippedLabels = scan.skippedLabels,
-                        ),
-                    )
-                }
-            }.getOrElse { error ->
-                diagnostics.record("theme_experimental_ocr_scan_failed", "OCR ön taraması atlandı; metin çevirisi korundu", error = error)
-                null
-            } else null
-            val ocrResult = if (experimentalOcr) runCatching {
+            val ocrResult = if (ocrImageCount > 0) runCatching {
                 reportTextProgress(totalCandidates)
                 ocrStage = true
                 ExperimentalThemeOcrLocalizer(
@@ -282,7 +252,7 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                     )
                 }
             }.getOrElse { error ->
-                diagnostics.record("theme_experimental_ocr_failed", "Deneysel OCR atlandı; metin çevirisi korundu", error = error)
+                diagnostics.record("theme_ocr_failed", "OCR atlandı; metin çevirisi korundu", error = error)
                 null
             } else null
             require(result.translatedNodes > 0 || (ocrResult?.changedImages ?: 0) > 0) {
@@ -302,8 +272,6 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                     "changedFiles" to result.changedFiles.joinToString(),
                     "translatedNodes" to result.translatedNodes,
                     "experimentalOcr" to experimentalOcr,
-                    "ocrPreScanImages" to scanResult?.scannedImages,
-                    "ocrPreScanCandidates" to scanResult?.let { it.highConfidenceLabels + it.mediumConfidenceLabels },
                     "ocrScannedImages" to ocrResult?.scannedImages,
                     "ocrChangedImages" to ocrResult?.changedImages,
                     "ocrTranslatedLabels" to ocrResult?.translatedLabels,
