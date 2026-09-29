@@ -16,10 +16,8 @@ import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
-import com.paddle.ocr.PaddleOCR
 import com.paddle.ocr.util.OpenCVUtils
 import dev.glorioustr.mtzstudio.core.OcrDetectionFusion
-import kotlinx.coroutines.runBlocking
 import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.CvType
@@ -45,9 +43,6 @@ internal class ExperimentalThemeOcrLocalizer(
     private val translate: (String) -> String,
     private val onProgress: (Int, Int) -> Unit = { _, _ -> },
     private val context: Context? = null,
-    // ONNX Runtime can abort the entire process on some devices; never enable it for the
-    // ordinary translation path until that native engine has passed device-specific validation.
-    private val enablePaddle: Boolean = false,
 ) {
     data class Result(
         val scannedImages: Int,
@@ -64,6 +59,7 @@ internal class ExperimentalThemeOcrLocalizer(
     private var highConfidenceLabels = 0
     private var mediumConfidenceLabels = 0
     private var skippedLabels = 0
+    private var paddleFallbackAttempts = 0
     // OCR selection is deliberately based on pixels, never on a global image count.
     private val openCvReady by lazy { context?.let { OpenCVUtils.init(it) } == true }
 
@@ -74,10 +70,6 @@ internal class ExperimentalThemeOcrLocalizer(
         var processedImages = 0
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-        val paddleContext = context
-        val paddle = if (enablePaddle && paddleContext != null) runCatching {
-            if (OpenCVUtils.init(paddleContext)) runBlocking { PaddleOCR.create(paddleContext) } else null
-        }.getOrNull() else null
         try {
             ZipFile(source.toFile()).use { outer ->
                 ZipOutputStream(Files.newOutputStream(output)).use { out ->
@@ -99,7 +91,7 @@ internal class ExperimentalThemeOcrLocalizer(
                                                     val replacement = if (asset.name in selected) {
                                                         val bytes = nested.getInputStream(asset).use { it.readBytes() }
                                                         processedImages++
-                                                        val value = try { scanImage(bytes, "${entry.name}!/${asset.name}", recognizer, paddle, writeChanges = true) } catch (_: Exception) { null } ?: bytes
+                                                        val value = try { scanImage(bytes, "${entry.name}!/${asset.name}", recognizer, writeChanges = true) } catch (_: Exception) { null } ?: bytes
                                                         onProgress(processedImages, totalImages)
                                                         value
                                                     } else null
@@ -121,7 +113,6 @@ internal class ExperimentalThemeOcrLocalizer(
             }
         } finally {
             recognizer.close()
-            if (paddle != null) runCatching { runBlocking { paddle.release() } }
         }
         return Result(
             scannedImages,
@@ -143,10 +134,6 @@ internal class ExperimentalThemeOcrLocalizer(
         var processedImages = 0
         onProgress(0, totalImages)
         val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-        val paddleContext = context
-        val paddle = if (enablePaddle && paddleContext != null) runCatching {
-            if (OpenCVUtils.init(paddleContext)) runBlocking { PaddleOCR.create(paddleContext) } else null
-        }.getOrNull() else null
         try {
             ZipFile(source.toFile()).use { outer ->
                 outer.entries().asSequence()
@@ -163,7 +150,7 @@ internal class ExperimentalThemeOcrLocalizer(
                                     if (!asset.isDirectory && asset.name in selected) {
                                         val bytes = nested.getInputStream(asset).use { it.readBytes() }
                                         processedImages++
-                                        runCatching { scanImage(bytes, "${component.name}!/${asset.name}", recognizer, paddle, writeChanges = false) }
+                                        runCatching { scanImage(bytes, "${component.name}!/${asset.name}", recognizer, writeChanges = false) }
                                         onProgress(processedImages, totalImages)
                                     }
                                 }
@@ -175,7 +162,6 @@ internal class ExperimentalThemeOcrLocalizer(
             }
         } finally {
             recognizer.close()
-            if (paddle != null) runCatching { runBlocking { paddle.release() } }
         }
         return Result(
             scannedImages,
@@ -240,7 +226,6 @@ internal class ExperimentalThemeOcrLocalizer(
         bytes: ByteArray,
         name: String,
         recognizer: com.google.mlkit.vision.text.TextRecognizer,
-        paddle: PaddleOCR?,
         writeChanges: Boolean,
     ): ByteArray? {
         if (!isEligibleImage(bytes)) return null
@@ -292,23 +277,17 @@ internal class ExperimentalThemeOcrLocalizer(
                 }
 
                 val mlKitLines = recognizeWithMlKit()
-                val paddleLines = if (paddle != null) {
-                    runCatching {
-                        runBlocking {
-                            paddle.recognize(observed).results
-                                .filter { it.confidence >= 0.45f }
-                                .mapNotNull { item ->
-                                    val points = item.box.points
-                                    val left = points.minOf { it.x }.toInt()
-                                    val top = points.minOf { it.y }.toInt()
-                                    val right = points.maxOf { it.x }.toInt()
-                                    val bottom = points.maxOf { it.y }.toInt()
-                                    if (right > left && bottom > top) {
-                                        DetectedLine(item.text, Rect(left, top, right, bottom), item.confidence)
-                                    } else null
-                                }
-                        }
-                    }.getOrDefault(emptyList())
+                val paddleLines = if (
+                    context != null &&
+                    paddleFallbackAttempts < MAX_PADDLE_FALLBACK_ATTEMPTS &&
+                    mlKitLines.none { CJK.containsMatchIn(it.text) && it.confidence >= MIN_CONFIDENCE }
+                ) {
+                    paddleFallbackAttempts++
+                    PaddleOcrFallback.recognize(context, observed).mapNotNull { line ->
+                        if (line.right > line.left && line.bottom > line.top) {
+                            DetectedLine(line.text, Rect(line.left, line.top, line.right, line.bottom), line.confidence)
+                        } else null
+                    }
                 } else emptyList()
                 fuseDetections(listOf(mlKitLines, paddleLines))
             } finally {
@@ -887,6 +866,7 @@ internal class ExperimentalThemeOcrLocalizer(
         // Below this the label is unreadable, so a contrasting colour is substituted.
         const val MIN_GLYPH_CONTRAST = 60
         const val PREFLIGHT_MAX_SIDE = 512
+        const val MAX_PADDLE_FALLBACK_ATTEMPTS = 3
         // Entries that look like components but are not theme components.
         val NON_COMPONENT_ENTRIES = setOf("preview", "icons", "description.xml", "theme_values.xml", "wallpaper", "res", "raw", "fonts", "audio", "boots")
         val NON_RASTER_SUFFIXES = setOf(
