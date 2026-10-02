@@ -539,6 +539,7 @@ internal fun ThemeManagerCompatibilityCard(
 private fun supportsRootMtzImportModule(versionName: String?): Boolean {
     val version = versionName?.lowercase() ?: return false
     return version.startsWith("3.0.5.6") ||
+        version.startsWith("3.0.5.19") ||
         version.startsWith("3.0.6.8") ||
         version.startsWith("3.4.")
 }

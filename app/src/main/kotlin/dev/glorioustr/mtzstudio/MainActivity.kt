@@ -339,7 +339,6 @@ private fun StudioScreen(
     var pendingBakArchive by remember { mutableStateOf<ThemeManagerBakArchive?>(null) }
     var translateBakToAppLanguage by remember { mutableStateOf(false) }
     var pendingApplyTheme by remember { mutableStateOf<LibraryTheme?>(null) }
-    var completedOcrSummary by remember { mutableStateOf<ThemeOcrSummary?>(null) }
     var preparedApply by remember { mutableStateOf<PreparedThemeApply?>(null) }
     var themeOperationRunning by remember { mutableStateOf(false) }
     var mtzImportTotal by remember { mutableIntStateOf(0) }
@@ -576,7 +575,7 @@ private fun StudioScreen(
         }
     }
 
-    fun localizeTheme(theme: LibraryTheme, experimentalOcr: Boolean) {
+    fun localizeTheme(theme: LibraryTheme) {
         if (themeOperationRunning) return
         themeOperationRunning = true
         status = resources.getString(R.string.theme_language_tool_working)
@@ -584,7 +583,6 @@ private fun StudioScreen(
             context,
             theme.id.value,
             theme.archive.metadata?.name ?: theme.displayName,
-            experimentalOcr,
         )
     }
 
@@ -607,9 +605,6 @@ private fun StudioScreen(
                             translationProgress.apiWarnings.joinToString(" | "),
                         )
                     }
-                    // OCR is part of every translation pass. Show its result once, but do not
-                    // launch a second translation pass for the same theme.
-                    completedOcrSummary = translationProgress.ocrSummary
                     ThemeTranslationProgressStore.consumeCompleted()
                 } else {
                     status = resources.getString(R.string.theme_language_tool_failed, translationProgress.error)
@@ -2013,7 +2008,7 @@ private fun StudioScreen(
                         }
                     }
                 },
-                onTranslateTheme = { localizeTheme(it, experimentalOcr = false) },
+                onTranslateTheme = ::localizeTheme,
                 onDeleteTheme = ::deleteTheme,
                 onCustomizeTheme = { theme ->
                     baseThemeId = theme.id.value
@@ -2515,36 +2510,6 @@ private fun StudioScreen(
             text = { Text(message) },
             confirmButton = {
                 TextButton(onClick = { operationError = null }) { Text(stringResource(R.string.action_close)) }
-            },
-        )
-    }
-
-    completedOcrSummary?.let { summary ->
-        AlertDialog(
-            onDismissRequest = { completedOcrSummary = null },
-            title = { Text("OCR çeviri özeti") },
-            text = {
-                Column {
-                    Text("Taranan görsel: ${summary.scannedImages}")
-                    Text("Güvenle düzenlenen görsel: ${summary.changedImages}")
-                    Text(
-                        "Yüksek güven: ${summary.highConfidenceLabels}",
-                        color = Color(0xFF178A4B),
-                    )
-                    Text(
-                        "Orta güven: ${summary.mediumConfidenceLabels}",
-                        color = Color(0xFFD48806),
-                    )
-                    Text(
-                        "Atlanan metin: ${summary.skippedLabels}",
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { completedOcrSummary = null }) {
-                    Text(stringResource(R.string.action_close))
-                }
             },
         )
     }

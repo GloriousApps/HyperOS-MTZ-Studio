@@ -30,22 +30,19 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
     fun translateTextToSystemLanguage(
         theme: LibraryTheme,
         onProgress: (processed: Int, total: Int) -> Unit = { _, _ -> },
-    ): LibraryTheme = translateTextToSystemLanguage(theme, false, true, onProgress)
+    ): LibraryTheme = translateTextToSystemLanguage(theme, true, onProgress)
 
     fun translateTextToSystemLanguage(
         theme: LibraryTheme,
-        experimentalOcr: Boolean,
         allowApiTranslation: Boolean,
         onProgress: (processed: Int, total: Int) -> Unit = { _, _ -> },
         onApiWarnings: (List<String>) -> Unit = {},
-        onOcrSummary: (ThemeOcrSummary) -> Unit = {},
     ): LibraryTheme {
         val locale = appContext.resources.configuration.locales[0] ?: Locale.getDefault()
         val target = translateLanguage(locale.toLanguageTag())
             ?: translateLanguage(locale.language)
             ?: TranslateLanguage.ENGLISH
         val output = library.newExportPath("${theme.displayName}-translated")
-        val ocrOutput = library.newExportPath("${theme.displayName}-experimental-ocr")
         val identifier = LanguageIdentification.getClient(
             LanguageIdentificationOptions.Builder().setConfidenceThreshold(0.45f).build(),
         )
@@ -60,21 +57,9 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
             shouldTranslate = TranslationTextFilter::isCandidate,
         ).collectCandidates(original).map(String::trim).filter(String::isNotBlank).distinct()
         val totalCandidates = allCandidates.size.coerceAtLeast(1)
-        // OCR work is counted by real eligible image files, rather than squeezing the entire
-        // visual stage into a fixed final percentage range.
-        // Visual assets are part of the normal translation pass. OCR used to be only a
-        // read-only pre-scan unless the user accepted a second experimental step, which meant
-        // lock-screen/widget labels were detected but never translated in the normal flow.
-        val ocrImageCount = runCatching {
-            ExperimentalThemeOcrLocalizer.countEligibleImages(original, appContext)
-        }.getOrDefault(0)
-        val totalWork = (totalCandidates + ocrImageCount).coerceAtLeast(1)
         val reportedCandidates = linkedSetOf<String>()
-        var ocrStage = false
         fun reportTextProgress(processed: Int) {
-            if (!ocrStage) {
-                onProgress(processed.coerceAtMost(totalCandidates), totalWork)
-            }
+            onProgress(processed.coerceAtMost(totalCandidates), totalCandidates)
         }
         reportTextProgress(0)
         val apiSettings = AiTranslationSettingsStore(appContext).load()
@@ -224,41 +209,10 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                 translateAllDisplayText = true,
                 shouldTranslate = TranslationTextFilter::isCandidate,
             ).rewrite(original, output, ::translate)
-            // Every raster label now follows the same content-driven OCR path. Do not
-            // inject theme names, Turkish strings or hand-authored pixel coordinates.
-            val previewOutput = output
-            val ocrResult = if (ocrImageCount > 0) runCatching {
-                reportTextProgress(totalCandidates)
-                ocrStage = true
-                ExperimentalThemeOcrLocalizer(
-                    translate = ::translate,
-                    onProgress = { processed, total ->
-                        onProgress(
-                            (totalCandidates + processed).coerceAtMost(totalWork),
-                            totalWork,
-                        )
-                    },
-                    context = appContext,
-                ).rewrite(previewOutput, ocrOutput).also { ocr ->
-                    onOcrSummary(
-                        ThemeOcrSummary(
-                            scannedImages = ocr.scannedImages,
-                            changedImages = ocr.changedImages,
-                            highConfidenceLabels = ocr.highConfidenceLabels,
-                            mediumConfidenceLabels = ocr.mediumConfidenceLabels,
-                            skippedLabels = ocr.skippedLabels,
-                        ),
-                    )
-                }
-            }.getOrElse { error ->
-                diagnostics.record("theme_ocr_failed", "OCR atlandı; metin çevirisi korundu", error = error)
-                null
-            } else null
-            require(result.translatedNodes > 0 || (ocrResult?.changedImages ?: 0) > 0) {
-                "Çevrilebilen tema metni veya güvenle düzenlenebilen görsel bulunamadı; tema değiştirilmedi (${result.skippedFiles.size} bölüm atlandı)."
+            require(result.translatedNodes > 0) {
+                "Çevrilebilen tema metni bulunamadı; tema değiştirilmedi (${result.skippedFiles.size} bölüm atlandı)."
             }
-            val finalOutput = if ((ocrResult?.changedImages ?: 0) > 0) ocrOutput else previewOutput
-            val localized = Files.newInputStream(finalOutput).use { library.replaceTheme(theme, it) }
+            val localized = Files.newInputStream(output).use { library.replaceTheme(theme, it) }
             library.recordTranslation(localized)
             diagnostics.record(
                 "theme_language_tool_completed",
@@ -270,11 +224,6 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
                     "undeterminedTextCount" to undetermined.size,
                     "changedFiles" to result.changedFiles.joinToString(),
                     "translatedNodes" to result.translatedNodes,
-                    "experimentalOcr" to experimentalOcr,
-                    "ocrScannedImages" to ocrResult?.scannedImages,
-                    "ocrChangedImages" to ocrResult?.changedImages,
-                    "ocrTranslatedLabels" to ocrResult?.translatedLabels,
-                    "ocrSkippedLabels" to ocrResult?.skippedLabels,
                     "apiEnabled" to apiSettings.enabled,
                     "apiAllowedForThisRun" to allowApiTranslation,
                     "apiProvider" to apiSettings.provider.title,
@@ -294,7 +243,6 @@ internal class ThemeLanguageTool(context: Context, private val library: ThemeLib
             identifier.close()
             translators.values.forEach { it.translator.close() }
             Files.deleteIfExists(output)
-            Files.deleteIfExists(ocrOutput)
         }
     }
 

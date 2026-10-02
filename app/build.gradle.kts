@@ -14,8 +14,8 @@ android {
         applicationId = "dev.glorioustr.mtzstudio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 69
-        versionName = "5.1.0"
+        versionCode = 70
+        versionName = "5.2.0"
     }
 
     signingConfigs {
@@ -66,11 +66,6 @@ dependencies {
     implementation(project(":mtz-library"))
     implementation(project(":mtz-composer"))
     implementation(project(":tester-adapter"))
-    implementation(project(":ppocr-sdk"))
-    // Used by the local image-content prefilter before OCR.
-    implementation("org.opencv:opencv:4.14.0")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.21.1")
-
     val composeBom = platform("androidx.compose:compose-bom:2025.12.01")
     implementation(composeBom)
     implementation("androidx.activity:activity-compose:1.13.0")

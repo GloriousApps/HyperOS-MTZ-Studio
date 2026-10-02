@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "HyperOS-MTZ-Studio"
-include(":app", ":mtz-core", ":mtz-library", ":mtz-composer", ":tester-adapter", ":ppocr-sdk")
+include(":app", ":mtz-core", ":mtz-library", ":mtz-composer", ":tester-adapter")

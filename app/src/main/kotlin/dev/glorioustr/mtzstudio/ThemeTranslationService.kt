@@ -31,21 +31,11 @@ internal data class ThemeTranslationProgress(
     val completed: Boolean = false,
     val error: String? = null,
     val apiWarnings: List<String> = emptyList(),
-    val experimentalOcr: Boolean = false,
     val apiMode: String = "",
-    val ocrSummary: ThemeOcrSummary? = null,
 ) {
     val fraction: Float
         get() = if (!running) 1f else if (total <= 0) 0f else (processed.toFloat() / total).coerceIn(0f, 1f)
 }
-
-internal data class ThemeOcrSummary(
-    val scannedImages: Int = 0,
-    val changedImages: Int = 0,
-    val highConfidenceLabels: Int = 0,
-    val mediumConfidenceLabels: Int = 0,
-    val skippedLabels: Int = 0,
-)
 
 internal object ThemeTranslationProgressStore {
     private val mutableState = MutableStateFlow(ThemeTranslationProgress())
@@ -55,8 +45,6 @@ internal object ThemeTranslationProgressStore {
         mutableState.value = progress
     }
 
-    /** A completed event is consumed by the UI once; keeping it caused OCR dialogs to reopen
-     * whenever the activity was recreated after returning from Xiaomi Themes. */
     fun consumeCompleted() {
         if (mutableState.value.completed) mutableState.value = ThemeTranslationProgress()
     }
@@ -77,14 +65,12 @@ internal class ThemeTranslationService : Service() {
         val themeId = intent?.getStringExtra(EXTRA_THEME_ID) ?: return START_NOT_STICKY
         if (runningJob?.isActive == true) return START_NOT_STICKY
         val themeName = intent.getStringExtra(EXTRA_THEME_NAME).orEmpty()
-        val experimentalOcr = intent.getBooleanExtra(EXTRA_EXPERIMENTAL_OCR, false)
         val apiSettings = AiTranslationSettingsStore(applicationContext).load()
         val initial = ThemeTranslationProgress(
             themeId = themeId,
             themeName = themeName,
             running = true,
-            experimentalOcr = experimentalOcr,
-            apiMode = if (experimentalOcr && apiSettings.isReady) {
+            apiMode = if (apiSettings.isReady) {
                 "API: ${apiSettings.provider.title}"
             } else {
                 "Yerel çeviri"
@@ -117,8 +103,7 @@ internal class ThemeTranslationService : Service() {
                 val translated = ThemeLanguageTool(applicationContext, library)
                     .translateTextToSystemLanguage(
                         theme,
-                        experimentalOcr,
-                        experimentalOcr,
+                        apiSettings.isReady,
                         onProgress = { processed, total ->
                             val progress = ThemeTranslationProgress(
                                 themeId = themeId,
@@ -126,9 +111,7 @@ internal class ThemeTranslationService : Service() {
                                 processed = processed,
                                 total = total,
                                 running = true,
-                                experimentalOcr = experimentalOcr,
                                 apiMode = ThemeTranslationProgressStore.state.value.apiMode,
-                                ocrSummary = ThemeTranslationProgressStore.state.value.ocrSummary,
                             )
                             ThemeTranslationProgressStore.update(progress)
                             getSystemService(NotificationManager::class.java)
@@ -139,10 +122,6 @@ internal class ThemeTranslationService : Service() {
                             ThemeTranslationProgressStore.update(
                                 current.copy(apiWarnings = warnings.distinct()),
                             )
-                        },
-                        onOcrSummary = { summary ->
-                            val current = ThemeTranslationProgressStore.state.value
-                            ThemeTranslationProgressStore.update(current.copy(ocrSummary = summary))
                         },
                     )
                 // Keep a snapshot before invalidating the old hash mapping. The root bridge
@@ -238,9 +217,7 @@ internal class ThemeTranslationService : Service() {
                     total = 1,
                     completed = true,
                     apiWarnings = ThemeTranslationProgressStore.state.value.apiWarnings,
-                    experimentalOcr = experimentalOcr,
                     apiMode = ThemeTranslationProgressStore.state.value.apiMode,
-                    ocrSummary = ThemeTranslationProgressStore.state.value.ocrSummary,
                 )
             }.getOrElse { error ->
                 ThemeTranslationProgress(
@@ -249,9 +226,7 @@ internal class ThemeTranslationService : Service() {
                     completed = true,
                     error = error.message ?: error::class.simpleName,
                     apiWarnings = ThemeTranslationProgressStore.state.value.apiWarnings,
-                    experimentalOcr = experimentalOcr,
                     apiMode = ThemeTranslationProgressStore.state.value.apiMode,
-                    ocrSummary = ThemeTranslationProgressStore.state.value.ocrSummary,
                 )
             }.also { result ->
                 ThemeTranslationProgressStore.update(result)
@@ -309,15 +284,13 @@ internal class ThemeTranslationService : Service() {
     companion object {
         private const val EXTRA_THEME_ID = "theme_id"
         private const val EXTRA_THEME_NAME = "theme_name"
-        private const val EXTRA_EXPERIMENTAL_OCR = "experimental_ocr"
         private const val CHANNEL_ID = "theme_translation"
         private const val NOTIFICATION_ID = 4401
 
-        fun start(context: Context, themeId: String, themeName: String, experimentalOcr: Boolean = false) {
+        fun start(context: Context, themeId: String, themeName: String) {
             val intent = Intent(context, ThemeTranslationService::class.java)
                 .putExtra(EXTRA_THEME_ID, themeId)
                 .putExtra(EXTRA_THEME_NAME, themeName)
-                .putExtra(EXTRA_EXPERIMENTAL_OCR, experimentalOcr)
             androidx.core.content.ContextCompat.startForegroundService(context, intent)
         }
     }
