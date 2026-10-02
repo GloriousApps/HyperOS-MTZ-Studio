@@ -175,10 +175,21 @@ class ThemeApplyCoordinator(
             "Tema kaynağı doğrulama sonrası değişmiş"
         }
         val themeName = theme.archive.metadata?.name ?: theme.displayName
-        // Root can read Studio's verified private archive directly. Exporting through
-        // MediaStore may rename a colliding download to "(1)" while returning the old
-        // filename, causing Themes to import an untranslated earlier copy instead.
-        val sourcePath = theme.archive.source.toAbsolutePath().normalize().toString()
+        // Magisk root runs in its own SELinux context and cannot read Studio's private
+        // /data/user/0 archive after a cloud restore. Export a hash-named public copy first;
+        // the hash suffix prevents a stale MTZ with the same display name being reused.
+        val publicName = "$themeName-${theme.archive.sha256.take(12)}"
+        val sourcePath = checkNotNull(
+            MtzPublicExporter.exportToPublicDownloads(
+                context,
+                theme.archive.source,
+                publicName,
+            ),
+        ) { "Tema ortak İndirilenler alanına hazırlanamadı" }
+            .toPath()
+            .toAbsolutePath()
+            .normalize()
+            .toString()
         val stagedPath = "$THEME_MANAGER_MODERN_DOWNLOAD_ROOT/${UUID.randomUUID()}.mtz"
         val stage = "/system/bin/mkdir -p ${shellQuote(THEME_MANAGER_MODERN_DOWNLOAD_ROOT)} && " +
             "/system/bin/cp ${shellQuote(sourcePath)} ${shellQuote(stagedPath)} && " +
