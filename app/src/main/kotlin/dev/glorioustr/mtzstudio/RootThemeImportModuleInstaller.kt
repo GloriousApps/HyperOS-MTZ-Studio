@@ -41,21 +41,28 @@ internal class RootThemeImportModuleInstaller(
             else
               echo NOT_INSTALLED
             fi
-            if [ -f "${'$'}marker" ]; then echo "ACTIVE:${'$'}(head -n 1 "${'$'}marker")"; else echo NOT_ACTIVE; fi
+            if [ -f "${'$'}marker" ]; then
+              ready="${'$'}(sed -n 's/^ready=//p' "${'$'}marker" | head -n 1)"
+              error="${'$'}(sed -n 's/^error=//p' "${'$'}marker" | head -n 1)"
+              echo "BRIDGE_READY:${'$'}ready"
+              if [ -n "${'$'}error" ]; then echo "BRIDGE_ERROR:${'$'}error"; fi
+            else
+              echo BRIDGE_READY:false
+            fi
             """.trimIndent(),
             10,
         )
         val lines = result.output.lineSequence().map(String::trim).toList()
         val installed = lines.firstOrNull { it.startsWith("INSTALLED:") }
-        val active = lines.firstOrNull { it.startsWith("ACTIVE:") }
+        val bridgeReady = lines.firstOrNull { it.startsWith("BRIDGE_READY:") }
+            ?.substringAfter(':')
+            ?.equals("true", ignoreCase = true) == true
         return State(
             installed = installed != null,
             version = installed?.substringAfter(':')?.takeIf(String::isNotBlank),
-            // Zygisk injects only when Xiaomi Themes starts.  Requiring Themes to have
-            // already been opened after every reboot made a correctly installed module look
-            // like it still needed a restart.  The signed module.prop is the authoritative
-            // availability check; the runtime marker is retained only as extra diagnostics.
-            active = active != null || installed != null,
+            // A module can be installed but unable to hook a newer Xiaomi importer. Never
+            // dispatch a root bridge request unless its own in-process marker confirms ready.
+            active = bridgeReady,
         )
     }
 

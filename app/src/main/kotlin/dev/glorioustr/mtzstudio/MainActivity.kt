@@ -1042,7 +1042,15 @@ private fun StudioScreen(
                     val modernShizukuImport =
                         accessMode == StudioAccessMode.SHIZUKU &&
                             themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
-                    if (rootAccessAvailable == true || modernShizukuImport) {
+                    val rootBridgeReady =
+                        rootAccessAvailable == true && themeApplyCoordinator.rootGlobalModuleBridgeReady()
+                    if (rootAccessAvailable == true && !rootBridgeReady) {
+                        // The installed Zygisk binary may not recognize a newer Global Themes
+                        // importer. Use the platform backup transport rather than sending the
+                        // archive to an uninitialized bridge that would only return a generic
+                        // "local theme directory unavailable" error.
+                        themeApplyCoordinator.prepareRootlessManualImport(theme)
+                    } else if (rootAccessAvailable == true || modernShizukuImport) {
                         // Modern 10.8.7.6+ builds expose their own local import library. Shizuku
                         // can stage an MTZ for that screen even though it cannot read the private
                         // catalog. Never send this branch to the removed legacy tester activity.
@@ -1072,9 +1080,7 @@ private fun StudioScreen(
                             }
                             else -> null
                         }
-                        if (rootAccessAvailable == true &&
-                            themeApplyCoordinator.rootGlobalModuleBridgeReady()
-                        ) {
+                        if (rootBridgeReady) {
                             // A translated or re-created Studio archive must enter Themes through
                             // the root module as well.  The former branch below bypassed the module
                             // whenever its prior local record was stale, then opened an activity
