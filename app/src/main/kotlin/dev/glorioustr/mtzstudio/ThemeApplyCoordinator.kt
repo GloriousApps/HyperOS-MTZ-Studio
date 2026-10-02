@@ -356,12 +356,17 @@ class ThemeApplyCoordinator(
                 // Downloads is not directly readable by Themes under scoped storage. The BAK
                 // restore places the MTZ in Themes' own external-files domain, so the Zyper
                 // local-apply contract can consume it without a picker or online rights check.
-                val tester = ThemeManagerContract.localRestoredThemeRequest(restoredThemePath)
-                val testerIntent = Intent().apply {
-                    component = ComponentName(THEME_MANAGER_PACKAGE, tester.componentClassName)
-                    tester.stringExtras.forEach(::putExtra)
-                    tester.longExtras.forEach(::putExtra)
-                }.takeIf { it.resolveActivity(context.packageManager) != null }
+                val testerIntent = if (
+                    ThemeManagerContract.behavior(installedVersion) ==
+                        dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.LOCAL_THEME_IMPORT
+                ) {
+                    val tester = ThemeManagerContract.localRestoredThemeRequest(restoredThemePath)
+                    Intent().apply {
+                        component = ComponentName(THEME_MANAGER_PACKAGE, tester.componentClassName)
+                        tester.stringExtras.forEach(::putExtra)
+                        tester.longExtras.forEach(::putExtra)
+                    }.takeIf { it.resolveActivity(context.packageManager) != null }
+                } else null
                 diagnostics.record(
                     "rootless_local_apply_ready",
                     if (testerIntent != null) {
