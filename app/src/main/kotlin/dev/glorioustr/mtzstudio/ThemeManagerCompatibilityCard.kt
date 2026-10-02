@@ -537,11 +537,10 @@ internal fun ThemeManagerCompatibilityCard(
 }
 
 private fun supportsRootMtzImportModule(versionName: String?): Boolean {
-    val version = versionName?.lowercase() ?: return false
-    return version.startsWith("3.0.5.6") ||
-        version.startsWith("3.0.5.19") ||
-        version.startsWith("3.0.6.8") ||
-        version.startsWith("3.4.")
+    // Module installation/inspection is independent of the Themes activity contract. Keep this
+    // available on every installed version: a fresh system can disable Themes before it is
+    // launched, but root module state must still be visible and repairable.
+    return !ThemeManagerContract.canonicalVersion(versionName).isNullOrBlank()
 }
 
 private fun awaitDownload(manager: DownloadManager, downloadId: Long) {
