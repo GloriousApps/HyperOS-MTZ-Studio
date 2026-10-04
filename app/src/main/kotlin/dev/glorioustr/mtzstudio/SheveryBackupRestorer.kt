@@ -77,7 +77,7 @@ object SheveryBackupRestorer {
         val data = Parcel.obtain(); val reply = Parcel.obtain()
         try {
             data.writeInterfaceToken("miui.app.backup.IBackupManager")
-            file.writeToParcel(data, 0); data.writeString("com.android.thememanager"); data.writeInt(1); data.writeStrongBinder(null)
+            data.writeInt(1); file.writeToParcel(data, 0); data.writeString("com.android.thememanager"); data.writeInt(1); data.writeStrongBinder(null)
             check(binder.transact(3, data, reply, 0)) { "HyperOS geri yüklemeyi başlatmadı" }
             reply.readException()
         } finally { reply.recycle(); data.recycle() }
