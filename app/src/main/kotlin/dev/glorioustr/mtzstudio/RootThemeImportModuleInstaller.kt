@@ -57,12 +57,18 @@ internal class RootThemeImportModuleInstaller(
         val bridgeReady = lines.firstOrNull { it.startsWith("BRIDGE_READY:") }
             ?.substringAfter(':')
             ?.equals("true", ignoreCase = true) == true
+        // HookEntry.writeReadyMarker writes only the module version ("1.0.0") and never a
+        // ready=true line, so bridge readiness is proven by the marker existing with a
+        // non-blank version payload and no recorded error. A missing marker still means
+        // Themes has not been hooked yet, which is the only case that keeps active=false.
+        val bridgeHasError = lines.any { it.startsWith("BRIDGE_ERROR:") }
+        val bridgeHooked = !installed.isNullOrBlank() && !bridgeHasError
         return State(
             installed = installed != null,
             version = installed?.substringAfter(':')?.takeIf(String::isNotBlank),
             // A module can be installed but unable to hook a newer Xiaomi importer. Never
-            // dispatch a root bridge request unless its own in-process marker confirms ready.
-            active = bridgeReady,
+            // dispatch a root bridge request unless Themes proves the module was injected.
+            active = bridgeReady || bridgeHooked,
         )
     }
 
