@@ -243,42 +243,6 @@ class ThemeApplyCoordinator(
     }
 
     /**
-     * Dispatches the root-module bridge from the privileged service itself.  On devices where
-     * Shizuku is also active, an ActivityResult launch can be paused by Xiaomi Themes before
-     * the second intent is delivered.  The native bridge does not need an Activity result to
-     * perform the apply operation, so this command keeps the hand-off alive independently of
-     * Studio's foreground lifecycle.
-     */
-    fun dispatchRootGlobalModuleBridge(prepared: PreparedThemeApply) {
-        check(prepared.protocol == ThemeApplyProtocol.ROOT_GLOBAL_THEME_MANAGER_BRIDGE) {
-            "Root MTZ Import köprüsü için geçersiz işlem"
-        }
-        val intent = prepared.intent
-        val action = checkNotNull(intent.action) { "Root MTZ Import eylemi eksik" }
-        val command = buildString {
-            append("/system/bin/am start -n ")
-            append(shellQuote("$THEME_MANAGER_PACKAGE/$ROOT_GLOBAL_THEME_ACTIVITY"))
-            append(" -a ").append(shellQuote(action))
-            intent.getStringExtra(ThemeManagerBridgeContract.EXTRA_THEME_PATH)?.let {
-                append(" --es ").append(shellQuote(ThemeManagerBridgeContract.EXTRA_THEME_PATH))
-                    .append(' ').append(shellQuote(it))
-            }
-            intent.getStringExtra(ThemeManagerBridgeContract.EXTRA_THEME_SHA256)?.let {
-                append(" --es ").append(shellQuote(ThemeManagerBridgeContract.EXTRA_THEME_SHA256))
-                    .append(' ').append(shellQuote(it))
-            }
-            intent.getStringExtra(ThemeManagerBridgeContract.EXTRA_THEME_LOCAL_ID)?.let {
-                append(" --es ").append(shellQuote(ThemeManagerBridgeContract.EXTRA_THEME_LOCAL_ID))
-                    .append(' ').append(shellQuote(it))
-            }
-        }
-        val result = runRecordedRoot("root_global_bridge_dispatch", command, 30)
-        check(result.exitCode == 0) {
-            "Xiaomi Temalar uygulama isteği başlatılamadı: ${result.output.takeLast(500)}"
-        }
-    }
-
-    /**
      * Adds an MTZ to Xiaomi Themes through HyperOS' own backup service while running with
      * Shizuku/Shevery. This is the only stock-system path that does not require us to invoke
      * Xiaomi's private Java importer or automate screen coordinates.

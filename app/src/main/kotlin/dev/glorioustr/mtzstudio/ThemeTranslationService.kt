@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -85,21 +84,7 @@ internal class ThemeTranslationService : Service() {
                     ?: error("Theme is no longer in the library")
                 val commandRunner = PreferredPrivilegedCommandRunner(applicationContext)
                 val coordinator = ThemeApplyCoordinator(applicationContext, commandRunner)
-                val importer = DeviceThemeImporter(
-                    context = applicationContext,
-                    library = library,
-                    composer = MtzComposer(),
-                    commandRunner = commandRunner,
-                )
-                // Capture identities while the original metadata is still available. The
-                // first import may never have been linked by an older Studio build, and its
-                // Chinese title no longer matches the archive after translation.
-                val previousLocalIds = if (coordinator.rootGlobalModuleBridgeReady()) {
-                    importer.linkedLocalIdsFor(theme) + listOfNotNull(
-                        runCatching { importer.resolveExistingLocalId(theme) }.getOrNull(),
-                        runCatching { importer.resolveExistingLocalId(library.translationSource(theme)) }.getOrNull(),
-                    )
-                } else emptySet()
+                val rootBridgeReady = coordinator.rootGlobalModuleBridgeReady()
                 val translated = ThemeLanguageTool(applicationContext, library)
                     .translateTextToSystemLanguage(
                         theme,
@@ -124,61 +109,19 @@ internal class ThemeTranslationService : Service() {
                             )
                         },
                     )
-                // Keep a snapshot before invalidating the old hash mapping. The root bridge
-                // receives those IDs so Xiaomi Themes replaces its untranslated record instead
-                // of leaving it beside the newly translated archive.
-                val replacedLocalIds = previousLocalIds + importer.linkedLocalIdsFor(translated)
-                val localIdsBeforeRefresh = runCatching { importer.localThemeIds() }
-                    .getOrDefault(emptySet())
                 DeviceThemeImporter.invalidateThemeManagerOriginAfterMutation(
                     applicationContext,
                     translated.id.value,
                 )
+                if (rootBridgeReady) {
+                    LiveDiagnosticsRecorder.get(applicationContext).record(
+                        "translation_root_library_refresh_deferred",
+                        "Çevrilen MTZ için Root Temalar eşitlemesi uygulama adımına ertelendi",
+                        mapOf("theme" to translated.displayName),
+                    )
+                }
                 when {
-                    coordinator.rootGlobalModuleBridgeReady() -> runCatching {
-                        coordinator.dispatchRootGlobalModuleBridge(
-                            coordinator.prepareRootGlobalModuleImportOnly(translated, replacedLocalIds),
-                        )
-                        LiveDiagnosticsRecorder.get(applicationContext).record(
-                            "translation_root_library_refreshed",
-                            "Çevrilen MTZ Root Import modülüyle Xiaomi Temalar kitaplığında değiştirildi",
-                            mapOf("theme" to translated.displayName, "replacedLocalIds" to replacedLocalIds.joinToString()),
-                        )
-                        // The bridge runs in Xiaomi Themes' process. Wait for the new catalog
-                        // record and relink it so the following Apply uses this translated copy
-                        // rather than importing the archive a second time.
-                        var newLocalId: String? = null
-                        repeat(12) {
-                            if (newLocalId == null) {
-                                delay(750)
-                                newLocalId = runCatching {
-                                    importer.resolveImportedLocalId(translated, localIdsBeforeRefresh)
-                                }.getOrNull()
-                            }
-                        }
-                        newLocalId?.let { localId ->
-                            importer.rememberThemeManagerOrigin(localId, translated)
-                            val removed = importer.removeReplacedThemeManagerRecords(
-                                replacedLocalIds - localId,
-                            )
-                            LiveDiagnosticsRecorder.get(applicationContext).record(
-                                "translation_root_library_linked",
-                                "Çevrilen MTZ'nin Xiaomi Temalar kaydı eşleştirildi ve eski kayıt temizlendi",
-                                mapOf(
-                                    "theme" to translated.displayName,
-                                    "localId" to localId,
-                                    "removedRecords" to removed,
-                                ),
-                            )
-                        }
-                    }.onFailure { error ->
-                        LiveDiagnosticsRecorder.get(applicationContext).record(
-                            "translation_root_library_refresh_deferred",
-                            "Çevrilen MTZ için Root Temalar eşitlemesi uygulama adımına ertelendi",
-                            mapOf("theme" to translated.displayName),
-                            error,
-                        )
-                    }
+                    rootBridgeReady -> Unit
                     SheveryBackupRestorer.state() == SheveryBackupRestorer.State.READY -> {
                     runCatching {
                         val localId = coordinator.importModernThroughShizukuBackup(translated)
