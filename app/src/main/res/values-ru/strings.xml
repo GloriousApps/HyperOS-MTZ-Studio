@@ -251,6 +251,12 @@
     <string name="status_apply_failed">Не может быть применено Тема: %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"был добавлен в Xiaomi Тема менеджер</string>
     <string name="error_modern_bridge_failed">Мост Xiaomi Theme Manager не завершил работу</string>
+    <string name="error_theme_manager_internal">Диспетчер тем не смог обработать тему. Это может произойти, если ваше приложение Xiaomi Themes обновлено или несовместимо с этой темой. Попробуйте обновить Xiaomi Themes или использовать другую версию темы.</string>
+    <string name="error_theme_manager_timeout">Диспетчер тем не ответил. Пожалуйста, попробуйте еще раз.</string>
+    <string name="error_permission_denied">Доступ root отклонен. Убедитесь, что MTZ Studio имеет разрешение root в вашем root-менеджере (Magisk, KernelSU, APatch и т.д.) и что Shizuku/Shevery работает в режиме root.</string>
+    <string name="error_tm_incompatible_apply">Эта тема не может быть применена</string>
+    <string name="error_tm_incompatible_import">Эта тема не может быть импортирована</string>
+    <string name="error_tm_incompatible_generic">Эта тема не может быть обработана</string>
     <string name="modern_catalog_title">Xiaomi Библиотека тематического менеджера</string>
     <string name="modern_catalog_desc">Темы, предварительные просмотры и действия синхронизируются непосредственно с Xiaomi Theme Manager.</string>
     <string name="modern_catalog_refresh">Каталог обновления</string>

@@ -251,6 +251,12 @@
     <string name="status_apply_failed">لا يمكن تطبيق الموضوع: %1$s</string>
     <string name="status_modern_theme_imported">تم إضافة\"%1$s\"إلى Xiaomi مدير الموضوع</string>
     <string name="error_modern_bridge_failed">الجسر Xiaomi Theme Manager لم يكمل العملية</string>
+    <string name="error_theme_manager_internal">لم يتمكن مدير الموضوع من معالجة السمة. قد يحدث هذا عند تحديث تطبيق Xiaomi Themes أو عدم توافقه مع هذه السمة. حاول تحديث Xiaomi Themes أو استخدام إصدار مختلف من السمة.</string>
+    <string name="error_theme_manager_timeout">لم يستجب مدير الموضوع. يرجى المحاولة مرة أخرى.</string>
+    <string name="error_permission_denied">تم رفض الوصول root. تأكد من أن MTZ Studio получил разрешение root في مدير الجذر (Magisk، KernelSU، APatch، إلخ) وأن Shizuku/Shevery працює в режиме root.</string>
+    <string name="error_tm_incompatible_apply">تعذر تطبيق هذه السمة</string>
+    <string name="error_tm_incompatible_import">تعذر استيراد هذه السمة</string>
+    <string name="error_tm_incompatible_generic">تعذر معالجة هذه السمة</string>
     <string name="modern_catalog_title">Xiaomi مكتبة مدير الموضوع</string>
     <string name="modern_catalog_desc">يتم مزامنة المواضيع والمشاهدات الافتراضية والإجراءات مباشرة مع مدير الموضوع Xiaomi.</string>
     <string name="modern_catalog_refresh">الكتالوج التجديد</string>

@@ -251,6 +251,12 @@
     <string name="status_apply_failed">Tidak dapat diterapkan Tema: %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"ditambahkan ke Xiaomi Theme Manager</string>
     <string name="error_modern_bridge_failed">Jembatan Xiaomi Theme Manager tidak menyelesaikan operasi</string>
+    <string name="error_theme_manager_internal">Manajer tema tidak dapat memproses tema. Ini bisa terjadi ketika aplikasi Xiaomi Themes Anda diperbarui atau tidak kompatibel dengan tema ini. Coba perbarui Xiaomi Themes atau gunakan versi tema yang berbeda.</string>
+    <string name="error_theme_manager_timeout">Manajer tema tidak merespons. Silakan coba lagi.</string>
+    <string name="error_permission_denied">Akses root ditolak. Pastikan MTZ Studio получивший право root di root manager Anda (Magisk, KernelSU, APatch, dll.) dan Shizuku/Shevery berjalan dalam mode root.</string>
+    <string name="error_tm_incompatible_apply">Tema ini tidak dapat diterapkan</string>
+    <string name="error_tm_incompatible_import">Tema ini tidak dapat diimpor</string>
+    <string name="error_tm_incompatible_generic">Tema ini tidak dapat diproses</string>
     <string name="modern_catalog_title">Xiaomi Perpustakaan Manajer Tema</string>
     <string name="modern_catalog_desc">Tema, pratinjau dan tindakan disinkronkan langsung dengan Xiaomi Theme Manager.</string>
     <string name="modern_catalog_refresh">Catalog Refresh</string>

@@ -251,6 +251,12 @@
     <string name="status_apply_failed">विषय लागू होऊ शकला नाही: %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"जोडले गेले Xiaomi थीम व्यवस्थापक</string>
     <string name="error_modern_bridge_failed">Xiaomi थीम मॅनेजर ब्रिजने ऑपरेशन पूर्ण केले नाही</string>
+    <string name="error_theme_manager_internal">थीम मॅनेजरला थीम प्रोसेस करता आले नाही. आपले Xiaomi Themes अ‍ॅप अपडेट झाले असल्याने किंवा या थीमशी सुसंगत नसल्याने असे होऊ शकते. Xiaomi Themes अपडेट करण्याचा किंवा वेगळ्या थीम आवृत्तीचा वापर करण्याचा प्रयत्न करा.</string>
+    <string name="error_theme_manager_timeout">थीम मॅनेजरने प्रतिसाद दिला नाही. कृपया पुन्हा प्रयत्न करा.</string>
+    <string name="error_permission_denied">Root प्रवेश नाकारण्यात आला. MTZ Studio ला आपल्या Root मॅनेजरमध्ये (Magisk, KernelSU, APatch इ.) Root परवानगी मिळाली आहे याची खात्री करा आणि Shizuku/Shevery Root मोडमध्ये चालू आहे.</string>
+    <string name="error_tm_incompatible_apply">ही थीम लागू केली जाऊ शकली नाही</string>
+    <string name="error_tm_incompatible_import">ही थीम आयात केली जाऊ शकली नाही</string>
+    <string name="error_tm_incompatible_generic">ही थीम प्रोसेस केली जाऊ शकली नाही</string>
     <string name="modern_catalog_title">Xiaomi थीम व्यवस्थापक लायब्ररी</string>
     <string name="modern_catalog_desc">थीम, पूर्वावलोकन आणि क्रिया थेट Xiaomi थीम व्यवस्थापकाशी समक्रमित केल्या जातात.</string>
     <string name="modern_catalog_refresh">ताज्या कॅटलॉग</string>

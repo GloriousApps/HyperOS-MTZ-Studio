@@ -251,6 +251,12 @@
     <string name="status_apply_failed">Não pôde aplicar tema: %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\" foi adicionado ao Gerenciador de Temas da Xiaomi</string>
     <string name="error_modern_bridge_failed">A ponte Xiaomi Theme Manager não completou a operação</string>
+    <string name="error_theme_manager_internal">O gerenciador de temas não pôde processar o tema. Isso pode acontecer quando seu aplicativo Xiaomi Themes está atualizado ou incompatível com este tema. Tente atualizar o Xiaomi Themes ou usar uma versão diferente do tema.</string>
+    <string name="error_theme_manager_timeout">O gerenciador de temas não respondeu. Por favor, tente novamente.</string>
+    <string name="error_permission_denied">Acesso root negado. Verifique se o MTZ Studio tem permissão root em seu gerenciador root (Magisk, KernelSU, APatch, etc.) e se o Shizuku/Shevery está executando em modo root.</string>
+    <string name="error_tm_incompatible_apply">Este tema não pôde ser aplicado</string>
+    <string name="error_tm_incompatible_import">Este tema não pôde ser importado</string>
+    <string name="error_tm_incompatible_generic">Este tema não pôde ser processado</string>
     <string name="modern_catalog_title">Xiaomi Biblioteca do Gerenciador de Temas</string>
     <string name="modern_catalog_desc">Temas, visualizações e ações são sincronizados diretamente com o Xiaomi Theme Manager.</string>
     <string name="modern_catalog_refresh">Atualizar catálogo</string>

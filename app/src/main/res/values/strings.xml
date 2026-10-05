@@ -342,6 +342,12 @@
     <string name="status_apply_failed">Could not apply theme: %1$s</string>
     <string name="status_modern_theme_imported">“%1$s” was added to Xiaomi Theme Manager</string>
     <string name="error_modern_bridge_failed">The Xiaomi Theme Manager bridge did not complete the operation</string>
+    <string name="error_theme_manager_internal">Theme Manager could not process the theme. This can happen when your Xiaomi Themes app is updated or incompatible with this theme. Try updating Xiaomi Themes or using a different theme version.</string>
+    <string name="error_theme_manager_timeout">Theme Manager did not respond. Please try again.</string>
+    <string name="error_permission_denied">Root access was denied. Check that MTZ Studio is granted root permission in your root manager (Magisk, KernelSU, APatch, etc.) and that Shizuku/Shevery is running in root mode.</string>
+    <string name="error_tm_incompatible_apply">This theme could not be applied</string>
+    <string name="error_tm_incompatible_import">This theme could not be imported</string>
+    <string name="error_tm_incompatible_generic">This theme could not be processed</string>
     <string name="modern_catalog_title">Xiaomi Theme Manager library</string>
     <string name="modern_catalog_desc">Themes, previews and actions are synchronized directly with Xiaomi Theme Manager.</string>
     <string name="modern_catalog_refresh">Refresh catalog</string>

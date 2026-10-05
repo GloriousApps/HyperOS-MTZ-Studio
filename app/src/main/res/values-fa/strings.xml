@@ -251,6 +251,12 @@
     <string name="status_apply_failed">موضوع: %1$s نمی تواند اعمال شود</string>
     <string name="status_modern_theme_imported">\"%1$s\"به Xiaomi Theme Manager اضافه شد</string>
     <string name="error_modern_bridge_failed">پل Xiaomi Theme Manager عملياتش رو تموم نکرد</string>
+    <string name="error_theme_manager_internal">مدیر موضوع نتوانست موضوع را پردازش کند. این می تواند زمانی اتفاق بیفتد که برنامه Xiaomi Themes شما به روز شده یا با این موضوع سازگار نباشد. سعی کنید Xiaomi Themes را به روز کنید یا از نسخه دیگری از موضوع استفاده کنید.</string>
+    <string name="error_theme_manager_timeout">مدیر موضوع پاسخ نداد. لطفاً دوباره تلاش کنید.</string>
+    <string name="error_permission_denied">دسترسی root رد شد. اطمینان حاصل کنید که MTZ Studio در مدیر root (Magisk، KernelSU، APatch و غیره) دسترسی root دارد و Shizuku/Shevery در حالت root اجرا می شود.</string>
+    <string name="error_tm_incompatible_apply">این موضوع قابل اعمال نیست</string>
+    <string name="error_tm_incompatible_import">این موضوع قابل وارد کردن نیست</string>
+    <string name="error_tm_incompatible_generic">این موضوع قابل پردازش نیست</string>
     <string name="modern_catalog_title">Xiaomi کتابخانه مدیر موضوع</string>
     <string name="modern_catalog_desc">موضوعات، پیش نمایش ها و اقدامات به طور مستقیم با Xiaomi Theme Manager همگام می شوند.</string>
     <string name="modern_catalog_refresh">فهرست تازه کردن</string>

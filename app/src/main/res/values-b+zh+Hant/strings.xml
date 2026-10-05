@@ -251,6 +251,12 @@
     <string name="status_apply_failed">不能使用主題: %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"被添加到 Xiaomi 主題管理器</string>
     <string name="error_modern_bridge_failed">Xiaomi 主題管理器橋接未完成操作</string>
+    <string name="error_theme_manager_internal">主題管理器無法處理主題。當您的 Xiaomi Themes 應用程式已更新或與此主題不相容時，可能會發生這種情況。請嘗試更新 Xiaomi Themes 或使用不同版本的主題。</string>
+    <string name="error_theme_manager_timeout">主題管理器沒有回應。請重試。</string>
+    <string name="error_permission_denied">Root 訪問被拒絕。請確認 MTZ Studio 已取得 Root 管理員（Magisk、KernelSU、APatch 等）的 Root 權限，且 Shizuku/Shevery 正以 Root 模式運行。</string>
+    <string name="error_tm_incompatible_apply">無法應用此主題</string>
+    <string name="error_tm_incompatible_import">無法匯入此主題</string>
+    <string name="error_tm_incompatible_generic">無法處理此主題</string>
     <string name="modern_catalog_title">Xiaomi 主題管理器圖書館</string>
     <string name="modern_catalog_desc">這些主題,預覽和行動將直接與 Xiaomi 主題管理器同步.</string>
     <string name="modern_catalog_refresh">更新目錄</string>

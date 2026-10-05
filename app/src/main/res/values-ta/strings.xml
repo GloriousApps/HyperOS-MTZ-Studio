@@ -251,6 +251,12 @@
     <string name="status_apply_failed">பொருந்த முடியவில்லை பொருள்ஃ %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"Xiaomi கருப்பொருள் மேலாளருக்கு சேர்க்கப்பட்டது</string>
     <string name="error_modern_bridge_failed">Xiaomi கருப்பொருள் மேலாளர் பாலம் செயல்பாட்டை முடிக்கவில்லை</string>
+    <string name="error_theme_manager_internal">தீம் மேலாளர் தீத்தை செயலாக்க முடியவில்லை. உங்கள் Xiaomi Themes பயன்பாடு புதுப்பிக்கப்பட்டால் அல்லது இந்த தீத்துடன் இணக்கமற்றதாக இருந்தால் இது நிகழலாம். Xiaomi Themes-ஐ புதுப்பிக்கவும் அல்லது வேறு தீம் பதிப்பைப் பயன்படுத்தவும் முயற்சிக்கவும்.</string>
+    <string name="error_theme_manager_timeout">தீம் மேலாளர் பதிலளிக்கவில்லை. தயவுசெய்து மீண்டும் முயற்சிக்கவும்.</string>
+    <string name="error_permission_denied">Root அணுகல் மறுக்கப்பட்டது. MTZ Studio-க்கு உங்கள் Root மேலாளரில் (Magisk, KernelSU, APatch முதலியன) Root அனுமதி வழங்கப்பட்டதா என்று சரிபார்க்கவும், Shizuku/Shevery Root முறையில் இயங்குகிறதா என்பதையும் சரிபார்க்கவும்.</string>
+    <string name="error_tm_incompatible_apply">இந்த தீம் பயன்படுத்த முடியவில்லை</string>
+    <string name="error_tm_incompatible_import">இந்த தீம் இறக்குமதி செய்ய முடியவில்லை</string>
+    <string name="error_tm_incompatible_generic">இந்த தீம் செயலாக்க முடியவில்லை</string>
     <string name="modern_catalog_title">Xiaomi தீம் மேலாளர் நூலகம்</string>
     <string name="modern_catalog_desc">கருப்பொருள்கள், முன்னோட்டங்கள் மற்றும் செயல்கள் Xiaomi கருப்பொருள் மேலாளருடன் நேரடியாக ஒத்திசைக்கப்படுகின்றன.</string>
     <string name="modern_catalog_refresh">புதுப்பித்தல் பட்டியல்</string>

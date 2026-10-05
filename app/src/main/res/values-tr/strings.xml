@@ -340,6 +340,12 @@
     <string name="status_apply_failed">Tema uygulanamadı: %1$s</string>
     <string name="status_modern_theme_imported">“%1$s” Xiaomi Temalar uygulamasına eklendi</string>
     <string name="error_modern_bridge_failed">Xiaomi Temalar köprüsü işlemi tamamlayamadı</string>
+    <string name="error_theme_manager_internal">Tema Yöneticisi temayı işleyemedi. Bu durum, Xiaomi Temalar uygulamanız güncellendiğinde veya bu temayla uyumlu olmadığında oluşabilir. Xiaomi Temalar uygulamasını güncellemeyi veya farklı bir tema sürümü kullanmayı deneyin.</string>
+    <string name="error_theme_manager_timeout">Tema Yöneticisi yanıt vermedi. Lütfen tekrar deneyin.</string>
+    <string name="error_permission_denied">Root erişimi reddedildi. MTZ Studio\'nun root yöneticinizde (Magisk, KernelSU, APatch vb.) root izni aldığından ve Shizuku/Shevery\'nin root modunda çalıştığından emin olun.</string>
+    <string name="error_tm_incompatible_apply">Bu tema uygulanamadı</string>
+    <string name="error_tm_incompatible_import">Bu tema içe aktarılamadı</string>
+    <string name="error_tm_incompatible_generic">Bu tema işlenemedi</string>
     <string name="modern_catalog_title">Xiaomi Temalar kitaplığı</string>
     <string name="modern_catalog_desc">Temalar, önizlemeler ve işlemler doğrudan Xiaomi Temalar ile eşitlenir.</string>
     <string name="modern_catalog_refresh">Kataloğu yenile</string>

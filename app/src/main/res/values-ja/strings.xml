@@ -251,6 +251,12 @@
     <string name="status_apply_failed">適用できないテーマ: %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"が Xiaomi テーママネージャに追加されました</string>
     <string name="error_modern_bridge_failed">Xiaomi テーママネージャー橋は作業を完了しなかった</string>
+    <string name="error_theme_manager_internal">テーママネージャーがテーマを処理できませんでした。Xiaomi Themesアプリが更新されているか、このテーマと互換性がない場合に 발생할 수 있습니다。Xiaomi Themesを更新するか、別のバージョンのテーマをお試しください。</string>
+    <string name="error_theme_manager_timeout">テーママネージャーから応答がありませんでした。再度お試しください。</string>
+    <string name="error_permission_denied">Rootアクセスが拒否されました。MTZ StudioがRootマネージャー（Magisk、KernelSU、APatchなど）でRoot権限を取得していること、およびShizuku/SheveryがRootモードで実行されていることを確認してください。</string>
+    <string name="error_tm_incompatible_apply">このテーマは適用できませんでした</string>
+    <string name="error_tm_incompatible_import">このテーマはインポートできませんでした</string>
+    <string name="error_tm_incompatible_generic">このテーマは処理できませんでした</string>
     <string name="modern_catalog_title">Xiaomi テーママネージャー ライブラリ</string>
     <string name="modern_catalog_desc">テーマ,プレビュー,アクションは,直接 Xiaomi テーママネージャに同期されます.</string>
     <string name="modern_catalog_refresh">リフレッシュ・カタログ</string>

@@ -251,6 +251,12 @@
     <string name="status_apply_failed">Không thể áp dụng chủ đề: %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"đã được thêm vào Xiaomi Theme Manager</string>
     <string name="error_modern_bridge_failed">Cầu Xiaomi Theme Manager không hoàn thành hoạt động</string>
+    <string name="error_theme_manager_internal">Trình quản lý chủ đề không thể xử lý chủ đề. Điều này có thể xảy ra khi ứng dụng Xiaomi Themes của bạn được cập nhật hoặc không tương thích với chủ đề này. Hãy thử cập nhật Xiaomi Themes hoặc sử dụng phiên bản chủ đề khác.</string>
+    <string name="error_theme_manager_timeout">Trình quản lý chủ đề không phản hồi. Vui lòng thử lại.</string>
+    <string name="error_permission_denied">Quyền truy cập root bị từ chối. Hãy đảm bảo MTZ Studio được cấp quyền root trong trình quản lý root (Magisk, KernelSU, APatch, v.v.) và Shizuku/Shevery đang chạy ở chế độ root.</string>
+    <string name="error_tm_incompatible_apply">Không thể áp dụng chủ đề này</string>
+    <string name="error_tm_incompatible_import">Không thể nhập chủ đề này</string>
+    <string name="error_tm_incompatible_generic">Không thể xử lý chủ đề này</string>
     <string name="modern_catalog_title">Xiaomi Themes Manager library</string>
     <string name="modern_catalog_desc">Các chủ đề, xem trước và hành động được đồng bộ trực tiếp với Xiaomi Theme Manager.</string>
     <string name="modern_catalog_refresh">Catalog refresh</string>

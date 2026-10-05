@@ -251,6 +251,12 @@
     <string name="status_apply_failed">موضوع: %1$s لاگو نہیں ہو سکا</string>
     <string name="status_modern_theme_imported">\"%1$s\"کو Xiaomi تھیم مینیجر میں شامل کیا گیا</string>
     <string name="error_modern_bridge_failed">Xiaomi تھیم مینیجر پل آپریشن مکمل نہیں کیا</string>
+    <string name="error_theme_manager_internal">تھیم مینیجر نے تھیم کو پراسیس نہیں کیا۔ یہ اس وقت ہو سکتا ہے جب آپ کی Xiaomi Themes ایپ اپ ڈیٹ ہو جائے یا اس تھیم کے ساتھ غیر مطابقت پذیر ہو۔ Xiaomi Themes کو اپ ڈیٹ کرنے یا کسی مختلف تھیم ورژن کو استعمال کرنے کی کوشش کریں۔</string>
+    <string name="error_theme_manager_timeout">تھیم مینیجر نے جواب نہیں دیا۔ براہ کرم دوبارہ کوشش کریں۔</string>
+    <string name="error_permission_denied">رٹ رسائی مسترد کر دی گئی۔ یقینی بنائیں کہ MTZ Studio کو آپ کے رٹ مینیجر (Magisk، KernelSU، APatch وغیرہ) میں رٹ اجازت ملی ہوئی ہے اور Shizuku/Shevery رٹ موڈ میں چل رہا ہے۔</string>
+    <string name="error_tm_incompatible_apply">یہ تھیم لاگو نہیں کیا جا سکا</string>
+    <string name="error_tm_incompatible_import">یہ تھیم درآمد نہیں کیا جا سکا</string>
+    <string name="error_tm_incompatible_generic">یہ تھیم پراسیس نہیں کیا جا سکا</string>
     <string name="modern_catalog_title">Xiaomi تھیم مینیجر لائبریری</string>
     <string name="modern_catalog_desc">موضوعات، پیش نظارہ اور اعمال کو براہ راست Xiaomi تھیم مینیجر کے ساتھ ہم آہنگ کیا جاتا ہے.</string>
     <string name="modern_catalog_refresh">تازہ کاری کیٹلاگ</string>

@@ -132,6 +132,59 @@ private fun Context.installedRootManager(): AuthorizationManagerApp? =
         }.getOrNull()
     }
 
+/**
+ * Categorizes a Theme Manager bridge error string into a user-friendly message.
+ * Returns a plain-text message suitable for display to the user.
+ */
+private fun categorizeBridgeError(
+    error: String?,
+    operation: ThemeManagerOperation,
+    resources: Resources,
+): String {
+    if (error.isNullOrBlank()) return resources.getString(R.string.error_modern_bridge_failed)
+
+    val lowerError = error.lowercase()
+
+    // Theme Manager internal Java exceptions — device/Xiaomi version incompatibility
+    if (lowerError.contains("classnotfoundexception") ||
+        lowerError.contains("didn't find class") ||
+        lowerError.contains("noclassdeffounderror") ||
+        lowerError.contains("com.android.thememanager.basemodule")
+    ) {
+        val operationWord = when (operation) {
+            ThemeManagerOperation.APPLY -> resources.getString(R.string.error_tm_incompatible_apply)
+            ThemeManagerOperation.IMPORT_ONLY -> resources.getString(R.string.error_tm_incompatible_import)
+            else -> resources.getString(R.string.error_tm_incompatible_generic)
+        }
+        return resources.getString(R.string.error_theme_manager_internal, operationWord)
+    }
+
+    // Root/su permission denied — Shevery/Shizuku in ADB mode or no root granted
+    if (lowerError.contains("permission denied") ||
+        lowerError.contains("su:") ||
+        lowerError.contains("access denied") ||
+        lowerError.contains("uid 0") && lowerError.contains("not allowed")
+    ) {
+        return resources.getString(R.string.error_permission_denied)
+    }
+
+    // Timeout or no response from Theme Manager
+    if (lowerError.contains("timeout") ||
+        lowerError.contains("timed out") ||
+        lowerError.contains("no response")
+    ) {
+        return resources.getString(R.string.error_theme_manager_timeout)
+    }
+
+    // Legacy tester — non-critical, usually just cancelled
+    if (lowerError.contains("cancelled") || lowerError.contains("user cancelled")) {
+        return resources.getString(R.string.status_apply_cancelled)
+    }
+
+    // Fallback — show the original error but truncated for safety
+    return if (error.length > 120) error.take(117) + "…" else error
+}
+
 class MainActivity : ComponentActivity() {
     private var shizukuSetupRequest by mutableIntStateOf(0)
 
@@ -726,19 +779,17 @@ private fun StudioScreen(
                             }
                         }
                     } else {
-                        diagnostics.record("theme_operation_unconfirmed", "Temalar işlemi başarısız veya sonuç doğrulanamadı", mapOf(
-                            "operation" to prepared.operation, "theme" to prepared.themeName,
-                            "error" to result.data?.getStringExtra(ThemeManagerBridgeContract.EXTRA_ERROR),
-                        ))
-                        scope.launch(Dispatchers.IO) { themeApplyCoordinator.captureFailureDiagnostics(requestStartedAt) }
-                        // Do not bounce straight back to the host after a failed or cancelled request.
-                        status = resources.getString(
-                            R.string.status_apply_failed,
-                            result.data?.getStringExtra(ThemeManagerBridgeContract.EXTRA_ERROR)
-                                ?: resources.getString(R.string.error_modern_bridge_failed),
-                        )
-                        operationError = status
-                    }
+                                            diagnostics.record("theme_operation_unconfirmed", "Temalar işlemi başarısız veya sonuç doğrulanamadı", mapOf(
+                                                "operation" to prepared.operation, "theme" to prepared.themeName,
+                                                "error" to result.data?.getStringExtra(ThemeManagerBridgeContract.EXTRA_ERROR),
+                                            ))
+                                            scope.launch(Dispatchers.IO) { themeApplyCoordinator.captureFailureDiagnostics(requestStartedAt) }
+                                            // Do not bounce straight back to the host after a failed or cancelled request.
+                                            val bridgeError = result.data?.getStringExtra(ThemeManagerBridgeContract.EXTRA_ERROR)
+                                            val friendlyMessage = categorizeBridgeError(bridgeError, prepared.operation, resources)
+                                            status = resources.getString(R.string.status_apply_failed, friendlyMessage)
+                                            operationError = status
+                                        }
                 }
 
                 ThemeApplyProtocol.MODERN_THEME_MANAGER_DIRECT_APPLY -> {

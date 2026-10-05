@@ -251,6 +251,12 @@
     <string name="status_apply_failed">వర్తింపలేదు థీమ్: %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"ను Xiaomi థీమ్ మేనేజర్ కు జోడించారు</string>
     <string name="error_modern_bridge_failed">Xiaomi థీమ్ మేనేజర్ వంతెన ఆపరేషన్ను పూర్తి చేయలేదు</string>
+    <string name="error_theme_manager_internal">థీమ్ మేనేజర్ థీమ్‌ను ప్రాసెస్ చేయలేకపోయింది. మీ Xiaomi Themes యాప్ అప్‌డేట్ చేయబడితే లేదా ఈ థీమ్‌తో అనన్‌కతల్‌గా ఉంటే ఇది జరగవచ్చు. Xiaomi Themes అప్‌డేట్ చేయడానికి లేదా వేరే థీమ్ వర్షన్‌ను ఉపయోగించడానికి ప్రయత్నించండి.</string>
+    <string name="error_theme_manager_timeout">థీమ్ మేనేజర్ ప్రతిస్పందించలేదు. చేయడానికి ప్రయత్నించండి.</string>
+    <string name="error_permission_denied">Root యాక్సెస్ నిరాకరించబడింది. MTZ Studioకి మీ Root మేనేజర్‌లో (Magisk, KernelSU, APatch మొదలైనవి) Root అనుమతి ఉందని మరియు Shizuku/Shevery Root మోడ్‌లో నడుస్తోందని నిర్ధారించుకోండి.</string>
+    <string name="error_tm_incompatible_apply">ఈ థీమ్ వర్తించలేదు</string>
+    <string name="error_tm_incompatible_import">ఈ థీమ్ ఇమ్పోర్ట్ చేయలేదు</string>
+    <string name="error_tm_incompatible_generic">ఈ థీమ్ ప్రాసెస్ చేయలేదు</string>
     <string name="modern_catalog_title">Xiaomi థీమ్ మేనేజర్ లైబ్రరీ</string>
     <string name="modern_catalog_desc">థీమ్లు, ప్రివ్యూలు మరియు చర్యలు Xiaomi థీమ్ మేనేజర్తో నేరుగా సమకాలీకరించబడతాయి.</string>
     <string name="modern_catalog_refresh">రిఫ్రెష్ కేటలాగ్</string>

@@ -156,7 +156,26 @@ class ThemeApplyCoordinator(
         // to a stale Xiaomi activity on FolkPatch devices.
         return runCatching {
             val state = rootModuleInstaller.inspect()
-            state.active && rootModuleInstaller.isBundledVersion(state)
+            val moduleActive = state.active && rootModuleInstaller.isBundledVersion(state)
+
+            // Theme Manager 11.x (e.g. 11.5.3.1 on Xiaomi 15) removed
+            // com.android.thememanager.basemodule.controller.a which the root module
+            // calls internally. The bridge dispatches successfully but Theme Manager
+            // throws ClassNotFoundException during MTZ processing. Skip root bridge for
+            // TM 11.x so the app falls back to the standard intent-based import path.
+            val tmVersion = installedThemeManagerVersion()
+            val tmMajorVersion = tmVersion?.split('.')?.firstOrNull()?.toIntOrNull() ?: 0
+            val tmBridgeSafe = tmMajorVersion < 11
+
+            if (!tmBridgeSafe) {
+                diagnostics.record(
+                    "root_global_bridge_skipped_tm11",
+                    "Tema Yöneticisi 11.x algılandı; kök köprü atlanıyor (dahili sınıf kaldırıldı)",
+                    mapOf("tmVersion" to (tmVersion ?: "bilinmiyor"), "moduleActive" to moduleActive),
+                )
+            }
+
+            moduleActive && tmBridgeSafe
         }.getOrElse { error ->
             diagnostics.record("root_global_bridge_check_failed", "Root MTZ Import modülü denetlenemedi", error = error)
             false

@@ -251,6 +251,12 @@
     <string name="status_apply_failed">无法使用题目: %1$s</string>
     <string name="status_modern_theme_imported">已将“%1$s”添加到小米主题管理器</string>
     <string name="error_modern_bridge_failed">Xiaomi主题管理者桥梁没有完成操作</string>
+    <string name="error_theme_manager_internal">主题管理器无法处理主题。您的 Xiaomi Themes 应用已更新或与此主题不兼容时，可能会发生这种情况。请尝试更新 Xiaomi Themes 或使用其他版本的主题。</string>
+    <string name="error_theme_manager_timeout">主题管理器没有响应。请重试。</string>
+    <string name="error_permission_denied">Root 访问被拒绝。请确保 MTZ Studio 在您的 Root 管理器（Magisk、KernelSU、APatch 等）中获得了 Root 权限，并且 Shizuku/Shevery 在 Root 模式下运行。</string>
+    <string name="error_tm_incompatible_apply">无法应用此主题</string>
+    <string name="error_tm_incompatible_import">无法导入此主题</string>
+    <string name="error_tm_incompatible_generic">无法处理此主题</string>
     <string name="modern_catalog_title">Xiaomi 主题管理器库</string>
     <string name="modern_catalog_desc">主题,预览和操作直接与Xiaomi主题管理器同步.</string>
     <string name="modern_catalog_refresh">更新目录</string>

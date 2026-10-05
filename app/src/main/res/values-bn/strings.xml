@@ -251,6 +251,12 @@
     <string name="status_apply_failed">প্রযোজ্য হতে পারেনি বিষয়ঃ %1$s</string>
     <string name="status_modern_theme_imported">\"%1$s\"যোগ করা হয়েছে Xiaomi থিম ম্যানেজার</string>
     <string name="error_modern_bridge_failed">Xiaomi থিম ম্যানেজার ব্রিজটি অপারেশন শেষ করেনি</string>
+    <string name="error_theme_manager_internal">থিম ম্যানেজার থিমটি প্রসেস করতে পারেনি। আপনার Xiaomi Themes অ্যাপ আপডেট হলে বা এই থিমের সাথে সামঞ্জস্যপূর্ণ না হলে এটি হতে পারে। Xiaomi Themes আপডেট করার চেষ্টা করুন বা ভিন্ন থিম সংস্করণ ব্যবহার করুন।</string>
+    <string name="error_theme_manager_timeout">থিম ম্যানেজার সাড়া দেয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।</string>
+    <string name="error_permission_denied">Root অ্যাক্সেস অস্বীকৃত হয়েছে। নিশ্চিত করুন যে MTZ Studio-কে আপনার Root ম্যানেজারে (Magisk, KernelSU, APatch ইত্যাদি) Root অনুমতি দেওয়া হয়েছে এবং Shizuku/Shevery Root মোডে চলছে।</string>
+    <string name="error_tm_incompatible_apply">এই থিমটি প্রয়োগ করা যায়নি</string>
+    <string name="error_tm_incompatible_import">এই থিমটি আমদানি করা যায়নি</string>
+    <string name="error_tm_incompatible_generic">এই থিমটি প্রসেস করা যায়নি</string>
     <string name="modern_catalog_title">Xiaomi থিম ম্যানেজার লাইব্রেরি</string>
     <string name="modern_catalog_desc">থিম, প্রিভিউ এবং অ্যাকশনগুলি Xiaomi থিম ম্যানেজারের সাথে সরাসরি সিঙ্ক করা হয়।</string>
     <string name="modern_catalog_refresh">রিফ্রেশ ক্যাটালগ</string>
