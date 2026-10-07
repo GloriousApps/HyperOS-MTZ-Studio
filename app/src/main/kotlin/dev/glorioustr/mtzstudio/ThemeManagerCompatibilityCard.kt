@@ -84,6 +84,16 @@ internal fun ThemeManagerCompatibilityCard(
             PreferredPrivilegedCommandRunner(context.applicationContext),
         )
     }
+    val runtimeManager = remember {
+        RootThemeRuntimeManager(
+            context = context.applicationContext,
+            updater = updater,
+            moduleInstaller = rootModuleInstaller,
+            onEvent = { event, message, details ->
+                LiveDiagnosticsRecorder.get(context.applicationContext).record(event, message, details)
+            },
+        )
+    }
     var installed by remember { mutableStateOf<InstalledThemeManager?>(null) }
     var runtimeProfile by remember { mutableStateOf<dev.glorioustr.mtzstudio.tester.ThemeManagerRuntimeProfile?>(null) }
     var verifiedApk by remember { mutableStateOf<VerifiedThemeManagerApk?>(null) }
@@ -169,6 +179,9 @@ internal fun ThemeManagerCompatibilityCard(
             rootModuleState = if (allowRootDowngrade) {
                 runCatching { withContext(Dispatchers.IO) { rootModuleInstaller.inspect() } }.getOrNull()
             } else null
+            if (allowRootDowngrade) {
+                runCatching { withContext(Dispatchers.IO) { runtimeManager.healthCheck() } }
+            }
             rootModuleCheckComplete = true
             status = if (profile.compatibleLocalMtzPath) {
                 resources.getString(R.string.tm_recommended_active)
@@ -187,6 +200,7 @@ internal fun ThemeManagerCompatibilityCard(
     fun installRootModuleWithThemeManager() {
         val current = installed ?: return
         val target = ThemeManagerContract.rootTargetApk(current.family)
+        runtimeManager.recordPreviousVersion(current.versionName)
         scope.launch {
             status = "Root MTZ Import modülü kuruluyor…"
             var stagedApk: VerifiedThemeManagerApk? = null

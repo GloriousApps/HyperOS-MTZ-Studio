@@ -30,6 +30,34 @@ data class ThemeManagerRuntimeProfile(
             (knownBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY && modernLocalLibraryResolvable)
 }
 
+/**
+ * Full capability model for the Theme Manager runtime. Extends the package-level
+ * [ThemeManagerRuntimeProfile] with the surrounding runtime state (Root module, Shizuku,
+ * Shevery, persistence) so a strategy can decide which apply path is available.
+ */
+data class ThemeManagerCapabilities(
+    val profile: ThemeManagerRuntimeProfile,
+    val rootModuleReady: Boolean,
+    val rootModuleVersion: String?,
+    val rootModuleTargetFamily: ThemeManagerFamily,
+    val rootModuleTargetVersion: String?,
+    val shizukuReady: Boolean,
+    val sheveryReady: Boolean,
+    val persistenceReady: Boolean,
+) {
+    val packageInstalled: Boolean get() = profile.packageInstalled
+    val versionName: String? get() = profile.versionName
+    val behavior: ThemeManagerBehavior get() = profile.knownBehavior
+
+    /** True when the Root module bridge can apply themes without Shizuku. */
+    val rootApplyAvailable: Boolean
+        get() = rootModuleReady && rootModuleTargetVersion != null
+
+    /** True when a stock (non-Root) automatic import path is available. */
+    val stockAutomaticImportAvailable: Boolean
+        get() = profile.compatibleLocalMtzPath && (shizukuReady || sheveryReady)
+}
+
 class ThemeManagerCapabilityProbe(private val context: Context) {
     fun probe(installed: InstalledThemeManager): ThemeManagerRuntimeProfile {
         if (!installed.installed) {
