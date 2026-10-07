@@ -57,6 +57,7 @@ class ThemeManagerInspector(private val context: Context) {
         versionName = versionName,
         versionCode = longVersionCodeCompat(),
         behavior = ThemeManagerContract.behavior(versionName),
+        family = ThemeManagerContract.familyOf(versionName),
         signingCertificateSha256 = signingCertificateDigests(),
     )
 

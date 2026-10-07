@@ -74,7 +74,11 @@ class RootThemeManagerUpdater(
 ) {
     private val stagingRoot = context.cacheDir.toPath().resolve("theme-manager-update")
 
-    fun stageAndVerify(input: InputStream, installed: InstalledThemeManager): VerifiedThemeManagerApk {
+    fun stageAndVerify(
+        input: InputStream,
+        installed: InstalledThemeManager,
+        expectedVersion: String = ThemeManagerContract.RECOMMENDED_VERSION,
+    ): VerifiedThemeManagerApk {
         if (!installed.installed) throw ThemeManagerUpdateException("A supported Xiaomi Theme Manager package is not installed")
         Files.createDirectories(stagingRoot)
         val target = stagingRoot.resolve("themes-${UUID.randomUUID()}.apk")
@@ -87,9 +91,9 @@ class RootThemeManagerUpdater(
                 )
             }
             val canonical = ThemeManagerContract.canonicalVersion(archive.versionName)
-            if (canonical != ThemeManagerContract.RECOMMENDED_VERSION) {
+            if (canonical != ThemeManagerContract.canonicalVersion(expectedVersion)) {
                 throw ThemeManagerUpdateException(
-                    "APK version ${archive.versionName ?: "unknown"} is not ${ThemeManagerContract.RECOMMENDED_VERSION}",
+                    "APK version ${archive.versionName ?: "unknown"} is not ${expectedVersion}",
                 )
             }
             if (installed.signingCertificateSha256.isEmpty() || archive.signingCertificateSha256.isEmpty()) {
@@ -101,7 +105,7 @@ class RootThemeManagerUpdater(
             return VerifiedThemeManagerApk(
                 stagedPath = target,
                 packageName = archive.packageName,
-                versionName = archive.versionName ?: canonical,
+                versionName = archive.versionName ?: canonical ?: "unknown",
                 versionCode = archive.versionCode,
                 sha256 = sha256(target),
             )
@@ -147,7 +151,7 @@ class RootThemeManagerUpdater(
         }
         val rechecked = inspector.inspectArchive(apk.stagedPath.toString())
         if (rechecked.packageName != apk.packageName ||
-            ThemeManagerContract.canonicalVersion(rechecked.versionName) != ThemeManagerContract.RECOMMENDED_VERSION ||
+            ThemeManagerContract.canonicalVersion(rechecked.versionName) != ThemeManagerContract.canonicalVersion(apk.versionName) ||
             before.signingCertificateSha256.intersect(rechecked.signingCertificateSha256).isEmpty()
         ) {
             throw ThemeManagerUpdateException("APK no longer passes package, version, and signature checks")
@@ -166,7 +170,7 @@ class RootThemeManagerUpdater(
                 message = when {
                     execution.exitCode != 0 -> "Package manager rejected the downgrade"
                     !installedTarget -> "Package manager returned success but the target version is not active"
-                    else -> "Theme Manager ${ThemeManagerContract.RECOMMENDED_VERSION} is now active"
+                    else -> "Theme Manager ${apk.versionName} is now active"
                 },
                 commandOutput = execution.output,
                 authorizationSource = execution.authorizationSource,
