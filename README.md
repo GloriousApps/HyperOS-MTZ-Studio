@@ -65,8 +65,8 @@ Studio yalnızca sabit bir Temalar sürüm listesine güvenmez. Eski Global sür
 
 Bu seçenek, doğrulanmış Xiaomi Themes `3.0.5.6-global` paketini uygulama içinden Android İndirme Yöneticisiyle doğrudan indirir:
 
-- [Xiaomi Themes 3.0.5.6-global APK](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/download/v4.0.0/Xiaomi_Themes_3.0.5.6-global.apk)
-- [SHA-256 doğrulama dosyası](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/download/v4.0.0/Xiaomi_Themes_3.0.5.6-global.apk.sha256)
+- [Xiaomi Themes 3.0.5.6-global APK](https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/Xiaomi_Themes_3.0.5.6-global.apk)
+- [SHA-256 doğrulama dosyası](https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/Xiaomi_Themes_3.0.5.6-global.apk.sha256)
 
 Xiaomi son uygulama ekranını ve tema kabul davranışını ROM’a göre değiştirebilir. Studio, uygulama sonuçlarını ve uyumluluğu mümkün olduğunda çalışma anında doğrular; manuel Xiaomi onayı yine görünebilir.
 
