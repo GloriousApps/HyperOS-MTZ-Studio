@@ -140,4 +140,95 @@ class ThemeRuntimeArchitectureTest {
         assertEquals(ThemeRuntimeTargetDetector.Target.GLOBAL, status.target)
         assertEquals("3.4.1.23-global", status.installedVersion)
     }
+
+    @Test
+    fun `runtime artifact resolves global and china targets`() {
+        val global = ThemeManagerContract.runtimeArtifact(ThemeManagerFamily.GLOBAL)
+        assertTrue(global != null)
+        assertEquals("3.4.1.23", global!!.version)
+        assertEquals("Xiaomi_Themes_3.4.1.23-global.apk", global.apkName)
+        assertEquals(27, global.minSdk)
+        assertTrue(global.downloadUrl.endsWith("/requirements/Xiaomi_Themes_3.4.1.23-global.apk"))
+        assertEquals(global.version, global.asRootTargetApk().version)
+
+        val china = ThemeManagerContract.runtimeArtifact(ThemeManagerFamily.CHINA)
+        assertTrue(china != null)
+        assertEquals("11.5.3.1", china!!.version)
+        assertEquals("Xiaomi_Themes_11.5.3.1.apk", china.apkName)
+        assertEquals(34, china.minSdk)
+
+        assertEquals(null, ThemeManagerContract.runtimeArtifact(ThemeManagerFamily.UNKNOWN))
+    }
+
+    @Test
+    fun `legacy strategy plans success for local theme import`() {
+        val installed = InstalledThemeManager(
+            installed = true,
+            packageName = ThemeManagerContract.PACKAGE_NAME,
+            versionName = "3.0.5.6",
+            versionCode = 3000506,
+            behavior = ThemeManagerBehavior.LOCAL_THEME_IMPORT,
+            family = ThemeManagerFamily.GLOBAL,
+        )
+        val result = LegacyGlobalPreviewApplyStrategy.plan(installed, "/data/theme.mtz", "dev.glorioustr.mtzstudio")
+        assertTrue(result is ThemeApplyResult.Success)
+        assertEquals(LegacyGlobalPreviewApplyStrategy.PROTOCOL, (result as ThemeApplyResult.Success).protocol)
+    }
+
+    @Test
+    fun `legacy strategy rejects tester-activity-removed builds`() {
+        val installed = InstalledThemeManager(
+            installed = true,
+            packageName = ThemeManagerContract.PACKAGE_NAME,
+            versionName = "3.0.6.8",
+            versionCode = 3000608,
+            behavior = ThemeManagerBehavior.TESTER_ACTIVITY_REMOVED,
+            family = ThemeManagerFamily.GLOBAL,
+        )
+        val result = LegacyGlobalPreviewApplyStrategy.plan(installed, "/data/theme.mtz", "dev.glorioustr.mtzstudio")
+        assertTrue(result is ThemeApplyResult.ThemeManagerIncompatible)
+    }
+
+    @Test
+    fun `legacy strategy reports capability missing when not installed`() {
+        val installed = InstalledThemeManager(
+            installed = false,
+            packageName = ThemeManagerContract.PACKAGE_NAME,
+            versionName = null,
+            versionCode = null,
+            behavior = ThemeManagerBehavior.UNKNOWN,
+        )
+        val result = LegacyGlobalPreviewApplyStrategy.plan(installed, "/data/theme.mtz", "dev.glorioustr.mtzstudio")
+        assertTrue(result is ThemeApplyResult.CapabilityMissing)
+    }
+
+    @Test
+    fun `modern strategy plans success for native library`() {
+        val installed = InstalledThemeManager(
+            installed = true,
+            packageName = ThemeManagerContract.PACKAGE_NAME,
+            versionName = "10.8.7.6",
+            versionCode = 10080706,
+            behavior = ThemeManagerBehavior.MODERN_NATIVE_LIBRARY,
+            family = ThemeManagerFamily.UNKNOWN,
+        )
+        val result = ModernLocalLibraryApplyStrategy.plan(installed, "/data/theme.mtz")
+        assertTrue(result is ThemeApplyResult.Success)
+        assertEquals(ModernLocalLibraryApplyStrategy.PROTOCOL, (result as ThemeApplyResult.Success).protocol)
+        assertTrue(result.persistenceArmed)
+    }
+
+    @Test
+    fun `modern strategy rejects non-native-library builds`() {
+        val installed = InstalledThemeManager(
+            installed = true,
+            packageName = ThemeManagerContract.PACKAGE_NAME,
+            versionName = "3.4.1.23-global",
+            versionCode = 3040123,
+            behavior = ThemeManagerBehavior.UNKNOWN,
+            family = ThemeManagerFamily.GLOBAL,
+        )
+        val result = ModernLocalLibraryApplyStrategy.plan(installed, "/data/theme.mtz")
+        assertTrue(result is ThemeApplyResult.ThemeManagerIncompatible)
+    }
 }
