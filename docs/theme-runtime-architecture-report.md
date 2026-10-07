@@ -88,8 +88,8 @@ Kullanıcının verdiği bilgilerle 4 korunacak yol:
 | Hedef Yol | Kodda karşılığı | Durum | Boşluk |
 |---|---|---|---|
 | 1. Shizuku 3.0.5.6 | `RECOMMENDED_VERSION`, `legacyTesterRequest`, `prepareLegacyTester` | ✅ Uyumlu | — |
-| 2. Root Global 3.4.1.23 | `ROOT_GLOBAL_RECOMMENDED_VERSION`, `ROOT_GLOBAL_APK_NAME`, `ROOT_GLOBAL_APK_SHA256`, `rootTargetApk(GLOBAL)`, `installRootModuleWithThemeManager` | ✅ Uyumlu | APK GitHub releases'te yayınlanmalı (v4.0.0) |
-| 3. Çin 11.5.3.1 | `ROOT_CHINA_RECOMMENDED_VERSION`, `ROOT_CHINA_APK_NAME`, `ROOT_CHINA_APK_SHA256`, `rootTargetApk(CHINA)`, `installRootModuleWithThemeManager` | ✅ Uyumlu | APK GitHub releases'te yayınlanmalı (v4.0.0); minSdk 34 → Android 14+ gerekli |
+| 2. Root Global 3.4.1.23 | `ROOT_GLOBAL_RECOMMENDED_VERSION`, `ROOT_GLOBAL_APK_NAME`, `ROOT_GLOBAL_APK_SHA256`, `rootTargetApk(GLOBAL)`, `installRootModuleWithThemeManager` | ✅ Uyumlu | APK repo içinden (`requirements/`) indirilir |
+| 3. Çin 11.5.3.1 | `ROOT_CHINA_RECOMMENDED_VERSION`, `ROOT_CHINA_APK_NAME`, `ROOT_CHINA_APK_SHA256`, `rootTargetApk(CHINA)`, `installRootModuleWithThemeManager` | ✅ Uyumlu | APK repo içinden (`requirements/`) indirilir; minSdk 34 → Android 14+ gerekli |
 | 4. Modern 10.8.7.6+ | `MODERN_THEME_MANAGER_BRIDGE` / `DIRECT_APPLY` / `MANUAL_IMPORT` | ✅ Uyumlu | — |
 
 ### 4.1 Ana boşluklar (kapatıldı)
