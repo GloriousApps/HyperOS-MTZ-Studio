@@ -317,7 +317,7 @@ internal fun ThemeManagerCompatibilityCard(
                         module?.active == true && rootModuleCurrent -> "Root MTZ Import modülü güncel ve etkin. Xiaomi Temalar importer'ı kullanıma hazır."
                         module?.active == true -> "Root MTZ Import modülü etkin, ancak uygulamayla gelen yeni sürüm yüklenmeye hazır."
                         module?.installed == true -> "Root MTZ Import modülü kurulu. Etkinleşmesi için telefonu yeniden başlatın."
-                        else -> "Bu Global Temalar sürümünde dışa açık MTZ Import yok. Root modülü, Xiaomi Temalar'ın kendi importer'ını güvenli biçimde etkinleştirir."
+                        else -> "Bu Global Temalar sürümünde dışa açık MTZ Import yok. Root modülü, Xiaomi Temalar'ın kendi importer'ını güvenli biçimde etkinleştirir (hedef: ${ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION}-global)."
                     }
                     Text(moduleText, style = MaterialTheme.typography.bodySmall)
                     if (rootModuleCheckComplete) {
