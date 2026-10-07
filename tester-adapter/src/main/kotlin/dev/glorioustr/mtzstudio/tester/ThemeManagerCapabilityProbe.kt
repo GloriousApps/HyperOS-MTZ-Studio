@@ -97,4 +97,28 @@ class ThemeManagerCapabilityProbe(private val context: Context) {
             exportedThemeActivityCandidates = candidates,
         )
     }
+
+    fun probeCapabilities(
+        installed: InstalledThemeManager,
+        hasRootGlobalBridge: Boolean = false,
+        hasRootRuntime: Boolean = false,
+        runtimeHealthy: Boolean = false,
+        canUseMiuiBackup: Boolean = false,
+    ): ThemeManagerCapabilities {
+        val profile = probe(installed)
+        return ThemeManagerCapabilities(
+            packageInstalled = profile.packageInstalled,
+            versionName = profile.versionName,
+            hasLegacyApplyThemeForScreenshot = profile.legacyTesterResolvable,
+            canResolveLegacyTester = profile.legacyTesterResolvable,
+            canLaunchLegacyTester = profile.legacyTesterResolvable,
+            canImportModernLocalLibrary = profile.modernLocalLibraryResolvable,
+            canApplyModernLocalTheme = profile.modernLocalLibraryResolvable,
+            canPersistAppliedTheme = hasRootGlobalBridge || hasRootRuntime || canUseMiuiBackup || profile.legacyTesterResolvable,
+            canUseMiuiBackup = canUseMiuiBackup,
+            hasRootGlobalBridge = hasRootGlobalBridge,
+            hasRootRuntime = hasRootRuntime,
+            runtimeHealthy = runtimeHealthy,
+        )
+    }
 }

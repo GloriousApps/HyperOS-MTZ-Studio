@@ -263,30 +263,8 @@ class ThemeApplyCoordinator(
             "Shizuku/Shevery hazır değil veya izin verilmemiş"
         }
 
-        val source = theme.archive.source.toFile()
-        val localId = MtzToBakConverter.restoredThemeLocalId(source)
-        val backup = java.io.File(context.cacheDir, "native-import-${UUID.randomUUID()}.bak")
-        return try {
-            diagnostics.record(
-                "dual_import_backup_build",
-                "MTZ, Xiaomi Temalar kitaplığı için hazırlanıyor",
-                mapOf("theme" to theme.displayName),
-            )
-            MtzToBakConverter.convert(
-                source,
-                backup,
-                MtzToBakConverter.deviceInfo(context),
-            )
-            val bytes = SheveryBackupRestorer.restore(backup)
-            diagnostics.record(
-                "dual_import_backup_restored",
-                "MTZ, Studio kitaplığına ek olarak Xiaomi Temalar kitaplığına aktarıldı",
-                mapOf("theme" to theme.displayName, "bytes" to bytes, "localId" to localId),
-            )
-            localId
-        } finally {
-            backup.delete()
-        }
+        return dev.glorioustr.mtzstudio.strategy.ModernLocalLibraryApplyStrategy(context)
+            .importThroughBackup(theme)
     }
 
     /**

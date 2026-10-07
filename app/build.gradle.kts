@@ -89,4 +89,5 @@ dependencies {
     // Framework this follows the user's Google account to a new device.
     implementation("com.google.android.gms:play-services-auth:22.0.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    testImplementation("junit:junit:4.13.2")
 }

@@ -7,6 +7,7 @@ package dev.glorioustr.mtzstudio.tester
 data class StudioCapabilityPolicy(
     val rootAvailable: Boolean,
     val themeManagerBehavior: ThemeManagerBehavior,
+    val capabilities: ThemeManagerCapabilities? = null,
 ) {
     val usesNativeCatalog: Boolean
         get() = rootAvailable && themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
@@ -15,7 +16,7 @@ data class StudioCapabilityPolicy(
         get() = rootAvailable
 
     val canApplyAutomatically: Boolean
-        get() = rootAvailable
+        get() = capabilities?.canApplyAutomatically ?: rootAvailable
 
     val usesRootlessWorkspace: Boolean
         get() = !usesNativeCatalog

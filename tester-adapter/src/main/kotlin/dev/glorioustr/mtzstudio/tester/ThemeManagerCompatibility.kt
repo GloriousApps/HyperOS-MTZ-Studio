@@ -11,6 +11,8 @@ object ThemeManagerContract {
     // The exported legacy alias and support3.0 contract were inspected in the 3.0.2.34
     // Global branch and device-verified in 3.0.5.6. 3.0.4.32 stays on that same branch.
     val SUPPORTED_GLOBAL_VERSIONS = setOf("2.15.5.46", "3.0.4.32", "3.0.5.6")
+    const val CONTROLLED_GLOBAL_VERSION = "3.4.1.23"
+    const val CONTROLLED_NON_GLOBAL_VERSION = "11.5.3.1"
     const val MODERN_NATIVE_LIBRARY_MIN_VERSION = "10.8.7.6"
 
     fun canonicalVersion(versionName: String?): String? = versionName
@@ -21,6 +23,7 @@ object ThemeManagerContract {
     fun behavior(versionName: String?): ThemeManagerBehavior {
         val canonical = canonicalVersion(versionName) ?: return ThemeManagerBehavior.UNKNOWN
         return when {
+            canonical == CONTROLLED_GLOBAL_VERSION -> ThemeManagerBehavior.LOCAL_THEME_IMPORT
             canonical in SUPPORTED_GLOBAL_VERSIONS -> ThemeManagerBehavior.LOCAL_THEME_IMPORT
             isModernNativeLibraryVersion(canonical) -> ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
             canonical == "3.0.5.14" -> ThemeManagerBehavior.TEMPORARY_DEFAULT_COMPOSITE
