@@ -24,10 +24,6 @@ class ThemeManagerCompatibilityTest {
             ThemeManagerContract.behavior("3.0.4.32-global"),
         )
         assertEquals(
-            ThemeManagerBehavior.LOCAL_THEME_IMPORT,
-            ThemeManagerContract.behavior("3.4.1.23-global"),
-        )
-        assertEquals(
             ThemeManagerBehavior.MODERN_NATIVE_LIBRARY,
             ThemeManagerContract.behavior("10.8.7.6"),
         )
@@ -45,10 +41,9 @@ class ThemeManagerCompatibilityTest {
     @Test
     fun `root global recommended version is the bundled root module build`() {
         assertEquals("3.4.1.23", ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION)
-        assertEquals(
-            ThemeManagerBehavior.LOCAL_THEME_IMPORT,
-            ThemeManagerContract.behavior("3.4.1.23-global"),
-        )
+        // Tester activity is removed in 3.4.1.23 -> not Shizuku-applicable, but the
+        // Root module bridge covers it.
+        assertEquals(ThemeManagerBehavior.UNKNOWN, ThemeManagerContract.behavior("3.4.1.23-global"))
         val installed = InstalledThemeManager(
             installed = true,
             packageName = ThemeManagerContract.PACKAGE_NAME,

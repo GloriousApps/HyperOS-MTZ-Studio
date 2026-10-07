@@ -3,6 +3,8 @@ package dev.glorioustr.mtzstudio.tester
 object ThemeManagerContract {
     const val RECOMMENDED_VERSION = "3.0.5.6"
     // The Global build the bundled Root MTZ Import module is verified against.
+    // This is NOT Shizuku-compatible (tester activity removed); it is applied
+    // exclusively through the Root module's Zygisk bridge.
     const val ROOT_GLOBAL_RECOMMENDED_VERSION = "3.4.1.23"
     const val PACKAGE_NAME = "com.android.thememanager"
     const val LEGACY_TESTER_ACTION = "com.android.thememanager.support3.0"
@@ -12,8 +14,8 @@ object ThemeManagerContract {
 
     // The exported legacy alias and support3.0 contract were inspected in the 3.0.2.34
     // Global branch and device-verified in 3.0.5.6. 3.0.4.32 stays on that same branch.
-    // 3.4.1.23-global is the build the bundled Root MTZ Import module runs against.
-    val SUPPORTED_GLOBAL_VERSIONS = setOf("2.15.5.46", "3.0.4.32", "3.0.5.6", "3.4.1.23")
+    // These are the Shizuku-compatible Global builds (tester activity present).
+    val SUPPORTED_GLOBAL_VERSIONS = setOf("2.15.5.46", "3.0.4.32", "3.0.5.6")
     const val MODERN_NATIVE_LIBRARY_MIN_VERSION = "10.8.7.6"
 
     fun canonicalVersion(versionName: String?): String? = versionName
@@ -101,6 +103,7 @@ data class InstalledThemeManager(
     val isRecommended: Boolean
         get() = installed && (
             ThemeManagerContract.canonicalVersion(versionName) in ThemeManagerContract.SUPPORTED_GLOBAL_VERSIONS ||
+            ThemeManagerContract.canonicalVersion(versionName) == ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION ||
             behavior == ThemeManagerBehavior.LOCAL_THEME_IMPORT ||
             behavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
         )
