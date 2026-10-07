@@ -24,6 +24,10 @@ class ThemeManagerCompatibilityTest {
             ThemeManagerContract.behavior("3.0.4.32-global"),
         )
         assertEquals(
+            ThemeManagerBehavior.LOCAL_THEME_IMPORT,
+            ThemeManagerContract.behavior("3.4.1.23-global"),
+        )
+        assertEquals(
             ThemeManagerBehavior.MODERN_NATIVE_LIBRARY,
             ThemeManagerContract.behavior("10.8.7.6"),
         )
@@ -36,6 +40,23 @@ class ThemeManagerCompatibilityTest {
             ThemeManagerContract.behavior("3.0.6.8-global"),
         )
         assertEquals(ThemeManagerBehavior.UNKNOWN, ThemeManagerContract.behavior("4.0.0.0"))
+    }
+
+    @Test
+    fun `root global recommended version is the bundled root module build`() {
+        assertEquals("3.4.1.23", ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION)
+        assertEquals(
+            ThemeManagerBehavior.LOCAL_THEME_IMPORT,
+            ThemeManagerContract.behavior("3.4.1.23-global"),
+        )
+        val installed = InstalledThemeManager(
+            installed = true,
+            packageName = ThemeManagerContract.PACKAGE_NAME,
+            versionName = "3.4.1.23-global",
+            versionCode = 304123,
+            behavior = ThemeManagerContract.behavior("3.4.1.23-global"),
+        )
+        assertTrue(installed.isRecommended)
     }
 
     @Test
