@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "strictness": "strict",
+    "allow": [
+      "Bash(cd \"C:/Users/kadir/Documents/ChatGPT/HyperOS MTZ Studio\" && git log --oneline -5 && echo \"---\" && ls)",
+      "Bash(cd \"C:/Users/kadir/Documents/ChatGPT/HyperOS MTZ Studio\" && find app -name \"*.kt\" | xargs grep -l -i \"ocr\\|translate\\|localiz\" 2>/dev/null)",
+      "Bash(cd \"C:/Users/kadir/Documents/ChatGPT/HyperOS MTZ Studio\" && grep -c \"^- \" ppocr-sdk/src/main/assets/models/rec/inference.yml && echo \"--- total lines ---\" && wc -l ppocr-sdk/src/main/assets/models/rec/inference.yml)"
+    ]
+  }
+}

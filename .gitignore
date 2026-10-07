@@ -10,3 +10,10 @@ release-signing.jks
 captures/
 .externalNativeBuild/
 .cxx/
+
+# APK binaries (too large for GitHub 100MB limit)
+*.apk
+*.apk.sha256
+MTZ_Studio_v5.1.0-ocr-test*/
+MTZ_Studio_v5.1.1-vision-test/
+private-apk-*/

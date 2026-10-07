@@ -1,0 +1,6 @@
+id=xiaomi_themes_global_import
+name=Xiaomi Themes Global MTZ Import
+version=1.0.0
+versionCode=100
+author=GloriousApps
+description=Provides an invisible MTZ Studio import/apply bridge inside Xiaomi Themes Global without replacing or resigning the original app.
