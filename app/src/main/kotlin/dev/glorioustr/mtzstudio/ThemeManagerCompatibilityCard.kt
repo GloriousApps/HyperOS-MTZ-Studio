@@ -51,6 +51,7 @@ import dev.glorioustr.mtzstudio.tester.InstalledThemeManager
 import dev.glorioustr.mtzstudio.tester.PrivilegedCommandRunner
 import dev.glorioustr.mtzstudio.tester.RootThemeManagerUpdater
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
+import dev.glorioustr.mtzstudio.tester.ThemeManagerFamily
 import dev.glorioustr.mtzstudio.tester.ThemeManagerInspector
 import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
 import dev.glorioustr.mtzstudio.tester.VerifiedThemeManagerApk
@@ -174,6 +175,73 @@ internal fun ThemeManagerCompatibilityCard(
             } else {
                 resources.getString(R.string.tm_recommendation_notice, ThemeManagerContract.RECOMMENDED_VERSION)
             }
+        }
+    }
+
+    /**
+     * Root module install flow. Mirrors Mods-Center: before installing the Zygisk module we bring
+     * Xiaomi Themes to the build the module is verified against — Global family → 3.4.1.23-global,
+     * China family → 11.5.3.1. The target APK is downloaded, checksum-verified, signature-checked
+     * against the installed package, then installed through the privileged channel.
+     */
+    fun installRootModuleWithThemeManager() {
+        val current = installed ?: return
+        val target = ThemeManagerContract.rootTargetApk(current.family)
+        scope.launch {
+            status = "Root MTZ Import modülü kuruluyor…"
+            var stagedApk: VerifiedThemeManagerApk? = null
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val targetVersion = target?.version
+                    val needsThemeManager = targetVersion != null &&
+                        ThemeManagerContract.canonicalVersion(current.versionName) != targetVersion
+                    if (needsThemeManager) {
+                        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        val downloadName = "mtzstudio-${System.currentTimeMillis()}-${target.apkName}"
+                        val request = DownloadManager.Request(Uri.parse(rootDownloadUrl(target.apkName)))
+                            .setTitle(target.apkName)
+                            .setDescription("Xiaomi Themes ${target.version}")
+                            .setMimeType("application/vnd.android.package-archive")
+                            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, downloadName)
+                        val downloadId = manager.enqueue(request)
+                        awaitDownload(manager, downloadId)
+                        val descriptor = manager.openDownloadedFile(downloadId)
+                        val verified = ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                            updater.stageAndVerify(input, current, expectedVersion = target.version)
+                        }
+                        stagedApk = verified
+                        check(verified.sha256.equals(target.sha256, ignoreCase = true)) {
+                            "Downloaded Xiaomi Themes APK checksum does not match"
+                        }
+                        val shellRunner = PrivilegedCommandRunner { command, timeout ->
+                            sheveryAccess.executeShell(command, timeout)
+                        }
+                        updater.installVerifiedDowngradeFromDownload(
+                            apk = verified,
+                            shellReadablePath = "/sdcard/Download/$downloadName",
+                            installRunner = shellRunner,
+                        ).also { result ->
+                            check(result.success) {
+                                listOf(result.message, result.commandOutput).filter { it.isNotBlank() }.joinToString(" · ")
+                            }
+                        }
+                    }
+                    rootModuleInstaller.installOrUpdate()
+                }
+            }.onSuccess { result ->
+                installed = withContext(Dispatchers.IO) { inspector.inspect() }
+                rootModuleState = withContext(Dispatchers.IO) { rootModuleInstaller.inspect() }
+                status = if (target != null && ThemeManagerContract.canonicalVersion(installed?.versionName) == target.version) {
+                    "Xiaomi Temalar ${target.version} ve Root MTZ Import modülü ${result.version} hazır. Etkinleştirmek için telefonu yeniden başlatın."
+                } else {
+                    "Root MTZ Import modülü ${result.version} kuruldu. Etkinleştirmek için telefonu yeniden başlatın."
+                }
+                showRootModuleRestartDialog = true
+            }.onFailure { error ->
+                status = "Root MTZ Import modülü kurulamadı: ${error.message ?: error::class.simpleName}"
+            }
+            stagedApk?.let { runCatching { withContext(Dispatchers.IO) { updater.discard(it) } } }
         }
     }
 
@@ -313,11 +381,21 @@ internal fun ThemeManagerCompatibilityCard(
 
                 if (rootModuleMode) {
                     val module = rootModuleState
+                    val target = installed?.let { ThemeManagerContract.rootTargetApk(it.family) }
                     val moduleText = when {
                         module?.active == true && rootModuleCurrent -> "Root MTZ Import modülü güncel ve etkin. Xiaomi Temalar importer'ı kullanıma hazır."
                         module?.active == true -> "Root MTZ Import modülü etkin, ancak uygulamayla gelen yeni sürüm yüklenmeye hazır."
                         module?.installed == true -> "Root MTZ Import modülü kurulu. Etkinleşmesi için telefonu yeniden başlatın."
-                        else -> "Bu Global Temalar sürümünde dışa açık MTZ Import yok. Root modülü, Xiaomi Temalar'ın kendi importer'ını güvenli biçimde etkinleştirir (hedef: ${ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION}-global)."
+                        else -> {
+                            val familyLabel = when (installed?.family) {
+                                ThemeManagerFamily.CHINA -> "Çin"
+                                ThemeManagerFamily.GLOBAL -> "Global"
+                                else -> "bilinmeyen"
+                            }
+                            val targetLabel = target?.let { "${it.version} (${familyLabel})" }
+                                ?: "cihazınızdaki sürümle eşleşen"
+                            "Bu Temalar sürümünde dışa açık MTZ Import yok. Root modülü, Xiaomi Temalar'ın kendi importer'ını güvenli biçimde etkinleştirir (hedef: $targetLabel)."
+                        }
                     }
                     Text(moduleText, style = MaterialTheme.typography.bodySmall)
                     if (rootModuleCheckComplete) {
@@ -454,6 +532,7 @@ internal fun ThemeManagerCompatibilityCard(
     }
 
     if (showRootModuleConfirmation) {
+        val target = installed?.let { ThemeManagerContract.rootTargetApk(it.family) }
         AlertDialog(
             onDismissRequest = { showRootModuleConfirmation = false },
             title = {
@@ -467,33 +546,26 @@ internal fun ThemeManagerCompatibilityCard(
             },
             text = {
                 Text(
-                    "MTZ Studio, yalnızca kendi Zygisk modülünü root yöneticinizin standart modül dizinine kuracak. " +
-                        "Xiaomi Temalar APK'sı, imzası ve verileri değiştirilmez. İşlemden sonra modülün yüklenmesi için telefon yeniden başlatılmalıdır.",
+                    buildString {
+                        append(
+                            "MTZ Studio, yalnızca kendi Zygisk modülünü root yöneticinizin standart modül dizinine kuracak. " +
+                                "Xiaomi Temalar APK'sı, imzası ve verileri değiştirilmez. İşlemden sonra modülün yüklenmesi için telefon yeniden başlatılmalıdır.",
+                        )
+                        val currentVersion = installed?.versionName
+                        if (target != null && ThemeManagerContract.canonicalVersion(currentVersion) != target.version) {
+                            append("\n\nAyrıca Xiaomi Temalar, modülün doğrulandığı sürüme getirilecek: ")
+                            append(target.version)
+                            append(" (")
+                            append(if (installed?.family == ThemeManagerFamily.CHINA) "Çin" else "Global")
+                            append(").")
+                        }
+                    },
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     showRootModuleConfirmation = false
-                    scope.launch {
-                        status = if (rootModuleUpdateRequested) {
-                            "Root MTZ Import modülü güncelleniyor…"
-                        } else {
-                            "Root MTZ Import modülü kuruluyor…"
-                        }
-                        runCatching {
-                            withContext(Dispatchers.IO) { rootModuleInstaller.installOrUpdate() }
-                        }.onSuccess { result ->
-                            rootModuleState = withContext(Dispatchers.IO) { rootModuleInstaller.inspect() }
-                            status = if (rootModuleUpdateRequested) {
-                                "Root MTZ Import modülü ${result.version} güncellendi. Etkinleştirmek için telefonu yeniden başlatın."
-                            } else {
-                                "Root MTZ Import modülü ${result.version} kuruldu. Etkinleştirmek için telefonu yeniden başlatın."
-                            }
-                            showRootModuleRestartDialog = true
-                        }.onFailure { error ->
-                            status = "Root MTZ Import modülü kurulamadı: ${error.message ?: error::class.simpleName}"
-                        }
-                    }
+                    installRootModuleWithThemeManager()
                 }) { Text(if (rootModuleUpdateRequested) "Güncelle" else "Kur") }
             },
             dismissButton = {
@@ -542,6 +614,9 @@ private fun supportsRootMtzImportModule(versionName: String?): Boolean {
     // launched, but root module state must still be visible and repairable.
     return !ThemeManagerContract.canonicalVersion(versionName).isNullOrBlank()
 }
+
+private fun rootDownloadUrl(apkName: String): String =
+    "https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/download/v4.0.0/$apkName"
 
 private fun awaitDownload(manager: DownloadManager, downloadId: Long) {
     val deadline = System.currentTimeMillis() + 5 * 60_000L
