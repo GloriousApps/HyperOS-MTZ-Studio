@@ -11,8 +11,20 @@ HyperOS MTZ Studio is an independent project. Its compatibility policy is define
 | `3.0.5.6` | Imports the MTZ through the device-verified legacy tester contract |
 | `3.0.5.14` | Applies a temporary/composite result over “Default” |
 | `3.0.6.8` | Tester activity is removed |
+| `3.4.1.23` | Root module target (Global). Tester activity removed; applied exclusively through the bundled Root MTZ Import module's Zygisk bridge |
 
 Suffixes such as `-global` are ignored only for matrix matching. Unknown versions are shown as unverified rather than guessed.
+
+## Root module target builds
+
+The bundled Root MTZ Import module is verified against two Theme Manager builds. When the module is installed from inside MTZ Studio, the app first brings Theme Manager to the matching build:
+
+| Family | Target build | APK | minSdk | SHA-256 |
+| --- | --- | --- | --- | --- |
+| Global | `3.4.1.23-global` | `Xiaomi_Themes_3.4.1.23-global.apk` | 27 | `d405e78fac1ea48e105e57f5e3422ec0a0a6d53f779973d06e131e85b016037` |
+| China | `11.5.3.1` | `Xiaomi_Themes_11.5.3.1.apk` | 34 | `3888058041439577aadbb933c9bed1fb3ef16acda20d15404fb620314a8edd0a` |
+
+Both APKs are signed with the same Xiaomi certificate (`c9009d01...`) as the existing `3.0.5.6-global` build. The China build requires Android 14+ (minSdk 34); on older devices the Root module flow falls back to the Global build only when the installed family is Global.
 
 ## Modern Theme Manager matrix
 
