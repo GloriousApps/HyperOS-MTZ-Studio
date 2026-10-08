@@ -39,6 +39,62 @@ class ThemeManagerCompatibilityTest {
     }
 
     @Test
+    fun `root global recommended version is the bundled root module build`() {
+        assertEquals("3.4.1.23", ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION)
+        // Tester activity is removed in 3.4.1.23 -> not Shizuku-applicable, but the
+        // Root module bridge covers it.
+        assertEquals(ThemeManagerBehavior.UNKNOWN, ThemeManagerContract.behavior("3.4.1.23-global"))
+        val installed = InstalledThemeManager(
+            installed = true,
+            packageName = ThemeManagerContract.PACKAGE_NAME,
+            versionName = "3.4.1.23-global",
+            versionCode = 304123,
+            behavior = ThemeManagerContract.behavior("3.4.1.23-global"),
+        )
+        assertTrue(installed.isRecommended)
+    }
+
+    @Test
+    fun `root china recommended version is the mods-center base build`() {
+        assertEquals("11.5.3.1", ThemeManagerContract.ROOT_CHINA_RECOMMENDED_VERSION)
+        val installed = InstalledThemeManager(
+            installed = true,
+            packageName = ThemeManagerContract.PACKAGE_NAME,
+            versionName = "11.5.3.1",
+            versionCode = 11531,
+            behavior = ThemeManagerContract.behavior("11.5.3.1"),
+        )
+        assertTrue(installed.isRecommended)
+        assertFalse(installed.requiresGlobalThemeProtection)
+    }
+
+    @Test
+    fun `theme manager family resolves from known builds`() {
+        assertEquals(ThemeManagerFamily.GLOBAL, ThemeManagerContract.familyOf("3.4.1.23-global"))
+        assertEquals(ThemeManagerFamily.GLOBAL, ThemeManagerContract.familyOf("3.0.5.6-global"))
+        assertEquals(ThemeManagerFamily.CHINA, ThemeManagerContract.familyOf("11.5.3.1"))
+        assertEquals(ThemeManagerFamily.UNKNOWN, ThemeManagerContract.familyOf("10.8.7.6"))
+        assertEquals(ThemeManagerFamily.UNKNOWN, ThemeManagerContract.familyOf(null))
+    }
+
+    @Test
+    fun `root target apk pairs family with verified build`() {
+        val global = ThemeManagerContract.rootTargetApk(ThemeManagerFamily.GLOBAL)
+        assertEquals("3.4.1.23", global?.version)
+        assertEquals("Xiaomi_Themes_3.4.1.23-global.apk", global?.apkName)
+        assertEquals("d405e78fac1ea48e105e57f5e3422ec0a0a6d53f779973d06e131e85b016037", global?.sha256)
+        assertEquals(27, global?.minSdk)
+
+        val china = ThemeManagerContract.rootTargetApk(ThemeManagerFamily.CHINA)
+        assertEquals("11.5.3.1", china?.version)
+        assertEquals("Xiaomi_Themes_11.5.3.1.apk", china?.apkName)
+        assertEquals("3888058041439577aadbb933c9bed1fb3ef16acda20d15404fb620314a8edd0a", china?.sha256)
+        assertEquals(34, china?.minSdk)
+
+        assertEquals(null, ThemeManagerContract.rootTargetApk(ThemeManagerFamily.UNKNOWN))
+    }
+
+    @Test
     fun `modern native library covers verified and later China Theme Manager family`() {
         listOf("10.8.7.6", "10.9.2.0", "10.9.4.0", "10.9.5.2", "11.0.8.0", "11.1.5.0")
             .forEach { version ->
