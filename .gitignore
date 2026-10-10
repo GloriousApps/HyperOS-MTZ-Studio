@@ -10,6 +10,8 @@ release-signing.jks
 captures/
 .externalNativeBuild/
 .cxx/
+__pycache__/
+*.pyc
 
 # APK binaries (too large for GitHub 100MB limit)
 *.apk
