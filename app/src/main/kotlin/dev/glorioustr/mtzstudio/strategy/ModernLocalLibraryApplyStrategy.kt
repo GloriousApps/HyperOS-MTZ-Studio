@@ -17,7 +17,7 @@ import java.io.File
 import java.util.UUID
 
 /**
- * Rootless Strategy for Modern Theme Manager builds (10.8.x, 11.x and later)
+ * Modern Theme Manager strategy for builds (10.8.x, 11.x and later).
  * using HyperOS Backup Service (Shizuku/Shevery) and ViewLocalResource.
  *
  * Explicitly separates:
@@ -39,8 +39,10 @@ class ModernLocalLibraryApplyStrategy(
             context.packageManager.getPackageInfo(ThemeManagerContract.PACKAGE_NAME, 0).versionName
         }.getOrNull()
         val isModern = ThemeManagerContract.isModernNativeLibraryVersion(installedVersion)
-        val shizukuReady = SheveryBackupRestorer.state() == SheveryBackupRestorer.State.READY
-        return isModern && shizukuReady
+        // MiuiBackup is a private-data operation.  ADB-mode Shizuku is deliberately
+        // rejected even though it can run ordinary shell staging commands.
+        val rootModeBackupReady = SheveryBackupRestorer.state() == SheveryBackupRestorer.State.READY
+        return isModern && rootModeBackupReady
     }
 
     override suspend fun prepare(
@@ -57,8 +59,11 @@ class ModernLocalLibraryApplyStrategy(
 
         val themeName = theme.archive.metadata?.name ?: theme.displayName
 
-        // If localId is already known and valid, use direct ViewLocalResource intent
-        val resolvedLocalId = themeManagerLocalId ?: importThroughBackup(theme)
+        // The native catalog is authoritative.  Importing a BAK is asynchronous, so this
+        // strategy must receive the local ID after the caller has read the catalog back instead
+        // of treating the ID embedded in the backup metadata as a confirmed record.
+        val resolvedLocalId = themeManagerLocalId
+            ?: error("Modern Theme Manager yerel kimliği katalogdan doğrulanmadan uygulanamaz")
 
         require(resolvedLocalId.matches(SAFE_LOCAL_ID)) { "Geçersiz Xiaomi Temalar yerel kimliği" }
 
@@ -95,7 +100,7 @@ class ModernLocalLibraryApplyStrategy(
      * Converts MTZ to BAK format and restores it via Shizuku/Shevery into Xiaomi Themes private storage.
      * Note: This IMPORTS the theme, but does NOT apply it yet.
      */
-    fun importThroughBackup(theme: LibraryTheme): String {
+    fun importThroughBackup(theme: LibraryTheme) {
         val source = theme.archive.source.toFile()
         val localId = MtzToBakConverter.restoredThemeLocalId(source)
         val backup = File(context.cacheDir, "modern-strategy-import-${UUID.randomUUID()}.bak")
@@ -116,19 +121,29 @@ class ModernLocalLibraryApplyStrategy(
                 "MTZ, HyperOS yedekleme servisi üzerinden aktarıldı (İçe aktarma tamamlandı)",
                 mapOf("theme" to theme.displayName, "bytes" to bytes, "localId" to localId),
             )
-            localId
         } finally {
             backup.delete()
         }
     }
 
     override suspend fun verifyApplied(theme: LibraryTheme, prepared: PreparedThemeApply): ThemeApplyResult {
-        return ThemeApplyResult.Success(
-            themeId = theme.id.value,
-            themeName = theme.displayName,
-            localId = prepared.themeManagerLocalId,
-            strategyName = strategyName,
-            persistenceArmed = true,
+        val localId = prepared.themeManagerLocalId
+        if (localId.isNullOrBlank() || !localId.matches(SAFE_LOCAL_ID)) {
+            return ThemeApplyResult.VerificationFailed(
+                reason = "Theme Manager yerel kimliği doğrulanamadı",
+            )
+        }
+        // ViewLocalResource does not return a structured result on the supported
+        // 10.8/11 builds.  Do not report a successful apply merely because the
+        // activity could be resolved; the persistence monitor is the only
+        // authoritative post-apply check for this protocol.
+        diagnostics.record(
+            "modern_apply_unverified",
+            "Modern Theme Manager uygulaması gönderildi ancak host sonucu doğrulanmadı",
+            mapOf("theme" to theme.displayName, "localId" to localId),
+        )
+        return ThemeApplyResult.VerificationFailed(
+            reason = "Xiaomi Temalar uygulama sonucu yapılandırılmış olarak dönmedi; kalıcılık izleyicisi sonucu bekleniyor",
         )
     }
 

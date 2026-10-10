@@ -10,6 +10,7 @@ import dev.glorioustr.mtzstudio.core.Hashing
 import dev.glorioustr.mtzstudio.library.LibraryTheme
 import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
+import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTarget
 import java.util.UUID
 
 data class PreparedThemeApply(
@@ -156,7 +157,9 @@ class ThemeApplyCoordinator(
         // to a stale Xiaomi activity on FolkPatch devices.
         return runCatching {
             val state = rootModuleInstaller.inspect()
-            state.active && rootModuleInstaller.isBundledVersion(state)
+            state.target == ThemeRuntimeTarget.GLOBAL &&
+                state.active &&
+                rootModuleInstaller.isBundledVersion(state, ThemeRuntimeTarget.GLOBAL)
         }.getOrElse { error ->
             diagnostics.record("root_global_bridge_check_failed", "Root MTZ Import modülü denetlenemedi", error = error)
             false
@@ -251,7 +254,7 @@ class ThemeApplyCoordinator(
      * returns. Keeping that lookup outside this class also makes duplicate detection use the
      * same catalog implementation as normal device-theme imports.
      */
-    fun importModernThroughShizukuBackup(theme: LibraryTheme): String {
+    fun importModernThroughShizukuBackup(theme: LibraryTheme) {
         check(
             ThemeManagerContract.behavior(installedThemeManagerVersion()) ==
                 dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.MODERN_NATIVE_LIBRARY,
@@ -263,7 +266,7 @@ class ThemeApplyCoordinator(
             "Shizuku/Shevery hazır değil veya izin verilmemiş"
         }
 
-        return dev.glorioustr.mtzstudio.strategy.ModernLocalLibraryApplyStrategy(context)
+        dev.glorioustr.mtzstudio.strategy.ModernLocalLibraryApplyStrategy(context)
             .importThroughBackup(theme)
     }
 
@@ -375,7 +378,7 @@ class ThemeApplyCoordinator(
         diagnostics.record("privileged_preflight_started", "Root veya Shizuku uyumlu yetki denetleniyor")
         val result = runRecordedRootOrShell("privileged_preflight", "id -u", 10)
         val uid = result.output.lineSequence().firstOrNull()?.trim()
-        check(result.exitCode == 0 && uid in setOf("0", "2000")) {
+        check(result.exitCode == 0 && uid == "0") {
             context.getString(R.string.privileged_access_unavailable)
         }
         diagnostics.record(

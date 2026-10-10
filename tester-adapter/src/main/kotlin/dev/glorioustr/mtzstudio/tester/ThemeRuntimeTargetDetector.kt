@@ -21,17 +21,24 @@ object ThemeRuntimeTargetDetector {
         isInternational: Boolean? = null,
     ): ThemeRuntimeTarget {
         val region = getprop("ro.miui.region")?.trim()?.uppercase()
+        val country = getprop("ro.boot.hwc")?.trim()?.uppercase()
         val modDevice = getprop("ro.product.mod_device")?.trim()?.lowercase() ?: ""
-        val buildVersionIncremental = getprop("ro.build.version.incremental")?.trim() ?: ""
+        val buildVersionIncremental = getprop("ro.build.version.incremental")?.trim()?.uppercase() ?: ""
 
         // Explicit China identifiers
-        if (region == "CN" || modDevice.endsWith("_cn") || buildVersionIncremental.startsWith("V") && buildVersionIncremental.contains(".CN")) {
+        if (region == "CN" || country == "CN" || modDevice.endsWith("_cn") ||
+            buildVersionIncremental.startsWith("V") && buildVersionIncremental.contains(".CN")
+        ) {
             return ThemeRuntimeTarget.NON_GLOBAL
         }
 
         // Explicit Global / EEA / RU / IN / ID / TW identifiers
         val knownGlobalRegions = setOf("GLOBAL", "TR", "EEA", "EU", "RU", "IN", "ID", "TW", "MI")
-        if (region in knownGlobalRegions || modDevice.endsWith("_global") || modDevice.endsWith("_eea") || modDevice.endsWith("_ru") || modDevice.endsWith("_in")) {
+        if (region in knownGlobalRegions || country in knownGlobalRegions ||
+            modDevice.endsWith("_global") || modDevice.endsWith("_eea") ||
+            modDevice.endsWith("_ru") || modDevice.endsWith("_in") || modDevice.endsWith("_id") ||
+            modDevice.endsWith("_tr") || modDevice.endsWith("_tw")
+        ) {
             return ThemeRuntimeTarget.GLOBAL
         }
 

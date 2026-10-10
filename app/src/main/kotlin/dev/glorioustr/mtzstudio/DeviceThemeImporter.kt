@@ -116,6 +116,25 @@ internal class DeviceThemeImporter(
             ?: newlyCreated.singleOrNull()?.localId
     }
 
+    /**
+     * Waits for Xiaomi Themes' asynchronous importer to publish its catalog record.
+     * The ID generated inside an MTZ backup is only an input hint; the catalog is
+     * authoritative and must be read back before Studio stores an origin mapping.
+     */
+    @Synchronized
+    fun awaitImportedLocalId(
+        theme: LibraryTheme,
+        previousIds: Set<String>,
+        attempts: Int = 40,
+        delayMillis: Long = 1_500L,
+    ): String? {
+        repeat(attempts.coerceIn(1, 80)) { attempt ->
+            resolveImportedLocalId(theme, previousIds)?.let { return it }
+            if (attempt + 1 < attempts) Thread.sleep(delayMillis.coerceIn(100L, 5_000L))
+        }
+        return null
+    }
+
     /** Finds an already imported Xiaomi theme when an older Studio build has no saved mapping. */
     @Synchronized
     fun resolveExistingLocalId(theme: LibraryTheme): String? {

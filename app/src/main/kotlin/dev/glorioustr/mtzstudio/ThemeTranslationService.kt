@@ -84,6 +84,12 @@ internal class ThemeTranslationService : Service() {
                     ?: error("Theme is no longer in the library")
                 val commandRunner = PreferredPrivilegedCommandRunner(applicationContext)
                 val coordinator = ThemeApplyCoordinator(applicationContext, commandRunner)
+                val deviceThemeImporter = DeviceThemeImporter(
+                    context = applicationContext,
+                    library = library,
+                    composer = MtzComposer(),
+                    commandRunner = commandRunner,
+                )
                 val rootBridgeReady = coordinator.rootGlobalModuleBridgeReady()
                 val translated = ThemeLanguageTool(applicationContext, library)
                     .translateTextToSystemLanguage(
@@ -124,16 +130,17 @@ internal class ThemeTranslationService : Service() {
                     rootBridgeReady -> Unit
                     SheveryBackupRestorer.state() == SheveryBackupRestorer.State.READY -> {
                     runCatching {
-                        val localId = coordinator.importModernThroughShizukuBackup(translated)
-                        DeviceThemeImporter.linkThemeManagerOrigin(
-                            applicationContext,
-                            localId,
-                            translated.id.value,
-                            translated.archive.sha256,
-                        )
+                        val beforeImport = deviceThemeImporter.localThemeIds()
+                        coordinator.importModernThroughShizukuBackup(translated)
+                        val localId = checkNotNull(
+                            deviceThemeImporter.awaitImportedLocalId(translated, beforeImport),
+                        ) {
+                            "Xiaomi Temalar çevrilen tema kaydını zamanında yayınlamadı"
+                        }
+                        deviceThemeImporter.rememberThemeManagerOrigin(localId, translated)
                         LiveDiagnosticsRecorder.get(applicationContext).record(
                             "translation_native_library_refreshed",
-                            "Çevrilen MTZ Xiaomi Temalar kitaplığına yeniden aktarıldı",
+                            "Çevrilen MTZ Xiaomi Temalar kitaplığına yeniden aktarıldı ve gerçek yerel kayıtla eşleştirildi",
                             mapOf("theme" to translated.displayName, "localId" to localId),
                         )
                     }.onFailure { error ->

@@ -16,13 +16,21 @@ import kotlin.concurrent.thread
 
 /** Restores a user-selected Xiaomi Themes BAK through HyperOS' own backup service. */
 object SheveryBackupRestorer {
-    enum class State { READY, PERMISSION_REQUIRED, SERVICE_NOT_RUNNING, UNSUPPORTED }
+    enum class State { READY, ADB_ONLY, PERMISSION_REQUIRED, SERVICE_NOT_RUNNING, UNSUPPORTED }
     fun state(): State = try {
-        when {
+        val permissionState = when {
             !Shizuku.pingBinder() -> State.SERVICE_NOT_RUNNING
             Shizuku.isPreV11() -> State.UNSUPPORTED
             Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED -> State.READY
             else -> State.PERMISSION_REQUIRED
+        }
+        // MiuiBackup accesses Theme Manager's private backup domain.  A granted
+        // Shizuku permission is not enough: an ADB-mode service (UID 2000) can
+        // execute shell commands but cannot read or restore that private data.
+        if (permissionState == State.READY && runCatching { Shizuku.getUid() }.getOrNull() != 0) {
+            State.ADB_ONLY
+        } else {
+            permissionState
         }
     } catch (_: Throwable) { State.SERVICE_NOT_RUNNING }
 

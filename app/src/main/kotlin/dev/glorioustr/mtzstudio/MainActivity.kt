@@ -666,7 +666,6 @@ private fun StudioScreen(
                 ThemeApplyProtocol.LEGACY_TESTER -> {
                     diagnostics.record("legacy_apply_unverified", "Global tester çağrısı döndü; bu protokol kesin uygulama sonucu bildirmiyor", mapOf("theme" to prepared.themeName))
                     status = resources.getString(R.string.status_legacy_apply_unverified, prepared.themeName)
-                    rememberAppliedTheme(prepared.themeId, prepared.protocol)
                 }
 
                 ThemeApplyProtocol.MODERN_THEME_MANAGER_BRIDGE,
@@ -744,14 +743,19 @@ private fun StudioScreen(
                 ThemeApplyProtocol.MODERN_THEME_MANAGER_DIRECT_APPLY -> {
                     // Xiaomi's exported 10.8/11 detail activity consumes REQUEST_APPLY_EVENT
                     // internally. Those builds do not return a structured result to the caller,
-                    // so retain the selected theme and let the persistence monitor verify it.
+                    // so do not present dispatch as a confirmed apply. The persistence monitor
+                    // remains armed and is the only available post-apply signal on this path.
                     diagnostics.record(
                         "modern_direct_apply_dispatched",
                         "Xiaomi Temalar yerel kaydı doğrudan uygulama isteğini aldı",
                         mapOf("theme" to prepared.themeName, "localId" to prepared.themeManagerLocalId),
                     )
-                    status = resources.getString(R.string.status_apply_success, prepared.themeName)
-                    rememberAppliedTheme(prepared.themeId, prepared.protocol)
+                    diagnostics.record(
+                        "modern_direct_apply_unverified",
+                        "Xiaomi Temalar uygulama sonucunu yapılandırılmış olarak döndürmedi",
+                        mapOf("theme" to prepared.themeName),
+                    )
+                    status = resources.getString(R.string.status_legacy_apply_unverified, prepared.themeName)
                 }
 
                 ThemeApplyProtocol.MODERN_THEME_MANAGER_MANUAL_IMPORT -> {
@@ -792,13 +796,11 @@ private fun StudioScreen(
                         mapOf("theme" to prepared.themeName),
                     )
                     status = resources.getString(R.string.status_legacy_apply_unverified, prepared.themeName)
-                    rememberAppliedTheme(prepared.themeId, prepared.protocol)
                 }
 
                 ThemeApplyProtocol.ROOTLESS_BACKUP_RESTORE -> {
                     diagnostics.record("rootless_backup_returned", "Doğrudan aktarılan tema için Xiaomi Temalar ekranından dönüldü", mapOf("theme" to prepared.themeName))
                     status = resources.getString(R.string.status_legacy_apply_unverified, prepared.themeName)
-                    rememberAppliedTheme(prepared.themeId, prepared.protocol)
                 }
             }
             if (prepared.operation == ThemeManagerOperation.APPLY) {
@@ -1004,10 +1006,13 @@ private fun StudioScreen(
                 withContext(Dispatchers.IO) {
                     val modernShizukuImport =
                         accessMode == StudioAccessMode.SHIZUKU &&
-                            themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
+                            themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY &&
+                            SheveryBackupRestorer.state() == SheveryBackupRestorer.State.READY
                     val rootBridgeReady =
                         rootAccessAvailable == true && themeApplyCoordinator.rootGlobalModuleBridgeReady()
-                    if (rootAccessAvailable == true && !rootBridgeReady) {
+                    val modernNativeLibrary =
+                        themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
+                    if (rootAccessAvailable == true && !rootBridgeReady && !modernNativeLibrary) {
                         // The installed Zygisk binary may not recognize a newer Global Themes
                         // importer. Use the platform backup transport rather than sending the
                         // archive to an uninitialized bridge that would only return a generic
@@ -1027,9 +1032,16 @@ private fun StudioScreen(
                                 // Older Studio releases did not persist a Xiaomi localId for
                                 // themes that were already in the private Studio library. Do not
                                 // call the root-only catalog reader here: mirror the verified MTZ
-                                // through HyperOS' Shizuku backup channel, then persist its stable
-                                // localId before dispatching the direct 10.8/11 apply request.
-                                themeApplyCoordinator.importModernThroughShizukuBackup(theme).also { restoredLocalId ->
+                                // through HyperOS' Shizuku backup channel, then read back and
+                                // persist the actual catalog localId before dispatching apply.
+                                val beforeImport = deviceThemeImporter.localThemeIds()
+                                themeApplyCoordinator.importModernThroughShizukuBackup(theme)
+                                val restoredLocalId = checkNotNull(
+                                    deviceThemeImporter.awaitImportedLocalId(theme, beforeImport),
+                                ) {
+                                    "Xiaomi Temalar içe aktarma kaydı zaman aşımı içinde doğrulanamadı"
+                                }
+                                restoredLocalId.also {
                                     deviceThemeImporter.rememberThemeManagerOrigin(restoredLocalId, theme)
                                     diagnostics.record(
                                         "modern_shizuku_apply_link_created",
@@ -1197,9 +1209,15 @@ private fun StudioScreen(
         ) return false
 
         val localId = withContext(Dispatchers.IO) {
-            themeApplyCoordinator.importModernThroughShizukuBackup(theme).also { restoredLocalId ->
-                deviceThemeImporter.rememberThemeManagerOrigin(restoredLocalId, theme)
+            val beforeImport = deviceThemeImporter.localThemeIds()
+            themeApplyCoordinator.importModernThroughShizukuBackup(theme)
+            val restoredLocalId = checkNotNull(
+                deviceThemeImporter.awaitImportedLocalId(theme, beforeImport),
+            ) {
+                "Xiaomi Temalar içe aktarma kaydı zaman aşımı içinde doğrulanamadı"
             }
+            deviceThemeImporter.rememberThemeManagerOrigin(restoredLocalId, theme)
+            restoredLocalId
         }
         diagnostics.record(
             "dual_import_linked",

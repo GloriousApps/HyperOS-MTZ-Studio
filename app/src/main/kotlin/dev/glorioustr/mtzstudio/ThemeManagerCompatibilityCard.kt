@@ -26,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,6 +55,8 @@ import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
 import dev.glorioustr.mtzstudio.tester.ThemeManagerInspector
 import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
 import dev.glorioustr.mtzstudio.tester.VerifiedThemeManagerApk
+import dev.glorioustr.mtzstudio.tester.ThemeRuntimeArtifacts
+import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTarget
 import dev.glorioustr.mtzstudio.shevery.SheveryAccess
 import dev.glorioustr.mtzstudio.shevery.SheveryAuthorizationStatus
 import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
@@ -92,9 +95,13 @@ internal fun ThemeManagerCompatibilityCard(
     var showRootModuleConfirmation by remember { mutableStateOf(false) }
     var showRootModuleRestartDialog by remember { mutableStateOf(false) }
     var rootModuleState by remember { mutableStateOf<RootThemeImportModuleInstaller.State?>(null) }
+    var detectedRuntimeTarget by remember { mutableStateOf<ThemeRuntimeTarget?>(null) }
+    var selectedRuntimeTarget by remember { mutableStateOf<ThemeRuntimeTarget?>(null) }
     var rootModuleCheckComplete by remember { mutableStateOf(!allowRootDowngrade) }
     var rootModuleUpdateRequested by remember { mutableStateOf(false) }
     val cyanAccent = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) Color(0xFF006A78) else Color(0xFF00DAF3)
+    val selectedTarget = selectedRuntimeTarget ?: detectedRuntimeTarget ?: ThemeRuntimeTarget.GLOBAL
+    val selectedArtifact = ThemeRuntimeArtifacts.forTarget(selectedTarget)
 
     fun startShizukuDowngrade() {
         when (sheveryAccess.status()) {
@@ -168,6 +175,13 @@ internal fun ThemeManagerCompatibilityCard(
             rootModuleState = if (allowRootDowngrade) {
                 runCatching { withContext(Dispatchers.IO) { rootModuleInstaller.inspect() } }.getOrNull()
             } else null
+            if (allowRootDowngrade) {
+                runCatching { withContext(Dispatchers.IO) { rootModuleInstaller.detectTarget() } }
+                    .onSuccess { detected ->
+                        detectedRuntimeTarget = detected
+                        if (selectedRuntimeTarget == null) selectedRuntimeTarget = detected
+                    }
+            }
             rootModuleCheckComplete = true
             status = if (profile.compatibleLocalMtzPath) {
                 resources.getString(R.string.tm_recommended_active)
@@ -218,7 +232,8 @@ internal fun ThemeManagerCompatibilityCard(
         // reported as compatible. They still need our root module to mirror an imported MTZ into
         // Xiaomi Themes. Do not hide the module card merely because that legacy activity exists.
         val rootModuleMode = allowRootDowngrade && supportsRootMtzImportModule(installed?.versionName)
-        val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState)
+        val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState, selectedTarget) &&
+            rootModuleState?.activeTarget == selectedTarget
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -313,26 +328,56 @@ internal fun ThemeManagerCompatibilityCard(
 
                 if (rootModuleMode) {
                     val module = rootModuleState
+                    Text("Root çalışma zamanı hedefi", fontWeight = FontWeight.SemiBold)
+                     Text(
+                         "Önerilen algılama: ${targetLabel(detectedRuntimeTarget)}. Seçim otomatik uygulanmaz; hedefi elle onaylayın.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                     Column {
+                         ThemeRuntimeTarget.values().forEach { target ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedTarget == target,
+                                    onClick = { selectedRuntimeTarget = target },
+                                )
+                                 Text(targetLabel(target))
+                             }
+                         }
+                     }
+                     Text(
+                         "Seçili: ${targetLabel(selectedTarget)} · APK ${selectedArtifact.versionName} · kod ${selectedArtifact.versionCode} · API ${selectedArtifact.supportedAndroidMin}+",
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                         style = MaterialTheme.typography.bodySmall,
+                     )
                     val moduleText = when {
-                        module?.active == true && rootModuleCurrent -> "Root MTZ Import modülü güncel ve etkin. Xiaomi Temalar importer'ı kullanıma hazır."
-                        module?.active == true -> "Root MTZ Import modülü etkin, ancak uygulamayla gelen yeni sürüm yüklenmeye hazır."
-                        module?.installed == true -> "Root MTZ Import modülü kurulu. Etkinleşmesi için telefonu yeniden başlatın."
-                        else -> "Bu Global Temalar sürümünde dışa açık MTZ Import yok. Root modülü, Xiaomi Temalar'ın kendi importer'ını güvenli biçimde etkinleştirir."
+                        module?.activeTarget == selectedTarget && rootModuleCurrent -> "${targetLabel(selectedTarget)} çalışma zamanı doğrulandı ve modül güncel."
+                        module?.activeTarget != null -> "Başka bir hedef etkin. Seçilen hedef için güncelleme gerekir."
+                        module?.runtimeVerified == true -> "Seçilen APK doğrulanmadı; çalışma zamanı kurulumu bekleniyor."
+                        else -> "${targetLabel(selectedTarget)} çalışma zamanı, seçilen Xiaomi Temalar APK'sını Package Manager ile kurar."
                     }
                     Text(moduleText, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "APK değiştirilirken veriler korunur; paket yöneticisi düşürme işlemini reddedebilir. " +
+                            "Global köprü için yeniden başlatma gerekir. Sistem mount işlemi sessizce yapılmaz. " +
+                            "APK'yi geri almak için modülü kaldırmak yeterli değildir; önceki uyumlu APK ayrıca kurulmalıdır.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (selectedTarget == ThemeRuntimeTarget.NON_GLOBAL) {
+                        Text(
+                            "Non-Global sistem APK'sı modül kaldırılsa bile kurulu kalır; kaldırma işlemi ayrıca yapılmalıdır.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                     if (rootModuleCheckComplete) {
                         when {
-                            module?.installed != true -> Button(onClick = {
+                            module?.installed != true || module.activeTarget != selectedTarget -> Button(onClick = {
                                 rootModuleUpdateRequested = false
                                 showRootModuleConfirmation = true
                             }) {
-                                Text("Root MTZ Import modülünü kur")
-                            }
-
-                            module.active != true -> Button(onClick = {
-                                showRootModuleRestartDialog = true
-                            }) {
-                                Text("Telefonu yeniden başlat")
+                                Text(if (module?.installed == true) "Seçilen çalışma zamanını yükle" else "Root çalışma zamanı modülünü kur")
                             }
 
                             rootModuleCurrent -> Surface(
@@ -354,7 +399,7 @@ internal fun ThemeManagerCompatibilityCard(
                                 rootModuleUpdateRequested = true
                                 showRootModuleConfirmation = true
                             }) {
-                                Text("Root MTZ Import modülünü güncelle")
+                                Text("Seçilen çalışma zamanını güncelle")
                             }
                         }
                     } else {
@@ -371,7 +416,10 @@ internal fun ThemeManagerCompatibilityCard(
                     }
                 }
             }
-            if (runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) Text(status, style = MaterialTheme.typography.bodySmall)
+             if ((runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) ||
+                 (rootModuleMode && status.contains("kurulamadı", ignoreCase = true))) {
+                 Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+             }
 
             val current = installed
             if (allowRootDowngrade && current != null && current.installed && runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) {
@@ -467,8 +515,14 @@ internal fun ThemeManagerCompatibilityCard(
             },
             text = {
                 Text(
-                    "MTZ Studio, yalnızca kendi Zygisk modülünü root yöneticinizin standart modül dizinine kuracak. " +
-                        "Xiaomi Temalar APK'sı, imzası ve verileri değiştirilmez. İşlemden sonra modülün yüklenmesi için telefon yeniden başlatılmalıdır.",
+                        "${targetLabel(selectedTarget)} için doğrulanmış Xiaomi Temalar APK'sı Package Manager ile değiştirilecek; veriler korunur. " +
+                        "Paket yöneticisi düşürme işlemini reddedebilir. Global köprü için yeniden başlatma gerekir; sistem mount işlemi sessizce yapılmaz. " +
+                        "APK'yi geri almak için modülü kaldırmak yeterli değildir; önceki uyumlu APK ayrıca kurulmalıdır. " +
+                        if (selectedTarget == ThemeRuntimeTarget.NON_GLOBAL) {
+                            "Non-Global sistem APK'sı modül kaldırılsa bile kurulu kalır."
+                        } else {
+                            ""
+                        },
                 )
             },
             confirmButton = {
@@ -481,15 +535,22 @@ internal fun ThemeManagerCompatibilityCard(
                             "Root MTZ Import modülü kuruluyor…"
                         }
                         runCatching {
-                            withContext(Dispatchers.IO) { rootModuleInstaller.installOrUpdate() }
+                            withContext(Dispatchers.IO) { rootModuleInstaller.installOrUpdate(selectedTarget) }
                         }.onSuccess { result ->
-                            rootModuleState = withContext(Dispatchers.IO) { rootModuleInstaller.inspect() }
-                            status = if (rootModuleUpdateRequested) {
-                                "Root MTZ Import modülü ${result.version} güncellendi. Etkinleştirmek için telefonu yeniden başlatın."
-                            } else {
-                                "Root MTZ Import modülü ${result.version} kuruldu. Etkinleştirmek için telefonu yeniden başlatın."
+                            // PM may have replaced the package even when the module swap later
+                            // fails; refresh both views from the live device after completion.
+                            val refreshedInstalled = withContext(Dispatchers.IO) { inspector.inspect() }
+                            installed = refreshedInstalled
+                            runtimeProfile = withContext(Dispatchers.IO) {
+                                ThemeManagerCapabilityProbe(context).probe(refreshedInstalled)
                             }
-                            showRootModuleRestartDialog = true
+                            rootModuleState = withContext(Dispatchers.IO) { rootModuleInstaller.inspect() }
+                            status = if (result.target == ThemeRuntimeTarget.GLOBAL) {
+                                "${targetLabel(result.target)} çalışma zamanı ${result.version} kuruldu. Köprüyü etkinleştirmek için telefonu yeniden başlatın."
+                            } else {
+                                "${targetLabel(result.target)} çalışma zamanı ${result.version} kuruldu ve canlı olarak doğrulandı."
+                            }
+                            if (result.target == ThemeRuntimeTarget.GLOBAL) showRootModuleRestartDialog = true
                         }.onFailure { error ->
                             status = "Root MTZ Import modülü kurulamadı: ${error.message ?: error::class.simpleName}"
                         }
@@ -505,10 +566,10 @@ internal fun ThemeManagerCompatibilityCard(
     if (showRootModuleRestartDialog) {
         AlertDialog(
             onDismissRequest = { showRootModuleRestartDialog = false },
-            title = { Text("Yeniden başlatma gerekli") },
+            title = { Text("Global köprü için yeniden başlatma gerekli") },
             text = {
                 Text(
-                    "Root MTZ Import modülü kurulu. Xiaomi Temalar importer'ının etkinleşmesi için telefonu şimdi yeniden başlatın.",
+                    "Global çalışma zamanı kurulu. Xiaomi Temalar köprüsünün etkinleşmesi için telefonu şimdi yeniden başlatın.",
                 )
             },
             confirmButton = {
@@ -534,6 +595,12 @@ internal fun ThemeManagerCompatibilityCard(
             },
         )
     }
+}
+
+private fun targetLabel(target: ThemeRuntimeTarget?): String = when (target) {
+    ThemeRuntimeTarget.GLOBAL -> "Global 3.4.1.23"
+    ThemeRuntimeTarget.NON_GLOBAL -> "Non-Global 11.5.3.1"
+    null -> "algılanamadı"
 }
 
 private fun supportsRootMtzImportModule(versionName: String?): Boolean {

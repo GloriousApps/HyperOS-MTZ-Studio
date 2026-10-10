@@ -38,6 +38,19 @@ class ThemeRuntimeDomainTest {
     }
 
     @Test
+    fun targetDetectorTreatsBootHardwareCountryAsNonGlobalEvidence() {
+        val target = ThemeRuntimeTargetDetector.detect(
+            getprop = { key ->
+                when (key) {
+                    "ro.boot.hwc" -> "cn"
+                    else -> null
+                }
+            },
+        )
+        assertEquals(ThemeRuntimeTarget.NON_GLOBAL, target)
+    }
+
+    @Test
     fun capabilitiesCanApplyAutomaticallyEvaluatesCorrectly() {
         // Root runtime healthy
         val rootHealthy = ThemeManagerCapabilities(
@@ -130,11 +143,21 @@ class ThemeRuntimeDomainTest {
     @Test
     fun runtimeArtifactsMetadataMatchesTarget() {
         val global = ThemeRuntimeArtifacts.forTarget(ThemeRuntimeTarget.GLOBAL)
-        assertEquals(ThemeManagerContract.CONTROLLED_GLOBAL_VERSION, global.versionName)
+        assertEquals("3.4.1.23-global", global.versionName)
         assertEquals(ThemeRuntimeTarget.GLOBAL, global.target)
+        assertEquals(3040123L, global.versionCode)
+        assertEquals("c9009d01ebf9f5d0302bc71b2fe9aa9a47a432bba17308a3111b75d7b2149025", global.certificateDigest)
+        assertEquals(27, global.supportedAndroidMin)
+        assertEquals(36, global.supportedAndroidMax)
+        assertEquals("d405e78fac1eae48e105e57f5e3422ec0a0a6d53f779973d06e131e85b016037", global.sha256)
 
         val nonGlobal = ThemeRuntimeArtifacts.forTarget(ThemeRuntimeTarget.NON_GLOBAL)
         assertEquals(ThemeManagerContract.CONTROLLED_NON_GLOBAL_VERSION, nonGlobal.versionName)
         assertEquals(ThemeRuntimeTarget.NON_GLOBAL, nonGlobal.target)
+        assertEquals(11531L, nonGlobal.versionCode)
+        assertEquals("c9009d01ebf9f5d0302bc71b2fe9aa9a47a432bba17308a3111b75d7b2149025", nonGlobal.certificateDigest)
+        assertEquals(34, nonGlobal.supportedAndroidMin)
+        assertEquals(36, nonGlobal.supportedAndroidMax)
+        assertEquals("3888058041439577aadbb933c9bed1fb3ef16acda20d15404fb620314a8edd0a", nonGlobal.sha256)
     }
 }
