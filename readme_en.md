@@ -65,8 +65,8 @@ Studio does not rely only on a fixed Xiaomi Themes version allowlist. At runtime
 
 The recovery action downloads the verified Xiaomi Themes `3.0.5.6-global` package directly through Android Download Manager:
 
-- [Xiaomi Themes 3.0.5.6-global APK](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/download/v4.0.0/Xiaomi_Themes_3.0.5.6-global.apk)
-- [SHA-256 checksum](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/download/v4.0.0/Xiaomi_Themes_3.0.5.6-global.apk.sha256)
+- [Xiaomi Themes 3.0.5.6-global APK](https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/Xiaomi_Themes_3.0.5.6-global.apk)
+- [SHA-256 checksum](https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/Xiaomi_Themes_3.0.5.6-global.apk.sha256)
 
 Xiaomi can change the final application screen and theme-acceptance behaviour depending on the ROM. Studio verifies capabilities and outcomes at runtime whenever possible, but a Xiaomi confirmation screen may still appear.
 

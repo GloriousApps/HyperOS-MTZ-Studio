@@ -96,6 +96,7 @@ class LegacyGlobalPreviewApplyStrategy(
         return ThemeApplyResult.Success(
             themeId = theme.id.value,
             themeName = theme.displayName,
+            localId = null,
             strategyName = strategyName,
             persistenceArmed = true,
         )

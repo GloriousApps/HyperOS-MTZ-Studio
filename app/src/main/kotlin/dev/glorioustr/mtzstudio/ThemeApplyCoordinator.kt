@@ -10,7 +10,9 @@ import dev.glorioustr.mtzstudio.core.Hashing
 import dev.glorioustr.mtzstudio.library.LibraryTheme
 import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
+import dev.glorioustr.mtzstudio.tester.ThemeManagerFamily
 import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTarget
+import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTargetDetector
 import java.util.UUID
 
 data class PreparedThemeApply(
@@ -60,6 +62,37 @@ class ThemeApplyCoordinator(
         diagnostics.record("apply_hash_verified", "Tema kaynak SHA-256 doğrulaması başarılı")
         val modern = ThemeManagerContract.behavior(installedThemeManagerVersion()) ==
             dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
+        // Root köprüsü hazır olduğunda, kurulu Theme Manager'ın hedef family'ye uygun olduğunu
+        // doğrula. Yanlış family (ör. Global cihazda Çin sürümü) köprüyü kırar; kullanıcıya
+        // net bir uyarı bırakırız ama akışı bozmayız — köprü yine de dener.
+        if (rootGlobalModuleBridgeReady()) {
+            val installedVersion = installedThemeManagerVersion()
+            val target = ThemeRuntimeTargetDetector.resolve(
+                readSystemProperty("ro.miui.region"),
+                readSystemProperty("ro.product.mod_device"),
+                installedVersion,
+            )
+            val targetApk = ThemeManagerContract.rootTargetApk(
+                when (target) {
+                    ThemeRuntimeTargetDetector.Target.GLOBAL -> ThemeManagerFamily.GLOBAL
+                    ThemeRuntimeTargetDetector.Target.CHINA -> ThemeManagerFamily.CHINA
+                    ThemeRuntimeTargetDetector.Target.UNKNOWN -> ThemeManagerFamily.UNKNOWN
+                },
+            )
+            val versionMatches = installedVersion != null && targetApk != null &&
+                ThemeManagerContract.canonicalVersion(installedVersion) == targetApk.version
+            if (!versionMatches) {
+                diagnostics.record(
+                    "root_runtime_target_mismatch",
+                    "Root köprüsü hazır ancak kurulu Theme Manager hedef sürümle eşleşmiyor",
+                    mapOf(
+                        "target" to target.name,
+                        "installed" to (installedVersion ?: "-"),
+                        "expected" to (targetApk?.version ?: "-"),
+                    ),
+                )
+            }
+        }
         // A modern local-library identity is authoritative. Some vendor/modded Themes 10.8/11
         // packages also expose the old screenshot tester alias, but that route needs root-only
         // staging and must not steal an already imported Shizuku theme from the native flow.
@@ -645,6 +678,11 @@ class ThemeApplyCoordinator(
     }
 
     private fun shellQuote(value: String): String = "'${value.replace("'", "'\"'\"'")}'"
+
+    private fun readSystemProperty(name: String): String? = runCatching {
+        val process = ProcessBuilder("getprop", name).redirectErrorStream(true).start()
+        process.inputStream.bufferedReader().readText().trim().takeIf { it.isNotEmpty() }
+    }.getOrNull()
 
     private fun installedThemeManagerVersion(): String? = runCatching {
         context.packageManager.getPackageInfo(THEME_MANAGER_PACKAGE, 0).versionName

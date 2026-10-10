@@ -74,7 +74,7 @@ internal fun ThemeManagerCompatibilityCard(
 ) {
     val recommendedApkName = "Xiaomi_Themes_3.0.5.6-global.apk"
     val recommendedDownloadUrl =
-        "https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/download/v4.0.0/$recommendedApkName"
+        "https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/$recommendedApkName"
     val recommendedApkSha256 = "24b99f995bf5f8509e591bdb1d36ce6f95260ec95648d13f9ddedc4e7d8edceb"
     val resources = LocalResources.current
     val context = LocalContext.current
@@ -84,6 +84,16 @@ internal fun ThemeManagerCompatibilityCard(
         RootThemeImportModuleInstaller(
             context.applicationContext,
             PreferredPrivilegedCommandRunner(context.applicationContext),
+        )
+    }
+    val runtimeManager = remember {
+        RootThemeRuntimeManager(
+            context = context.applicationContext,
+            updater = updater,
+            moduleInstaller = rootModuleInstaller,
+            onEvent = { event, message, details ->
+                LiveDiagnosticsRecorder.get(context.applicationContext).record(event, message, details)
+            },
         )
     }
     var installed by remember { mutableStateOf<InstalledThemeManager?>(null) }
@@ -181,6 +191,7 @@ internal fun ThemeManagerCompatibilityCard(
                         detectedRuntimeTarget = detected
                         if (selectedRuntimeTarget == null) selectedRuntimeTarget = detected
                     }
+                runCatching { withContext(Dispatchers.IO) { runtimeManager.healthCheck() } }
             }
             rootModuleCheckComplete = true
             status = if (profile.compatibleLocalMtzPath) {
@@ -329,27 +340,27 @@ internal fun ThemeManagerCompatibilityCard(
                 if (rootModuleMode) {
                     val module = rootModuleState
                     Text("Root çalışma zamanı hedefi", fontWeight = FontWeight.SemiBold)
-                     Text(
-                         "Önerilen algılama: ${targetLabel(detectedRuntimeTarget)}. Seçim otomatik uygulanmaz; hedefi elle onaylayın.",
+                    Text(
+                        "Önerilen algılama: ${targetLabel(detectedRuntimeTarget)}. Seçim otomatik uygulanmaz; hedefi elle onaylayın.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                     Column {
-                         ThemeRuntimeTarget.values().forEach { target ->
+                    Column {
+                        ThemeRuntimeTarget.values().forEach { target ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RadioButton(
                                     selected = selectedTarget == target,
                                     onClick = { selectedRuntimeTarget = target },
                                 )
-                                 Text(targetLabel(target))
-                             }
-                         }
-                     }
-                     Text(
-                         "Seçili: ${targetLabel(selectedTarget)} · APK ${selectedArtifact.versionName} · kod ${selectedArtifact.versionCode} · API ${selectedArtifact.supportedAndroidMin}+",
-                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                         style = MaterialTheme.typography.bodySmall,
-                     )
+                                Text(targetLabel(target))
+                            }
+                        }
+                    }
+                    Text(
+                        "Seçili: ${targetLabel(selectedTarget)} · APK ${selectedArtifact.versionName} · kod ${selectedArtifact.versionCode} · API ${selectedArtifact.supportedAndroidMin}+",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                     val moduleText = when {
                         module?.activeTarget == selectedTarget && rootModuleCurrent -> "${targetLabel(selectedTarget)} çalışma zamanı doğrulandı ve modül güncel."
                         module?.activeTarget != null -> "Başka bir hedef etkin. Seçilen hedef için güncelleme gerekir."
@@ -515,7 +526,7 @@ internal fun ThemeManagerCompatibilityCard(
             },
             text = {
                 Text(
-                        "${targetLabel(selectedTarget)} için doğrulanmış Xiaomi Temalar APK'sı Package Manager ile değiştirilecek; veriler korunur. " +
+                    "${targetLabel(selectedTarget)} için doğrulanmış Xiaomi Temalar APK'sı Package Manager ile değiştirilecek; veriler korunur. " +
                         "Paket yöneticisi düşürme işlemini reddedebilir. Global köprü için yeniden başlatma gerekir; sistem mount işlemi sessizce yapılmaz. " +
                         "APK'yi geri almak için modülü kaldırmak yeterli değildir; önceki uyumlu APK ayrıca kurulmalıdır. " +
                         if (selectedTarget == ThemeRuntimeTarget.NON_GLOBAL) {
