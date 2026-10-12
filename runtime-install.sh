@@ -176,7 +176,10 @@ install_runtime() {
 
   # Exactly one mutating Package Manager command. The final '-' makes stdin
   # the APK source. No retry is attempted after success, failure, or timeout.
-  pm install -r -d --user 0 -S "$apk_size" - < "$apk"
+  # Android 14/15/16 PackageManagerShellCommand accepts the APK bytes from stdin
+  # when -S is supplied; a literal trailing '-' is rejected as an unknown option
+  # on recent HyperOS builds.
+  pm install -r -d --user 0 -S "$apk_size" < "$apk"
   pm_status=$?
   if [ "$pm_status" -ne 0 ]; then
     fail_install "$MODULE_DIR" pm "pm install returned $pm_status; no retry was attempted"

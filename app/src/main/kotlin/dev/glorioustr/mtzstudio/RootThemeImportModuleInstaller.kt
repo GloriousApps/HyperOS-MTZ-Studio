@@ -445,7 +445,7 @@ internal class RootThemeImportModuleInstaller(
         const val MODULE_VERSION = "2.0.0"
         const val MODULE_DIRECTORY = "/data/adb/modules/xiaomi_themes_global_import"
         const val READY_MARKER = "/data/user/0/com.android.thememanager/files/mtz_import_module_ready"
-        const val GLOBAL_ZIP_SHA256 = "a69b07abce77afca8121844de19ff193d227e51922a42bcf2cf0ec12f5faa5bc"
-        const val NON_GLOBAL_ZIP_SHA256 = "1b35797ea26b2ce667183137eccfa3abd92834d9d798f9c5ac3b662f27b6cd28"
+        const val GLOBAL_ZIP_SHA256 = "5251c2220e6eb72b97c815eac0577bc938064518a4ca550f503dc7e127cf1292"
+        const val NON_GLOBAL_ZIP_SHA256 = "e01c3f75f79beb5ad79a443f99d056e09a692d8556bbcaae5c3b1a32534d027c"
     }
 }
