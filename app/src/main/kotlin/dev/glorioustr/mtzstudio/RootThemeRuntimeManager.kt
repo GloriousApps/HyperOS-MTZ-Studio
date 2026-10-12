@@ -142,16 +142,25 @@ internal class RootThemeRuntimeManager(
         if (previous == null) {
             return RollbackResult.NothingToRollBack("Geri alınacak önceki sürüm kaydı yok")
         }
-        onEvent("runtime_rollback", "Theme Manager runtime geri alınıyor", mapOf("previous" to previous))
-        currentState = RuntimeState.ROLLED_BACK
-        previousVersion = null
-        return RollbackResult.RolledBack(previous)
+        onEvent(
+            "runtime_rollback_unavailable",
+            "Önceki Theme Manager APK'sı saklanmadığı için otomatik geri dönüş yapılmadı",
+            mapOf("previous" to previous),
+        )
+        return RollbackResult.Failed(
+            "Otomatik geri dönüş için önceki APK mevcut değil; önceki uyumlu APK'yı ayrıca kurmanız gerekir",
+        )
     }
 
     override fun removeRuntime(): RemoveResult {
-        val installed = runCatching { inspector.inspect() }.getOrNull()
-        currentState = RuntimeState.STOCK
-        return RemoveResult.Removed(installed?.versionName)
+        onEvent(
+            "runtime_remove_unavailable",
+            "Runtime kaldırılmadı; Package Manager ile değiştirilen APK korunuyor",
+            emptyMap(),
+        )
+        return RemoveResult.Failed(
+            "Runtime kaldırma işlemi otomatik olarak desteklenmiyor; APK ve modül geri dönüşü ayrıca doğrulanmalıdır",
+        )
     }
 
     override fun healthCheck(): RuntimeHealth = verifyRuntime()

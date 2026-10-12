@@ -164,7 +164,10 @@ class RootThemeManagerUpdater(
         }
         return try {
             val after = inspector.inspect()
-            val installedTarget = after.packageName == apk.packageName && after.isRecommended
+            val installedTarget = after.packageName == apk.packageName &&
+                after.versionName == apk.versionName &&
+                after.versionCode == apk.versionCode &&
+                after.signingCertificateSha256.intersect(before.signingCertificateSha256).isNotEmpty()
             RootUpdateResult(
                 success = execution.exitCode == 0 && installedTarget,
                 message = when {

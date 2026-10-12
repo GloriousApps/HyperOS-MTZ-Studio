@@ -82,7 +82,7 @@ class ThemeManagerCompatibilityTest {
         val global = ThemeManagerContract.rootTargetApk(ThemeManagerFamily.GLOBAL)
         assertEquals("3.4.1.23", global?.version)
         assertEquals("Xiaomi_Themes_3.4.1.23-global.apk", global?.apkName)
-        assertEquals("d405e78fac1ea48e105e57f5e3422ec0a0a6d53f779973d06e131e85b016037", global?.sha256)
+        assertEquals("d405e78fac1eae48e105e57f5e3422ec0a0a6d53f779973d06e131e85b016037", global?.sha256)
         assertEquals(27, global?.minSdk)
 
         val china = ThemeManagerContract.rootTargetApk(ThemeManagerFamily.CHINA)

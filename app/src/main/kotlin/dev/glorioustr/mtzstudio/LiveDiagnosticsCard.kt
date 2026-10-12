@@ -8,11 +8,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
@@ -32,6 +36,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collectLatest
 import java.nio.file.Path
 
 @Composable
@@ -63,7 +70,23 @@ internal fun LiveDiagnosticsCard(
     val state by recorder.state.collectAsState()
     val scope = rememberCoroutineScope()
     var actionStatus by remember { mutableStateOf<String?>(null) }
+    val logListState = rememberLazyListState()
+    var followLiveTail by remember { mutableStateOf(true) }
     val isLive = state.activeSessionId != null
+
+    LaunchedEffect(logListState) {
+        snapshotFlow {
+            logListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to
+                logListState.layoutInfo.totalItemsCount
+        }.collectLatest { (lastVisible, totalItems) ->
+            followLiveTail = lastVisible == null || totalItems == 0 || lastVisible >= totalItems - 1
+        }
+    }
+    LaunchedEffect(state.recentEvents.size) {
+        if (followLiveTail && state.recentEvents.isNotEmpty()) {
+            logListState.animateScrollToItem(state.recentEvents.lastIndex)
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -141,16 +164,20 @@ internal fun LiveDiagnosticsCard(
                         if (state.recentEvents.isEmpty()) {
                             Text(stringResource(R.string.diag_no_events), color = Color(0xFF98A2B7), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                         } else {
-                            state.recentEvents.takeLast(6).asReversed().forEachIndexed { index, event ->
-                                SelectionContainer {
-                                    Text(
-                                        event,
-                                        color = if (index == 0) Color(0xFFE4E8F2) else Color(0xFFAAB2C4),
-                                        fontFamily = FontFamily.Monospace,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        maxLines = 4,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                            LazyColumn(
+                                state = logListState,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp, max = 320.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                itemsIndexed(state.recentEvents, key = { index, _ -> index }) { index, event ->
+                                    SelectionContainer {
+                                        Text(
+                                            event,
+                                            color = if (index == state.recentEvents.lastIndex) Color(0xFFE4E8F2) else Color(0xFFAAB2C4),
+                                            fontFamily = FontFamily.Monospace,
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    }
                                 }
                             }
                         }

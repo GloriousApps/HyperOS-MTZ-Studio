@@ -28,7 +28,7 @@ object ThemeManagerContract {
     // filled in once the APKs are published — an empty value blocks the install flow.
     const val ROOT_GLOBAL_APK_NAME = "Xiaomi_Themes_3.4.1.23-global.apk"
     const val ROOT_CHINA_APK_NAME = "Xiaomi_Themes_11.5.3.1.apk"
-    const val ROOT_GLOBAL_APK_SHA256 = "d405e78fac1ea48e105e57f5e3422ec0a0a6d53f779973d06e131e85b016037"
+    const val ROOT_GLOBAL_APK_SHA256 = "d405e78fac1eae48e105e57f5e3422ec0a0a6d53f779973d06e131e85b016037"
     const val ROOT_CHINA_APK_SHA256 = "3888058041439577aadbb933c9bed1fb3ef16acda20d15404fb620314a8edd0a"
 
     fun canonicalVersion(versionName: String?): String? = versionName
