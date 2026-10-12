@@ -16,6 +16,13 @@ import java.util.UUID
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 
+internal object RootThemeBridgeReadiness {
+    const val EXPECTED_MARKER = "1.0.0"
+
+    fun isExpectedMarker(value: String): Boolean =
+        value == EXPECTED_MARKER || value == "$EXPECTED_MARKER\n"
+}
+
 /** Installs one of the two verified Xiaomi Themes root runtime variants. */
 internal class RootThemeImportModuleInstaller(
     context: Context,
@@ -67,7 +74,15 @@ internal class RootThemeImportModuleInstaller(
             # Only accept a marker written after this Themes process started this boot.
             bridge=false
             pid="${'$'}(pidof com.android.thememanager 2>/dev/null | awk '{print ${'$'}1}')"
-            if [ -n "${'$'}pid" ] && [ -f '$READY_MARKER' ] && grep -qx 'ready=true' '$READY_MARKER' 2>/dev/null; then
+            bridge_marker=""
+            bridge_marker_bytes=0
+            if [ -f '$READY_MARKER' ]; then
+              bridge_marker="${'$'}(cat '$READY_MARKER')"
+              bridge_marker_bytes="${'$'}(wc -c < '$READY_MARKER' | tr -d '[:space:]')"
+            fi
+            if [ -n "${'$'}pid" ] &&
+              { [ "${'$'}bridge_marker" = '$BRIDGE_VERSION' ] &&
+                { [ "${'$'}bridge_marker_bytes" = '5' ] || [ "${'$'}bridge_marker_bytes" = '6' ]; }; }; then
               ticks="${'$'}(sed 's/^.*) //' "/proc/${'$'}pid/stat" 2>/dev/null | awk '{print ${'$'}20}')"
               hz="${'$'}(getconf CLK_TCK 2>/dev/null || echo 100)"
               now="${'$'}(date +%s)"
@@ -276,10 +291,6 @@ internal class RootThemeImportModuleInstaller(
             target='$MODULE_DIRECTORY'
             backup=${shellQuote(backup)}
             expected_zip_sha=${shellQuote(expectedZipSha.lowercase())}
-            old_context=""
-            if [ -d "${'$'}target" ] && command -v ls >/dev/null 2>&1; then
-              old_context="${'$'}(ls -Zd "${'$'}target" 2>/dev/null | awk '{print ${'$'}1}')"
-            fi
             rm -rf "${'$'}staging"
             mkdir -p "${'$'}staging"
             if ! cp "${'$'}source" "${'$'}staging/runtime.zip"; then echo ROOT_STAGE_COPY_FAILED >&2; exit 1; fi
@@ -322,12 +333,13 @@ internal class RootThemeImportModuleInstaller(
               chmod 0755 "${'$'}target/zygisk" "${'$'}target/dex"
               chmod 0644 "${'$'}target/zygisk/arm64-v8a.so" "${'$'}target/dex/classes.dex"
             fi
-            if command -v restorecon >/dev/null 2>&1; then
-              if ! restorecon -RF "${'$'}target"; then
-                case "${'$'}old_context" in
-                  u:object_r:[A-Za-z0-9_]*_file:s0) command -v chcon >/dev/null 2>&1 && chcon -R "${'$'}old_context" "${'$'}target" || true ;;
-                esac
-              fi
+            command -v restorecon >/dev/null 2>&1 || { echo ROOT_RESTORECON_UNAVAILABLE >&2; exit 1; }
+            restorecon -RF "${'$'}target" || { echo ROOT_RESTORECON_FAILED >&2; exit 1; }
+            if [ '$target' = 'GLOBAL' ]; then
+              command -v chcon >/dev/null 2>&1 || { echo ROOT_BRIDGE_LABEL_TOOL_UNAVAILABLE >&2; exit 1; }
+              chcon u:object_r:system_file:s0 "${'$'}target"
+              chcon u:object_r:system_file:s0 "${'$'}target/dex" "${'$'}target/dex/classes.dex" "${'$'}target/zygisk"
+              chcon u:object_r:system_lib_file:s0 "${'$'}target/zygisk/arm64-v8a.so"
             fi
             rm -f '$READY_MARKER'
             rm -rf "${'$'}backup" "${'$'}target/runtime.zip"
@@ -443,6 +455,7 @@ internal class RootThemeImportModuleInstaller(
     private companion object {
         const val MODULE_ID = "xiaomi_themes_global_import"
         const val MODULE_VERSION = "2.0.0"
+        const val BRIDGE_VERSION = RootThemeBridgeReadiness.EXPECTED_MARKER
         const val MODULE_DIRECTORY = "/data/adb/modules/xiaomi_themes_global_import"
         const val READY_MARKER = "/data/user/0/com.android.thememanager/files/mtz_import_module_ready"
         const val GLOBAL_ZIP_SHA256 = "e86538a2ae2e503968d9ea35c6d49c171db1bf8835819a3f87c00c2e41eced17"
