@@ -93,8 +93,10 @@ verify_live_runtime() {
   [ "$live_sha" = "$expected_sha" ] || return 1
 
   live_pair="$(primary_versions "$PACKAGE")"
-  live_version="${live_pair%%|*}"
-  live_code="${live_pair#*|}"
+  # Android's mksh treats `|` as a pattern operator in parameter expansion;
+  # parse the dumpsys pair with sed so version/code extraction is portable.
+  live_version="$(printf '%s\n' "$live_pair" | sed 's/|.*$//')"
+  live_code="$(printf '%s\n' "$live_pair" | sed 's/^.*|//')"
   [ "$(canonical_version "$live_version")" = "$(canonical_version "$expected_version")" ] || return 1
   [ "$live_code" = "$expected_code" ] || return 1
   case "$verify_target:$live_code" in
