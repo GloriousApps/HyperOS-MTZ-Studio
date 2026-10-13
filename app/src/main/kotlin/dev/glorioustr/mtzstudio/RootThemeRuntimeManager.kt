@@ -48,6 +48,17 @@ internal class RootThemeRuntimeManager(
     }
 
     override fun installRuntime(): RuntimeInstallResult {
+        val existingModule = runCatching { moduleInstaller.inspect() }.getOrNull()
+        if (moduleInstaller.isAdoptedExternalRuntime(existingModule)) {
+            val version = existingModule?.runtimeVersion ?: ThemeManagerContract.CONTROLLED_NON_GLOBAL_VERSION
+            currentState = RuntimeState.ACTIVE
+            onEvent(
+                "runtime_external_adopted",
+                "Mods-Center miui_theme_mod v7 mevcut Theme Manager runtime olarak benimsendi",
+                mapOf("version" to version, "module" to "miui_theme_mod"),
+            )
+            return RuntimeInstallResult.Adopted(version, "miui_theme_mod v7")
+        }
         val resolved = detectTarget()
         val installed = runCatching { inspector.inspect() }.getOrNull()
         val target = resolved.toRuntimeTarget()
@@ -88,9 +99,15 @@ internal class RootThemeRuntimeManager(
         val installed = runCatching { inspector.inspect() }.getOrNull()
         val moduleState = runCatching { moduleInstaller.inspect() }.getOrNull()
         val resolved = detectTarget()
-        val runtimeTarget = resolved.toRuntimeTarget()
+        val adoptedExternal = moduleInstaller.isAdoptedExternalRuntime(moduleState)
+        val effectiveResolved = if (adoptedExternal) {
+            ThemeRuntimeTargetDetector.Target.CHINA
+        } else {
+            resolved
+        }
+        val runtimeTarget = effectiveResolved.toRuntimeTarget()
         val targetApk = ThemeManagerContract.rootTargetApk(
-            when (resolved) {
+            when (effectiveResolved) {
                 ThemeRuntimeTargetDetector.Target.GLOBAL -> ThemeManagerFamily.GLOBAL
                 ThemeRuntimeTargetDetector.Target.CHINA -> ThemeManagerFamily.CHINA
                 ThemeRuntimeTargetDetector.Target.UNKNOWN -> ThemeManagerFamily.UNKNOWN
@@ -99,8 +116,12 @@ internal class RootThemeRuntimeManager(
         val versionMatches = installed?.versionName != null &&
             targetApk != null &&
             ThemeManagerContract.canonicalVersion(installed.versionName) == targetApk.version
-        val moduleBridgeReady = runtimeTarget != null && moduleState?.activeTarget == runtimeTarget &&
-            moduleInstaller.isBundledVersion(moduleState, runtimeTarget)
+        val moduleBridgeReady = if (adoptedExternal) {
+            true
+        } else {
+            runtimeTarget != null && moduleState?.activeTarget == runtimeTarget &&
+                moduleInstaller.isBundledVersion(moduleState, runtimeTarget)
+        }
         val profile = installed?.let { runCatching { capabilityProbe.probe(it) }.getOrNull() }
         val behavior = profile?.knownBehavior ?: installed?.behavior
         val healthy = installed?.installed == true && versionMatches && moduleBridgeReady
@@ -116,7 +137,8 @@ internal class RootThemeRuntimeManager(
             "runtime_health_check",
             "Root Theme Manager runtime sağlık kontrolü",
             mapOf(
-                "target" to resolved.name,
+                "target" to effectiveResolved.name,
+                "externalAdopted" to adoptedExternal,
                 "installed" to (installed?.versionName ?: "-"),
                 "versionMatches" to versionMatches,
                 "moduleBridgeReady" to moduleBridgeReady,

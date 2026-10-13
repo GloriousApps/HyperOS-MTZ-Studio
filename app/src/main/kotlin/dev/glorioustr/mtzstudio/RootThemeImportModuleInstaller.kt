@@ -41,10 +41,17 @@ internal class RootThemeImportModuleInstaller(
         val activeTarget: ThemeRuntimeTarget? = null,
         val runtimeVersion: String? = null,
         val runtimeVersionCode: Long? = null,
+        val runtimeMinSdk: Int? = null,
         val runtimeVerified: Boolean = false,
         val bridgeReady: Boolean = false,
         val disabled: Boolean = false,
         val removed: Boolean = false,
+        val externalModuleInstalled: Boolean = false,
+        val externalModuleVersion: String? = null,
+        val externalModuleVersionCode: String? = null,
+        val externalModuleDisabled: Boolean = false,
+        val externalModuleRemoved: Boolean = false,
+        val adoptedExternalRuntime: Boolean = false,
     )
 
     data class InstallResult(
@@ -76,7 +83,7 @@ internal class RootThemeImportModuleInstaller(
             pid="${'$'}(pidof com.android.thememanager 2>/dev/null | awk '{print ${'$'}1}')"
             bridge_marker=""
             bridge_marker_bytes=0
-            if [ -f '$READY_MARKER' ]; then
+             if [ -f '$READY_MARKER' ]; then
               bridge_marker="${'$'}(cat '$READY_MARKER')"
               bridge_marker_bytes="${'$'}(wc -c < '$READY_MARKER' | tr -d '[:space:]')"
             fi
@@ -95,7 +102,17 @@ internal class RootThemeImportModuleInstaller(
                   exit !(marker >= process_start && marker <= now);
                 }'; then bridge=true; fi
             fi
-            echo "BRIDGE_READY:${'$'}bridge"
+             echo "BRIDGE_READY:${'$'}bridge"
+             external='/data/adb/modules/$EXTERNAL_MODULE_ID'
+             if [ -f "${'$'}external/module.prop" ] && grep -qx 'id=$EXTERNAL_MODULE_ID' "${'$'}external/module.prop"; then
+               echo "EXTERNAL_INSTALLED:true"
+               echo "EXTERNAL_VERSION:${'$'}(sed -n 's/^version=//p' "${'$'}external/module.prop" | head -n 1)"
+               echo "EXTERNAL_VERSION_CODE:${'$'}(sed -n 's/^versionCode=//p' "${'$'}external/module.prop" | head -n 1)"
+             else
+               echo EXTERNAL_INSTALLED:false
+             fi
+             [ -f "${'$'}external/disable" ] && echo EXTERNAL_DISABLED:true || echo EXTERNAL_DISABLED:false
+             if [ -f "${'$'}external/remove" ] || [ -f "${'$'}external/.remove" ]; then echo EXTERNAL_REMOVED:true; else echo EXTERNAL_REMOVED:false; fi
             source_dir=${shellQuote(sourceDir.orEmpty())}
             live_path="${'$'}(pm path '${ThemeManagerPackage.NAME}' 2>/dev/null | sed -n 's/^package:\(\/.*\)$/\1/p' | head -n 1)"
             if [ -n "${'$'}source_dir" ] && [ "${'$'}live_path" = "${'$'}source_dir" ] && [ -f "${'$'}source_dir" ]; then
@@ -122,6 +139,7 @@ internal class RootThemeImportModuleInstaller(
 
         val runtimeVersion = packageInfo?.versionName
         val runtimeCode = packageInfo?.longVersionCodeCompat()
+        val runtimeMinSdk = packageInfo?.applicationInfo?.minSdkVersion
         val liveSha = lines.value("LIVE_SHA")
         val runtimeTarget = ThemeRuntimeArtifacts.ALL.firstOrNull { artifact ->
             packageInfo?.packageName == artifact.packageName &&
@@ -137,7 +155,22 @@ internal class RootThemeImportModuleInstaller(
             target == ThemeRuntimeTarget.GLOBAL && !disabled && !removed
         val moduleVersion = installed?.substringAfter(':')?.takeIf(String::isNotBlank)
         val moduleMatches = installed != null && moduleVersion == MODULE_VERSION && target != null
+        val externalInstalled = lines.value("EXTERNAL_INSTALLED").equals("true", ignoreCase = true)
+        val externalVersion = lines.value("EXTERNAL_VERSION")
+        val externalVersionCode = lines.value("EXTERNAL_VERSION_CODE")
+        val externalDisabled = lines.value("EXTERNAL_DISABLED").equals("true", ignoreCase = true)
+        val externalRemoved = lines.value("EXTERNAL_REMOVED").equals("true", ignoreCase = true)
+        val adoptedExternalRuntime = externalInstalled &&
+            externalVersion == EXTERNAL_MODULE_VERSION &&
+            externalVersionCode == EXTERNAL_MODULE_VERSION_CODE &&
+            !externalDisabled && !externalRemoved &&
+            packageInfo?.packageName == ThemeManagerPackage.NAME &&
+            runtimeVersion == EXTERNAL_RUNTIME_VERSION &&
+            runtimeCode == EXTERNAL_RUNTIME_CODE &&
+            runtimeMinSdk != null && runtimeMinSdk >= EXTERNAL_RUNTIME_MIN_SDK &&
+            liveSha.equals(EXTERNAL_RUNTIME_SHA256, ignoreCase = true)
         val activeTarget = when {
+            adoptedExternalRuntime -> ThemeRuntimeTarget.NON_GLOBAL
             !moduleMatches || !runtimeVerified || disabled || removed -> null
             runtimeTarget == ThemeRuntimeTarget.GLOBAL && target == ThemeRuntimeTarget.GLOBAL && bridgeReady -> runtimeTarget
             runtimeTarget == ThemeRuntimeTarget.NON_GLOBAL && target == ThemeRuntimeTarget.NON_GLOBAL && !rawBridgeReady -> runtimeTarget
@@ -151,16 +184,25 @@ internal class RootThemeImportModuleInstaller(
             activeTarget = activeTarget,
             runtimeVersion = runtimeVersion,
             runtimeVersionCode = runtimeCode,
+            runtimeMinSdk = runtimeMinSdk,
             runtimeVerified = runtimeVerified,
             bridgeReady = bridgeReady,
             disabled = disabled,
             removed = removed,
+            externalModuleInstalled = externalInstalled,
+            externalModuleVersion = externalVersion,
+            externalModuleVersionCode = externalVersionCode,
+            externalModuleDisabled = externalDisabled,
+            externalModuleRemoved = externalRemoved,
+            adoptedExternalRuntime = adoptedExternalRuntime,
         )
     }
 
     /** Compares both the selected runtime target and module version. */
     fun isBundledVersion(state: State?, target: ThemeRuntimeTarget = state?.target ?: ThemeRuntimeTarget.GLOBAL): Boolean =
         state?.installed == true && state.target == target && state.version == MODULE_VERSION
+
+    fun isAdoptedExternalRuntime(state: State?): Boolean = state?.adoptedExternalRuntime == true
 
     /** Reads the same small set of properties used by the tester adapter's detector. */
     fun detectTarget(): ThemeRuntimeTarget {
@@ -184,6 +226,9 @@ internal class RootThemeImportModuleInstaller(
 
     /** Stages and verifies one ZIP, runs its installer once, then swaps the module directory. */
     fun installOrUpdate(target: ThemeRuntimeTarget): InstallResult {
+        check(!isAdoptedExternalRuntime(inspect())) {
+            "Mods-Center miui_theme_mod v7 mevcut 11.5.3.1 runtime olarak benimsendi; mevcut modülün üzerine başka APK kurulmayacak"
+        }
         val artifact = ThemeRuntimeArtifacts.forTarget(target)
         val stagedZip = File(
             appContext.externalCacheDir ?: error("Root-readable external cache is unavailable"),
@@ -456,6 +501,13 @@ internal class RootThemeImportModuleInstaller(
         const val MODULE_ID = "xiaomi_themes_global_import"
         const val MODULE_VERSION = "2.0.0"
         const val BRIDGE_VERSION = RootThemeBridgeReadiness.EXPECTED_MARKER
+        const val EXTERNAL_MODULE_ID = "miui_theme_mod"
+        const val EXTERNAL_MODULE_VERSION = "v7"
+        const val EXTERNAL_MODULE_VERSION_CODE = "7"
+        const val EXTERNAL_RUNTIME_VERSION = "11.5.3.1"
+        const val EXTERNAL_RUNTIME_CODE = 11531L
+        const val EXTERNAL_RUNTIME_MIN_SDK = 34
+        const val EXTERNAL_RUNTIME_SHA256 = "808c0750fd6d540b15be9fe4b77b1069c8ab8bda7d7cba4f9df38e21575d501c"
         const val MODULE_DIRECTORY = "/data/adb/modules/xiaomi_themes_global_import"
         const val READY_MARKER = "/data/user/0/com.android.thememanager/files/mtz_import_module_ready"
         const val GLOBAL_ZIP_SHA256 = "e86538a2ae2e503968d9ea35c6d49c171db1bf8835819a3f87c00c2e41eced17"

@@ -78,6 +78,7 @@ enum class RuntimeState {
 /** Result of an install/update attempt. */
 sealed class RuntimeInstallResult {
     data class Installed(val version: String) : RuntimeInstallResult()
+    data class Adopted(val version: String, val source: String) : RuntimeInstallResult()
     data class Failed(val reason: String) : RuntimeInstallResult()
 }
 

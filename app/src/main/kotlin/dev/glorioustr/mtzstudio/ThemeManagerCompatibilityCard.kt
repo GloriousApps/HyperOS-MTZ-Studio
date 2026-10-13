@@ -242,7 +242,10 @@ internal fun ThemeManagerCompatibilityCard(
         // Legacy Global builds such as 3.0.5.6 expose ApplyThemeForScreenshot and are therefore
         // reported as compatible. They still need our root module to mirror an imported MTZ into
         // Xiaomi Themes. Do not hide the module card merely because that legacy activity exists.
-        val rootModuleMode = allowRootDowngrade && supportsRootMtzImportModule(installed?.versionName)
+        val adoptedExternalRuntime = rootModuleState?.adoptedExternalRuntime == true
+        val rootModuleMode = allowRootDowngrade && (
+            adoptedExternalRuntime || supportsRootMtzImportModule(installed?.versionName)
+        )
         val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState, selectedTarget) &&
             rootModuleState?.activeTarget == selectedTarget
         Column(
@@ -269,6 +272,7 @@ internal fun ThemeManagerCompatibilityCard(
                 ) {
                     Text(
                         when {
+                            adoptedExternalRuntime -> "Harici v7 runtime benimsendi"
                             rootModuleMode && rootModuleState?.active == true && rootModuleCurrent -> "Modül güncel"
                             rootModuleMode && rootModuleState?.active == true -> "Güncelleme var"
                             rootModuleMode && rootModuleState?.installed == true -> "Yeniden başlatın"
@@ -285,7 +289,9 @@ internal fun ThemeManagerCompatibilityCard(
             }
             installed?.let { current ->
                 Text(
-                    if (rootModuleMode) "Xiaomi Temalar: ${current.versionName ?: stringResource(R.string.tm_version_unknown)}"
+                    if (adoptedExternalRuntime) {
+                        "Xiaomi Temalar: ${current.versionName ?: stringResource(R.string.tm_version_unknown)} · Mods-Center V7"
+                    } else if (rootModuleMode) "Xiaomi Temalar: ${current.versionName ?: stringResource(R.string.tm_version_unknown)}"
                     else if (!current.installed) stringResource(R.string.tm_device_not_found)
                     else if (compatibleLocalMtzPath) stringResource(
                         R.string.tm_device_installed_compatible,
@@ -339,6 +345,28 @@ internal fun ThemeManagerCompatibilityCard(
 
                 if (rootModuleMode) {
                     val module = rootModuleState
+                    if (adoptedExternalRuntime) {
+                        Text("Harici root çalışma zamanı benimsendi", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "miui_theme_mod v7, Xiaomi Temalar 11.5.3.1 (11531) ile doğrulandı. Mevcut modülün üzerine başka APK kurulmayacak; tema uygulaması Temalar'ın yerel kitaplık yolunu kullanacak.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = cyanAccent.copy(alpha = 0.14f),
+                            contentColor = cyanAccent,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Text("Harici Theme Manager runtime etkin", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    } else {
                     Text("Root çalışma zamanı hedefi", fontWeight = FontWeight.SemiBold)
                     Text(
                         "Önerilen algılama: ${targetLabel(detectedRuntimeTarget)}. Seçim otomatik uygulanmaz; hedefi elle onaylayın.",
@@ -382,7 +410,12 @@ internal fun ThemeManagerCompatibilityCard(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    if (rootModuleCheckComplete) {
+                    if (adoptedExternalRuntime) {
+                        // The external Mods-Center module owns this runtime. Do not expose the
+                        // bundled module install/update controls, which would otherwise invite
+                        // an overwrite of the user's existing 11.5.3.1 APK.
+                        Unit
+                    } else if (rootModuleCheckComplete) {
                         when {
                             module?.installed != true || module.activeTarget != selectedTarget -> Button(onClick = {
                                 rootModuleUpdateRequested = false
@@ -415,6 +448,7 @@ internal fun ThemeManagerCompatibilityCard(
                         }
                     } else {
                         Text("Root MTZ Import modülü denetleniyor…", style = MaterialTheme.typography.bodySmall)
+                    }
                     }
                 }
 
