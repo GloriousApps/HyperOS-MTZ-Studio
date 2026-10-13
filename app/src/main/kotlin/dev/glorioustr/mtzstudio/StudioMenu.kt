@@ -86,6 +86,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -1156,34 +1157,22 @@ internal fun ThemesScreen(
     var pendingDeleteTheme by remember { mutableStateOf<LibraryTheme?>(null) }
     var detailsTheme by remember { mutableStateOf<LibraryTheme?>(null) }
     var showLibraryManager by remember { mutableStateOf(false) }
+    var libraryFilter by remember { mutableIntStateOf(0) }
     val galleryThemes = themes.filter(LibraryTheme::isThemeGalleryItem)
+    val visibleGalleryThemes = when (libraryFilter) {
+        1 -> galleryThemes.filter { it.includeInThemeGallery }
+        2 -> galleryThemes.filterNot { it.includeInThemeGallery }
+        else -> galleryThemes
+    }
     val activeTheme = galleryThemes.firstOrNull { it.id.value == activeThemeId }
     val previousTheme = galleryThemes.firstOrNull { it.id.value == previousThemeId }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(if (redesignedUi) 2 else 3),
         modifier = modifier.fillMaxSize().padding(horizontal = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (redesignedUi) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                StudioCard(Modifier.fillMaxWidth()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        MenuIconBox(Icons.Filled.ColorLens, Color(0xFF5C3A9C))
-                        Column(Modifier.weight(1f)) {
-                            Text("Tema kitaplığı", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                            Text("Oluşturulan ve içe aktarılan temalar tek görünümde", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                        }
-                        StatusBadge(text = "YENİ", color = Color(0xFF3B8F88))
-                    }
-                }
-            }
-        }
         item(span = { GridItemSpan(maxLineSpan) }) {
             CurrentAppliedThemeCard(
                 theme = activeTheme,
@@ -1215,6 +1204,35 @@ internal fun ThemesScreen(
                 }
             }
         }
+        if (redesignedUi) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                StudioCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Koleksiyonun", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Temalarını kaynağına göre düzenle ve hızlıca uygula",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            StatusBadge(text = "${visibleGalleryThemes.size} tema", color = Color(0xFF3B8F88))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Tümü", "Oluşturulan", "İçe aktarılan").forEachIndexed { index, label ->
+                                FilterChip(
+                                    selected = libraryFilter == index,
+                                    onClick = { libraryFilter = index },
+                                    label = { Text(label, maxLines = 1) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
         item(span = { GridItemSpan(maxLineSpan) }) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
@@ -1222,14 +1240,14 @@ internal fun ThemesScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(stringResource(R.string.library_saved_themes), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                StatusBadge(text = galleryThemes.size.toString(), color = MaterialTheme.colorScheme.surfaceVariant)
+                StatusBadge(text = visibleGalleryThemes.size.toString(), color = MaterialTheme.colorScheme.surfaceVariant)
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = { showLibraryManager = true }) {
                     Text(stringResource(R.string.library_all_visible), style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
-        if (galleryThemes.isEmpty() && (!nativeCatalogMode || (!deviceImportRunning && catalogError == null))) {
+        if (visibleGalleryThemes.isEmpty() && (!nativeCatalogMode || (!deviceImportRunning && catalogError == null))) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 EmptyState(
                     stringResource(if (!nativeCatalogMode) R.string.empty_themes_title else R.string.catalog_empty_title),
@@ -1237,7 +1255,7 @@ internal fun ThemesScreen(
                 )
             }
         }
-        gridItems(galleryThemes, key = { it.id.value }) { theme ->
+        gridItems(visibleGalleryThemes, key = { it.id.value }) { theme ->
             ThemeGalleryCard(
                 theme = theme,
                 translationProgress = translationProgress.takeIf { it.themeId == theme.id.value },
@@ -1245,6 +1263,7 @@ internal fun ThemesScreen(
                 onApplyTheme = onApplyTheme,
                 onTranslateTheme = onTranslateTheme,
                 onDeleteTheme = { pendingDeleteTheme = it },
+                redesignedUi = redesignedUi,
             )
         }
         item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(20.dp)) }
@@ -1648,26 +1667,6 @@ internal fun PersonalizeScreen(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        if (redesignedUi) {
-            item {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    StudioCard(Modifier.fillMaxWidth()) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            MenuIconBox(Icons.Filled.Tune, Color(0xFF7E57C2))
-                            Column(Modifier.weight(1f)) {
-                                Text("Temanı Oluştur", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                Text("Bölümleri seç, önizle ve güvenli şekilde kaydet", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                            }
-                            StatusBadge(text = "YENİ", color = Color(0xFF3B8F88))
-                        }
-                    }
-                }
-            }
-        }
         // Base Theme (Ana Tema) Selection Card
         item {
             Column(
@@ -1746,6 +1745,46 @@ internal fun PersonalizeScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        if (redesignedUi) {
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    StudioCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Kompozisyon akışı", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        if (visibleSelections.isEmpty()) "İstersen bölümleri seçerek başla"
+                                        else "${visibleSelections.size} bölüm seçildi • önizleme hazır",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                                StatusBadge(
+                                    text = "${visibleSelections.size}/${availableCategories.size}",
+                                    color = if (visibleSelections.isEmpty()) MaterialTheme.colorScheme.surfaceVariant else Color(0xFF3B8F88),
+                                )
+                            }
+                            LinearProgressIndicator(
+                                progress = { (visibleSelections.size.toFloat() / availableCategories.size.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)),
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Tema bölümleri", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.weight(1f))
+                    Text("Dokun ve seç", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -2948,12 +2987,13 @@ private fun ThemeGalleryCard(
     onApplyTheme: (LibraryTheme) -> Unit,
     onTranslateTheme: (LibraryTheme) -> Unit,
     onDeleteTheme: (LibraryTheme) -> Unit,
+    redesignedUi: Boolean = false,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.58f)
+                .aspectRatio(if (redesignedUi) 0.70f else 0.58f)
                 .clip(RoundedCornerShape(14.dp))
                 .clickable(onClick = onOpenDetails),
         ) {
