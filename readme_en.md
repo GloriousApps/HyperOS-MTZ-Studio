@@ -20,23 +20,27 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.0.0"><strong>Download v5.0.0 APK</strong></a>
-  · <a href="docs/release-notes-v5.0.0.md">Release notes</a>
+  <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.5.0"><strong>Download v5.5.0 APK</strong></a>
+  · <a href="docs/release-notes-v5.5.0.md">Release notes</a>
   · <a href="docs/theme-manager-compatibility.md">Compatibility</a>
   · <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/issues">Report an issue</a>
 </p>
 
-## v5 interface
+## v5.5 interface
 
 <p align="center">
   <img src="docs/screenshots/v4/shizuku-panel.png" alt="Shizuku and Theme Manager compatibility panel" width="24%">
-  <img src="docs/screenshots/v5/root-module-panel.png" alt="Root MTZ Import Module 1.0.0 panel" width="24%">
+  <img src="docs/screenshots/v5/root-module-panel.png" alt="Root MTZ Import runtime panel" width="24%">
   <img src="docs/screenshots/v4/shizuku-library.png" alt="Active theme and saved-theme library" width="24%">
   <img src="docs/screenshots/v4/composer.png" alt="Create Your Theme: Widget and component selection" width="24%">
 </p>
 
 ## What it does
 
+- **Four-menu workspace:** Panel, Library, Create Your Theme and Tools use a redesigned navigation layout with a reversible classic-layout switch.
+- **Panel quick actions:** MTZ Import, BAK Converter and Backup are available side by side. Root runtime details stay compact and open from an info action when needed.
+- **Collection-focused Library:** Larger two-column previews and All, Created and Imported filters make themes easier to find.
+- **Composition flow:** Create Your Theme shows selected sections, total progress and component-selection state live.
 - **MTZ Import:** validates MTZ packages, adds them to the private library and produces preview data. Choose one file or batch-import up to five files. On supported modern Xiaomi Themes builds, the theme is also mirrored into Xiaomi's local library.
 - **BAK Converter:** converts supported Xiaomi Themes `.bak` backups into MTZ packages and adds the result directly to the library.
 - **Theme Language Tool:** translates visible theme text into the app language. It supports XML, JSON and safe MAML content with translation memory and optional API providers. When translation finishes, Studio invalidates the stale Xiaomi-library copy and re-syncs the updated MTZ through a supported Shizuku/Shevery flow.
@@ -45,15 +49,17 @@
 - **Backup and updates:** provides cloud/WebDAV backup and restore for the Studio library. Every foreground entry checks GitHub in the background, announces a new version and shows verified APK download progress as a percentage.
 - **Live Diagnostics:** records import, conversion, translation and application stages to make Theme Manager issues easier to diagnose.
 
-### Root MTZ Import Module 1.0.0
+### Root MTZ Import Module 2.0.0 and Theme Manager V7
 
-On rooted devices without Xiaomi Themes' local MTZ import route, Studio can install or update the **GloriousApps** Root MTZ Import Module directly in the app. The module never replaces or resigns the APK; it enables Xiaomi Themes' own local import and apply flow. A reboot is required after installation. The `3.0.5.6`, `3.0.6.8` and `3.4.x` Global Themes families are supported.
+On rooted devices without Xiaomi Themes' local MTZ import route, Studio can install or update the **GloriousApps** Root MTZ Import Module `2.0.0` directly in the app. The module never replaces or resigns the APK; it enables the verified Xiaomi Themes local import and apply flow. A reboot may be required after installing the Global bridge. Supported runtime families are Global `3.4.1.23-global` and Non-Global `11.5.3.1`.
+
+If a valid Mods-Center Theme Manager V7 module and Themes `11.5.3.1` runtime are already installed, Studio detects and adopts the existing setup without overwriting its Themes APK. Theme application continues through Xiaomi Themes' modern local-library path.
 
 ## Access modes
 
 | Mode | Available workflow |
 | --- | --- |
-| **Root** | Advanced Theme Manager operations, compatible apply flows and diagnostics through the detected root manager. |
+| **Root** | Advanced Theme Manager operations, compatible apply flows and diagnostics through the detected root manager. A valid V7 runtime is preserved when present. |
 | **Shizuku / Shevery** | BAK Converter, local MTZ operations, theme protection and supported application flows without root. |
 | **No authorization service** | The MTZ library, preview, translation, composer, export and backup remain available. Applying a theme requires Shizuku or Shevery. |
 
@@ -61,7 +67,7 @@ On non-rooted devices, install and start Shizuku or [Shevery](https://github.com
 
 ## Theme Manager compatibility
 
-Studio does not rely only on a fixed Xiaomi Themes version allowlist. At runtime it verifies `ApplyThemeForScreenshot` on legacy Global builds and the native local-theme library on modern 10.8.7.6+ builds. If either route is available, the profile is shown as **Compatible**. If neither is available, Studio shows an explicit incompatibility notice and recovery option.
+Studio does not rely only on a fixed Xiaomi Themes version allowlist. At runtime it verifies the legacy `ApplyThemeForScreenshot` route, the native local-theme library and the live runtime APK. Xiaomi Themes `3.4.1.23-global` and `11.5.3.1` runtime families are supported. A valid Theme Manager V7 setup is adopted without overwriting the existing runtime.
 
 The recovery action downloads the verified Xiaomi Themes `3.0.5.6-global` package directly through Android Download Manager:
 
@@ -72,7 +78,7 @@ Xiaomi can change the final application screen and theme-acceptance behaviour de
 
 ## Install
 
-1. Download `MTZ_Studio_v5.0.0.apk` from the [v5.0.0 release](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.0.0).
+1. Download `MTZ_Studio_v5.5.0.apk` from the [v5.5.0 release](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.5.0).
 2. Back up an important Studio library before upgrading from an older build.
 3. Install the APK, open Studio and let it detect the available access mode.
 4. On non-rooted devices, grant the requested Shizuku/Shevery authorization before applying themes.

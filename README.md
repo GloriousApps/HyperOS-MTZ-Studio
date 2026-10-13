@@ -20,23 +20,27 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.0.0"><strong>v5.0.0 APK indir</strong></a>
-  · <a href="docs/release-notes-v5.0.0.md">Sürüm notları</a>
+  <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.5.0"><strong>v5.5.0 APK indir</strong></a>
+  · <a href="docs/release-notes-v5.5.0.md">Sürüm notları</a>
   · <a href="docs/theme-manager-compatibility.md">Uyumluluk</a>
   · <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/issues">Sorun bildir</a>
 </p>
 
-## v5 arayüzü
+## v5.5 arayüzü
 
 <p align="center">
   <img src="docs/screenshots/v4/shizuku-panel.png" alt="Shizuku ve Tema Yöneticisi uyumluluk paneli" width="24%">
-  <img src="docs/screenshots/v5/root-module-panel.png" alt="Root MTZ Import Modülü 1.0.0 paneli" width="24%">
+  <img src="docs/screenshots/v5/root-module-panel.png" alt="Root MTZ Import runtime paneli" width="24%">
   <img src="docs/screenshots/v4/shizuku-library.png" alt="Aktif tema ve kayıtlı temalar kitaplığı" width="24%">
   <img src="docs/screenshots/v4/composer.png" alt="Temanı Oluştur: Widget ve bileşen seçimleri" width="24%">
 </p>
 
 ## Neler yapar?
 
+- **Dört menülü çalışma alanı:** Panel, Kitaplık, Temanı Oluştur ve Araçlar ekranları; klasik görünüme dönülebilen yeni bir navigasyon düzeniyle sunulur.
+- **Panel hızlı işlemleri:** MTZ Import, BAK Converter ve Yedekleme işlemleri tek satırda erişilebilir. Root runtime durumu teknik ayrıntıları ana ekranı kalabalıklaştırmadan gösterir.
+- **Kitaplık koleksiyonu:** İki sütunlu büyük önizlemeler ve Tümü, Oluşturulan, İçe aktarılan filtreleriyle temalar daha hızlı bulunur.
+- **Kompozisyon akışı:** Temanı Oluştur ekranı seçilen bölümleri, toplam ilerlemeyi ve bileşen seçim durumunu canlı gösterir.
 - **MTZ Import:** MTZ paketlerini doğrular, özel kitaplığa ekler ve önizleme verilerini üretir. Tek dosya veya en fazla beş dosyalı toplu içe aktarma kullanılabilir. Desteklenen modern Xiaomi Temalar sürümlerinde tema Xiaomi kitaplığına da aktarılır.
 - **BAK Converter:** Desteklenen Xiaomi Temalar `.bak` yedeklerini güvenli biçimde MTZ’ye dönüştürür; sonuç doğrudan kitaplığa gelir.
 - **Tema Dil Aracı:** Görünür tema metinlerini uygulama diline göre çevirir. XML, JSON ve güvenli MAML içerikleri için çeviri belleği ve isteğe bağlı API sağlayıcıları kullanır. Çeviri tamamlandığında eski Xiaomi kitaplığı kopyası geçersiz kılınır ve güncel MTZ desteklenen Shizuku/Shevery akışında yeniden eşitlenir.
@@ -45,15 +49,17 @@
 - **Yedekleme ve güncelleme:** Studio kitaplığı için bulut/WebDAV yedekleme ve geri yükleme sunar. Her ön plana gelişte GitHub güncellemesini arka planda denetler; yeni sürümü bildirir ve doğrulanmış APK indirmesini yüzde ilerlemesiyle gösterir.
 - **Live Diagnostics:** İçe aktarma, dönüştürme, çeviri ve uygulama adımlarını kaydeder; Temalar paketiyle ilgili sorunların incelenmesini kolaylaştırır.
 
-### Root MTZ Import Modülü 1.0.0
+### Root MTZ Import Modülü 2.0.0 ve Theme Manager V7
 
-Root bulunan, ancak Xiaomi Temalar içinde yerel MTZ içe aktarma yolu olmayan cihazlarda Studio, **GloriousApps** imzalı Root MTZ Import Modülü'nü uygulama içinden kurar veya günceller. Modül APK'yı değiştirmez ya da yeniden imzalamaz; Xiaomi Temalar'ın yerel içe aktarma ve uygulama akışını etkinleştirir. Kurulumdan sonra yeniden başlatma gerekir. `3.0.5.6`, `3.0.6.8` ve `3.4.x` Global Temalar aileleri desteklenir.
+Root bulunan, ancak Xiaomi Temalar içinde yerel MTZ içe aktarma yolu olmayan cihazlarda Studio, **GloriousApps** imzalı Root MTZ Import Modülü `2.0.0` sürümünü uygulama içinden kurar veya günceller. Modül APK'yı değiştirmez ya da yeniden imzalamaz; Xiaomi Temalar'ın doğrulanmış yerel içe aktarma ve uygulama akışını etkinleştirir. Global bridge kurulumu sonrası yeniden başlatma gerekebilir. Global `3.4.1.23-global` ve Non-Global `11.5.3.1` runtime’ları desteklenir.
+
+Cihazda geçerli Mods-Center Theme Manager V7 modülü ve Themes `11.5.3.1` runtime’ı varsa Studio bunu algılar, mevcut kurulumu benimser ve kendi Themes APK’sının üzerine yazmaz. Tema uygulaması modern Xiaomi Themes yerel kitaplık yolu üzerinden sürdürülür.
 
 ## Erişim modları
 
 | Mod | Kullanım |
 | --- | --- |
-| **Root** | Algılanan root yöneticisi üzerinden gelişmiş Tema Yöneticisi işlemleri, uyumlu uygulama akışı ve tanılama. |
+| **Root** | Algılanan root yöneticisi üzerinden gelişmiş Tema Yöneticisi işlemleri, uyumlu uygulama akışı ve tanılama. Geçerli V7 runtime varsa mevcut kurulum korunur. |
 | **Shizuku / Shevery** | Root olmadan BAK Converter, yerel MTZ işlemleri, tema koruması ve desteklenen uygulama akışı. |
 | **Yetkilendirme yok** | MTZ kitaplığı, önizleme, çeviri, besteci, dışa aktarma ve yedekleme kullanılabilir. Tema uygulama için Shizuku veya Shevery gerekir. |
 
@@ -61,7 +67,7 @@ Rootsuz cihazlarda Shizuku ya da [Shevery](https://github.com/HmnDev-Tech/shever
 
 ## Tema Yöneticisi uyumluluğu
 
-Studio yalnızca sabit bir Temalar sürüm listesine güvenmez. Eski Global sürümlerde `ApplyThemeForScreenshot` etkinliğini; 10.8.7.6 ve sonrası modern sürümlerde ise yerleşik yerel tema kitaplığı ekranını çalışma anında doğrular. Bu yollardan biri hazırsa profil **Uyumlu** gösterilir. Hiçbiri yoksa açık bir uyumsuzluk notu ve kurtarma seçeneği sunulur.
+Studio yalnızca sabit bir Temalar sürüm listesine güvenmez. Eski Global sürümlerde `ApplyThemeForScreenshot` etkinliğini; modern sürümlerde yerleşik yerel tema kitaplığı ekranını ve runtime doğrulamasını çalışma anında kontrol eder. Xiaomi Themes `3.4.1.23-global` ve `11.5.3.1` runtime aileleri desteklenir. Geçerli Theme Manager V7 kurulumu varsa mevcut runtime benimsenir ve üzerine yazılmaz.
 
 Bu seçenek, doğrulanmış Xiaomi Themes `3.0.5.6-global` paketini uygulama içinden Android İndirme Yöneticisiyle doğrudan indirir:
 
@@ -72,7 +78,7 @@ Xiaomi son uygulama ekranını ve tema kabul davranışını ROM’a göre deği
 
 ## Kurulum
 
-1. [v5.0.0 Release](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.0.0) sayfasından `MTZ_Studio_v5.0.0.apk` dosyasını indirin.
+1. [v5.5.0 Release](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.5.0) sayfasından `MTZ_Studio_v5.5.0.apk` dosyasını indirin.
 2. Eski bir sürümden geçiyorsanız önemli Studio kitaplığınızı yedekleyin.
 3. APK’yı kurun, uygulamayı açın ve erişim modunun algılanmasını bekleyin.
 4. Rootsuz tema uygulama için Shizuku/Shevery iznini verin.
