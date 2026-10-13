@@ -96,6 +96,7 @@ import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -181,6 +182,7 @@ internal fun StudioPanelScreen(
     authorizationManagerName: String?,
     onOpenAuthorizationManager: () -> Unit,
     allowRootDowngrade: Boolean,
+    redesignedUi: Boolean = false,
     shizukuSetupRequest: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -316,13 +318,21 @@ internal fun StudioPanelScreen(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    QuickActionCard(stringResource(R.string.mtz_import_title), if (importing) stringResource(R.string.mtz_import_btn_importing) else stringResource(R.string.panel_mtz_short), Icons.Filled.Download, Color(0xFF0066FF), onAddMtz, Modifier.weight(1f), !importing)
-                    QuickActionCard(stringResource(R.string.bak_import_title), if (bakImporting) stringResource(R.string.bak_import_inspecting) else stringResource(R.string.panel_bak_short), Icons.Filled.Restore, Color(0xFF7000FF), onAddBak, Modifier.weight(1f), showBakImport && !bakImporting)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    QuickActionCard(stringResource(R.string.dest_backup), stringResource(R.string.panel_cloud_sync_short), Icons.Filled.CloudDone, Color(0xFF607D8B), onOpenBackup, Modifier.weight(1f))
-                    Spacer(Modifier.weight(1f))
+                if (redesignedUi) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        QuickActionCard(stringResource(R.string.mtz_import_title), if (importing) stringResource(R.string.mtz_import_btn_importing) else stringResource(R.string.panel_mtz_short), Icons.Filled.Download, Color(0xFF0066FF), onAddMtz, Modifier.weight(1f), !importing)
+                        QuickActionCard(stringResource(R.string.bak_import_title), if (bakImporting) stringResource(R.string.bak_import_inspecting) else stringResource(R.string.panel_bak_short), Icons.Filled.Restore, Color(0xFF7000FF), onAddBak, Modifier.weight(1f), showBakImport && !bakImporting)
+                        QuickActionCard(stringResource(R.string.dest_backup), stringResource(R.string.panel_cloud_sync_short), Icons.Filled.CloudDone, Color(0xFF607D8B), onOpenBackup, Modifier.weight(1f))
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        QuickActionCard(stringResource(R.string.mtz_import_title), if (importing) stringResource(R.string.mtz_import_btn_importing) else stringResource(R.string.panel_mtz_short), Icons.Filled.Download, Color(0xFF0066FF), onAddMtz, Modifier.weight(1f), !importing)
+                        QuickActionCard(stringResource(R.string.bak_import_title), if (bakImporting) stringResource(R.string.bak_import_inspecting) else stringResource(R.string.panel_bak_short), Icons.Filled.Restore, Color(0xFF7000FF), onAddBak, Modifier.weight(1f), showBakImport && !bakImporting)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        QuickActionCard(stringResource(R.string.dest_backup), stringResource(R.string.panel_cloud_sync_short), Icons.Filled.CloudDone, Color(0xFF607D8B), onOpenBackup, Modifier.weight(1f))
+                        Spacer(Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -1031,6 +1041,8 @@ internal fun StudioToolsScreen(
     showThemeProtection: Boolean,
     onNavigate: (StudioDestination) -> Unit,
     onCheckForUpdates: () -> Unit,
+    redesignedUi: Boolean = false,
+    onRedesignedUiChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val items = listOf(
@@ -1044,6 +1056,27 @@ internal fun StudioToolsScreen(
         item {
             Text(stringResource(R.string.tools_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.menu_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            StudioCard(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    MenuIconBox(Icons.Filled.GridView, Color(0xFF7E57C2))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Yeni menü tasarımı", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (redesignedUi) "Panelde üçlü hızlı işlemler ve yeni kart düzeni etkin"
+                            else "Mevcut klasik menü düzeni etkin",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(checked = redesignedUi, onCheckedChange = onRedesignedUiChange)
+                }
+            }
         }
         items(items) { item -> OverlayMenuCard(item) { onNavigate(item.destination) } }
         item {
@@ -1117,6 +1150,7 @@ internal fun ThemesScreen(
     onDeleteTheme: (LibraryTheme) -> Unit,
     onCustomizeTheme: (LibraryTheme) -> Unit = {},
     onRollbackTheme: (LibraryTheme) -> Unit = {},
+    redesignedUi: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var pendingDeleteTheme by remember { mutableStateOf<LibraryTheme?>(null) }
@@ -1132,6 +1166,24 @@ internal fun ThemesScreen(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (redesignedUi) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                StudioCard(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        MenuIconBox(Icons.Filled.ColorLens, Color(0xFF5C3A9C))
+                        Column(Modifier.weight(1f)) {
+                            Text("Tema kitaplığı", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text("Oluşturulan ve içe aktarılan temalar tek görünümde", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        }
+                        StatusBadge(text = "YENİ", color = Color(0xFF3B8F88))
+                    }
+                }
+            }
+        }
         item(span = { GridItemSpan(maxLineSpan) }) {
             CurrentAppliedThemeCard(
                 theme = activeTheme,
@@ -1578,6 +1630,7 @@ internal fun PersonalizeScreen(
     onCompositionMakerNameChange: (String) -> Unit,
     onCompose: () -> Unit,
     onShare: (Path) -> Unit,
+    redesignedUi: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var showBaseThemeDialog by remember { mutableStateOf(false) }
@@ -1595,6 +1648,26 @@ internal fun PersonalizeScreen(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
+        if (redesignedUi) {
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    StudioCard(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            MenuIconBox(Icons.Filled.Tune, Color(0xFF7E57C2))
+                            Column(Modifier.weight(1f)) {
+                                Text("Temanı Oluştur", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text("Bölümleri seç, önizle ve güvenli şekilde kaydet", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                            }
+                            StatusBadge(text = "YENİ", color = Color(0xFF3B8F88))
+                        }
+                    }
+                }
+            }
+        }
         // Base Theme (Ana Tema) Selection Card
         item {
             Column(

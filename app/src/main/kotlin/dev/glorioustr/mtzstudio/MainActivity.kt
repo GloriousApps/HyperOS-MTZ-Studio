@@ -371,6 +371,9 @@ private fun StudioScreen(
     var largeCatalogThemeCount by remember { mutableStateOf<Int?>(null) }
     var showThemeProtectionRestartDialog by remember { mutableStateOf(false) }
     val studioState = remember { context.getSharedPreferences("studio-ui-state", 0) }
+    var redesignedUi by rememberSaveable {
+        mutableStateOf(studioState.getBoolean("redesigned-ui", true))
+    }
     var rootAccessAvailable by remember { mutableStateOf<Boolean?>(null) }
     // Keep this unknown until the asynchronous root/Shizuku probe finishes. Rendering STANDARD
     // here caused a misleading rootless card to flash briefly on rooted devices.
@@ -1962,6 +1965,7 @@ private fun StudioScreen(
                     }
                 },
                 allowRootDowngrade = rootAccessAvailable == true,
+                redesignedUi = redesignedUi,
                 shizukuSetupRequest = shizukuSetupRequest,
                 modifier = contentModifier,
             )
@@ -2011,6 +2015,7 @@ private fun StudioScreen(
                         }
                     }
                 },
+                redesignedUi = redesignedUi,
                 modifier = contentModifier,
             )
             destination == StudioDestination.MTZ_IMPORT -> MtzImportScreen(
@@ -2060,6 +2065,11 @@ private fun StudioScreen(
                             }
                     }
                 },
+                redesignedUi = redesignedUi,
+                onRedesignedUiChange = { enabled ->
+                    studioState.edit().putBoolean("redesigned-ui", enabled).apply()
+                    redesignedUi = enabled
+                },
                 modifier = contentModifier,
             )
             destination == StudioDestination.PERSONALIZE -> PersonalizeScreen(
@@ -2105,6 +2115,7 @@ private fun StudioScreen(
                 onCompositionMakerNameChange = { compositionMakerName = it },
                 onCompose = ::composeTheme,
                 onShare = shareMtz,
+                redesignedUi = redesignedUi,
                 modifier = contentModifier,
             )
             destination == StudioDestination.DIAGNOSTICS -> LiveDiagnosticsCard(
