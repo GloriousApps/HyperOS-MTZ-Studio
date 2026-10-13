@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -104,6 +106,7 @@ internal fun ThemeManagerCompatibilityCard(
     var showConfirmation by remember { mutableStateOf(false) }
     var showRootModuleConfirmation by remember { mutableStateOf(false) }
     var showRootModuleRestartDialog by remember { mutableStateOf(false) }
+    var showRootModuleInfo by remember { mutableStateOf(false) }
     var rootModuleState by remember { mutableStateOf<RootThemeImportModuleInstaller.State?>(null) }
     var detectedRuntimeTarget by remember { mutableStateOf<ThemeRuntimeTarget?>(null) }
     var selectedRuntimeTarget by remember { mutableStateOf<ThemeRuntimeTarget?>(null) }
@@ -112,6 +115,7 @@ internal fun ThemeManagerCompatibilityCard(
     val cyanAccent = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) Color(0xFF006A78) else Color(0xFF00DAF3)
     val selectedTarget = selectedRuntimeTarget ?: detectedRuntimeTarget ?: ThemeRuntimeTarget.GLOBAL
     val selectedArtifact = ThemeRuntimeArtifacts.forTarget(selectedTarget)
+    val adoptedExternalRuntime = rootModuleState?.adoptedExternalRuntime == true
 
     fun startShizukuDowngrade() {
         when (sheveryAccess.status()) {
@@ -242,7 +246,6 @@ internal fun ThemeManagerCompatibilityCard(
         // Legacy Global builds such as 3.0.5.6 expose ApplyThemeForScreenshot and are therefore
         // reported as compatible. They still need our root module to mirror an imported MTZ into
         // Xiaomi Themes. Do not hide the module card merely because that legacy activity exists.
-        val adoptedExternalRuntime = rootModuleState?.adoptedExternalRuntime == true
         val rootModuleMode = allowRootDowngrade && (
             adoptedExternalRuntime || supportsRootMtzImportModule(installed?.versionName)
         )
@@ -345,28 +348,53 @@ internal fun ThemeManagerCompatibilityCard(
 
                 if (rootModuleMode) {
                     val module = rootModuleState
-                    if (adoptedExternalRuntime) {
-                        Text("Harici root çalışma zamanı benimsendi", fontWeight = FontWeight.SemiBold)
+                    val compactReady = adoptedExternalRuntime || rootModuleCurrent
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Root çalışma zamanı", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                when {
+                                    adoptedExternalRuntime -> "Harici V7 runtime hazır"
+                                    rootModuleCurrent -> "${targetLabel(selectedTarget)} runtime hazır"
+                                    module?.active == true -> "Başka bir runtime etkin"
+                                    module?.installed == true -> "Yeniden başlatma bekleniyor"
+                                    else -> "Kurulum bekleniyor"
+                                },
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        if (compactReady) {
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = cyanAccent.copy(alpha = 0.14f),
+                                contentColor = cyanAccent,
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Text("Hazır", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                        IconButton(onClick = { showRootModuleInfo = true }) {
+                            Icon(Icons.Filled.Info, contentDescription = "Runtime bilgileri")
+                        }
+                    }
+                    if (compactReady) {
                         Text(
-                            "miui_theme_mod v7, Xiaomi Temalar 11.5.3.1 (11531) ile doğrulandı. Mevcut modülün üzerine başka APK kurulmayacak; tema uygulaması Temalar'ın yerel kitaplık yolunu kullanacak.",
+                            "Tema aktarımı için güvenli yol hazır.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = cyanAccent.copy(alpha = 0.14f),
-                            contentColor = cyanAccent,
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text("Harici Theme Manager runtime etkin", fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    } else {
+                    } else if (!adoptedExternalRuntime) {
                     Text("Root çalışma zamanı hedefi", fontWeight = FontWeight.SemiBold)
                     Text(
                         "Önerilen algılama: ${targetLabel(detectedRuntimeTarget)}. Seçim otomatik uygulanmaz; hedefi elle onaylayın.",
@@ -389,33 +417,7 @@ internal fun ThemeManagerCompatibilityCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    val moduleText = when {
-                        module?.activeTarget == selectedTarget && rootModuleCurrent -> "${targetLabel(selectedTarget)} çalışma zamanı doğrulandı ve modül güncel."
-                        module?.activeTarget != null -> "Başka bir hedef etkin. Seçilen hedef için güncelleme gerekir."
-                        module?.runtimeVerified == true -> "Seçilen APK doğrulanmadı; çalışma zamanı kurulumu bekleniyor."
-                        else -> "${targetLabel(selectedTarget)} çalışma zamanı, seçilen Xiaomi Temalar APK'sını Package Manager ile kurar."
-                    }
-                    Text(moduleText, style = MaterialTheme.typography.bodySmall)
-                    Text(
-                        "APK değiştirilirken veriler korunur; paket yöneticisi düşürme işlemini reddedebilir. " +
-                            "Global köprü için yeniden başlatma gerekir. Sistem mount işlemi sessizce yapılmaz. " +
-                            "APK'yi geri almak için modülü kaldırmak yeterli değildir; önceki uyumlu APK ayrıca kurulmalıdır.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    if (selectedTarget == ThemeRuntimeTarget.NON_GLOBAL) {
-                        Text(
-                            "Non-Global sistem APK'sı modül kaldırılsa bile kurulu kalır; kaldırma işlemi ayrıca yapılmalıdır.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    if (adoptedExternalRuntime) {
-                        // The external Mods-Center module owns this runtime. Do not expose the
-                        // bundled module install/update controls, which would otherwise invite
-                        // an overwrite of the user's existing 11.5.3.1 APK.
-                        Unit
-                    } else if (rootModuleCheckComplete) {
+                    if (rootModuleCheckComplete) {
                         when {
                             module?.installed != true || module.activeTarget != selectedTarget -> Button(onClick = {
                                 rootModuleUpdateRequested = false
@@ -499,6 +501,40 @@ internal fun ThemeManagerCompatibilityCard(
                 }
             }
         }
+    }
+
+    if (showRootModuleInfo) {
+        val module = rootModuleState
+        AlertDialog(
+            onDismissRequest = { showRootModuleInfo = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Filled.Info, contentDescription = null, tint = cyanAccent)
+                    Text("Runtime bilgileri")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        if (adoptedExternalRuntime) "Harici Mods-Center V7 runtime" else "MTZ Studio Root MTZ Import runtime",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text("Modül: ${module?.externalModuleVersion ?: module?.version ?: "-"} · hedef: ${targetLabel(module?.activeTarget ?: selectedTarget)}")
+                    Text("Themes: ${module?.runtimeVersion ?: installed?.versionName ?: "-"} · code ${module?.runtimeVersionCode ?: "-"}")
+                    Text(
+                        if (adoptedExternalRuntime) {
+                            "Mevcut V7 kurulumu korunur; MTZ Studio üzerine APK yazmaz."
+                        } else {
+                            "APK doğrulaması ve root köprüsü hazır olduğunda tema aktarımı kullanılabilir."
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRootModuleInfo = false }) { Text("Kapat") }
+            },
+        )
     }
 
     if (showConfirmation) {
