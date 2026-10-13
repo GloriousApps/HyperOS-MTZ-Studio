@@ -63,7 +63,6 @@ internal class RootThemeImportModuleInstaller(
 
     fun inspect(): State {
         val packageInfo = installedPackageInfo()
-        val sourceDir = packageInfo?.applicationInfo?.sourceDir
         val module = commandRunner.run(
             """
             if [ "${'$'}(id -u)" != "0" ]; then echo ROOT_REQUIRED; exit 0; fi
@@ -113,13 +112,16 @@ internal class RootThemeImportModuleInstaller(
              fi
              [ -f "${'$'}external/disable" ] && echo EXTERNAL_DISABLED:true || echo EXTERNAL_DISABLED:false
              if [ -f "${'$'}external/remove" ] || [ -f "${'$'}external/.remove" ]; then echo EXTERNAL_REMOVED:true; else echo EXTERNAL_REMOVED:false; fi
-            source_dir=${shellQuote(sourceDir.orEmpty())}
-            live_path="${'$'}(pm path '${ThemeManagerPackage.NAME}' 2>/dev/null | sed -n 's/^package:\(\/.*\)$/\1/p' | head -n 1)"
-            if [ -n "${'$'}source_dir" ] && [ "${'$'}live_path" = "${'$'}source_dir" ] && [ -f "${'$'}source_dir" ]; then
-              live_sha="${'$'}(sha256sum "${'$'}source_dir" 2>/dev/null | awk '{print ${'$'}1}' | tr '[:upper:]' '[:lower:]')"
-              [ -n "${'$'}live_sha" ] || live_sha="${'$'}(toybox sha256sum "${'$'}source_dir" 2>/dev/null | awk '{print ${'$'}1}' | tr '[:upper:]' '[:lower:]')"
-              echo "LIVE_SHA:${'$'}live_sha"
-            else
+             live_path="${'$'}(pm path '${ThemeManagerPackage.NAME}' 2>/dev/null | sed -n 's/^package:\(\/.*\)$/\1/p' | head -n 1)"
+             # Updated system apps can report the immutable product sourceDir through
+             # PackageManager while `pm path` points at the live /data/app APK. The latter is
+             # authoritative for runtime verification; comparing the two paths made an exact,
+             # correctly-installed APK appear unverified on some HyperOS builds.
+             if [ -n "${'$'}live_path" ] && [ -f "${'$'}live_path" ]; then
+               live_sha="${'$'}(sha256sum "${'$'}live_path" 2>/dev/null | awk '{print ${'$'}1}' | tr '[:upper:]' '[:lower:]')"
+               [ -n "${'$'}live_sha" ] || live_sha="${'$'}(toybox sha256sum "${'$'}live_path" 2>/dev/null | awk '{print ${'$'}1}' | tr '[:upper:]' '[:lower:]')"
+               echo "LIVE_SHA:${'$'}live_sha"
+             else
               echo LIVE_SHA:
             fi
             """.trimIndent(),
