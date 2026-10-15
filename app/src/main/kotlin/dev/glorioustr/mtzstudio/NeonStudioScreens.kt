@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -523,23 +524,25 @@ fun NeonThemeBuilderScreen(
             }
             item {
                 NeonGlassCard(accent = NeonViolet) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.padding(16.dp)) {
                         NeonBuilderPreview()
                         NeonSectionHeader(
                             title = "Tema bileşenleri",
                             subtitle = "İstediğin kaynakları çalışma alanına ekle",
                         )
-                        sections.filter { it.fullWidth }.forEach { section ->
-                            NeonBuilderRow(section)
+                    }
+                }
+            }
+            sections.filter { it.fullWidth }.forEach { section ->
+                item { NeonBuilderRow(section) }
+            }
+            sections.filterNot { it.fullWidth }.chunked(2).forEach { rowSections ->
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        rowSections.forEach { section ->
+                            NeonBuilderRow(section, Modifier.weight(1f), compact = true)
                         }
-                        sections.filterNot { it.fullWidth }.chunked(2).forEach { rowSections ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                rowSections.forEach { section ->
-                                    NeonBuilderRow(section, Modifier.weight(1f))
-                                }
-                                if (rowSections.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
+                        if (rowSections.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             }
@@ -786,25 +789,59 @@ private fun NeonLibraryRow(item: NeonLibraryItem, padded: Boolean = false) {
 }
 
 @Composable
-private fun NeonBuilderRow(section: NeonBuilderSection, modifier: Modifier = Modifier) {
+private fun NeonBuilderRow(
+    section: NeonBuilderSection,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
+            .background(neonSurfaceHighColor())
+            .border(1.dp, section.accent.copy(alpha = 0.34f), RoundedCornerShape(16.dp))
             .clickable(onClick = section.onClick)
-            .padding(vertical = 9.dp),
+            .heightIn(min = if (compact) 84.dp else 92.dp)
+            .padding(horizontal = 10.dp, vertical = if (compact) 9.dp else 11.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        section.preview?.invoke() ?: NeonIconTile(section.icon, section.accent, size = 42.dp)
+        Box(Modifier.size(if (compact) 42.dp else 48.dp), contentAlignment = Alignment.Center) {
+            section.preview?.invoke() ?: NeonIconTile(
+                section.icon,
+                section.accent,
+                size = if (compact) 42.dp else 48.dp,
+            )
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(section.title, color = neonTextColor(), fontWeight = FontWeight.SemiBold)
-            Text(section.description, color = neonMutedTextColor(), style = MaterialTheme.typography.bodySmall)
+            Text(
+                section.title,
+                color = neonTextColor(),
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = false,
+            )
+            if (!compact) {
+                Text(
+                    section.description,
+                    color = neonMutedTextColor(),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                section.selectedValue ?: "Seç",
+                color = section.accent,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = false,
+            )
         }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(section.selectedValue ?: "Seç", color = section.accent, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
         Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = neonMutedTextColor(), modifier = Modifier.size(18.dp))
-        }
     }
 }
 
