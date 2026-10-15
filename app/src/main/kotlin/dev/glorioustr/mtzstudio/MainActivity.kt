@@ -1985,9 +1985,9 @@ private fun StudioScreen(
                     }
                 },
                 allowRootDowngrade = rootAccessAvailable == true,
-                themeCount = themes.size,
+                themeCount = themes.count(LibraryTheme::isThemeGalleryItem),
                 activeThemeName = activeThemeId?.let { id ->
-                    themes.firstOrNull { it.id.value == id }?.displayName
+                    themes.firstOrNull { it.id.value == id && it.isThemeGalleryItem() }?.displayName
                 },
                 workspaceStatus = when {
                     themeOperationRunning -> "İşleniyor"
