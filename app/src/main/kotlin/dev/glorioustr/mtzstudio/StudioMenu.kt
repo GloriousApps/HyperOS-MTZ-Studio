@@ -1971,7 +1971,7 @@ internal fun PersonalizeScreen(
             sections = builderSections,
             modifier = modifier,
             primaryActionLabel = if (operationRunning) "Oluşturuluyor…" else stringResource(R.string.save_theme_as),
-            onPrimaryAction = if (canCompose) onCompose else {},
+            onPrimaryAction = { if (canCompose) onCompose() },
             secondaryActionLabel = if (lastResult != null) stringResource(R.string.action_share) else null,
             onSecondaryAction = lastResult?.let { result -> { onShare(result.output) } },
         )
