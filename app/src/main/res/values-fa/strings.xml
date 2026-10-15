@@ -480,4 +480,9 @@
     <string name="experimental_ocr_description">OCR تلاش می‌کند متن داخل تصاویر پوسته را ترجمه کند. نتیجه ممکن است ناقص باشد یا ظاهر تصویر را تغییر دهد. تصاویر غیرقابل ویرایش ایمن بدون تغییر می‌مانند.</string>
     <string name="experimental_ocr_confirm">تأیید ترجمه OCR</string>
     <string name="experimental_ocr_skip">رد شدن</string>
+    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
+    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
+    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
+    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
+    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 </resources>

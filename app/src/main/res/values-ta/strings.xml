@@ -480,4 +480,9 @@
     <string name="experimental_ocr_description">தீம் படங்களில் உள்ள உரையை OCR மொழிபெயர்க்க முயலும். முடிவு முழுமையற்றதாக இருக்கலாம் அல்லது படத்தின் தோற்றம் மாறலாம். பாதுகாப்பாக மாற்ற முடியாத படங்கள் மாற்றப்படாது.</string>
     <string name="experimental_ocr_confirm">OCR மொழிபெயர்ப்பை உறுதிசெய்</string>
     <string name="experimental_ocr_skip">தவிர்</string>
+    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
+    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
+    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
+    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
+    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 </resources>

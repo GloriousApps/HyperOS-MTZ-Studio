@@ -480,4 +480,9 @@
     <string name="experimental_ocr_description">OCR 会尝试翻译主题图片中的文字。结果可能不完整或影响图片外观。无法安全修改的图片将保持不变。</string>
     <string name="experimental_ocr_confirm">确认 OCR 翻译</string>
     <string name="experimental_ocr_skip">跳过</string>
+    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
+    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
+    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
+    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
+    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 </resources>
