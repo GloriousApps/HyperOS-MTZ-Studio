@@ -91,6 +91,18 @@ private val NeonGreen = Color(0xFF54E6B2)
 private val NeonOrange = Color(0xFFFFA45B)
 private val NeonPink = Color(0xFFFF6FBB)
 
+@Composable
+private fun neonIsLight() = MaterialTheme.colorScheme.background.luminance() > 0.5f
+
+@Composable
+private fun neonTextColor() = if (neonIsLight()) Color(0xFF18152A) else NeonText
+
+@Composable
+private fun neonMutedTextColor() = if (neonIsLight()) Color(0xFF56506B) else NeonMutedText
+
+@Composable
+private fun neonSurfaceHighColor() = if (neonIsLight()) Color(0xFFDDE8FF) else NeonSurfaceHigh
+
 /** A small, integration-friendly model for a dashboard action. */
 data class NeonQuickAction(
     val title: String,
@@ -130,6 +142,7 @@ data class NeonBuilderSection(
     val selectedValue: String? = null,
     val onClick: () -> Unit = {},
     val preview: (@Composable () -> Unit)? = null,
+    val fullWidth: Boolean = false,
 )
 
 data class NeonMetric(
@@ -150,17 +163,18 @@ fun NeonGlassCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val light = MaterialTheme.colorScheme.background.luminance() > 0.5f
     val interactionModifier = if (onClick == null) {
         Modifier
     } else {
         Modifier.clickable(enabled = true, onClick = onClick)
     }
     val surfaceBrush = Brush.linearGradient(
-        colors = listOf(
-            NeonSurfaceHigh,
-            NeonSurface,
-            Color(0xCC111331),
-        ),
+        colors = if (light) {
+            listOf(Color(0xF7FFFFFF), Color(0xFFEAF1FF), Color(0xFFF8EFFF))
+        } else {
+            listOf(NeonSurfaceHigh, NeonSurface, Color(0xCC111331))
+        },
     )
     Box(
         modifier = modifier
@@ -172,9 +186,9 @@ fun NeonGlassCard(
                     width = 1.dp,
                     brush = Brush.linearGradient(
                         listOf(
-                            accent.copy(alpha = 0.72f),
-                            Color(0xFF5A5A96).copy(alpha = 0.48f),
-                            NeonCyan.copy(alpha = 0.38f),
+                            accent.copy(alpha = if (light) 0.85f else 0.72f),
+                            Color(0xFF5A5A96).copy(alpha = if (light) 0.35f else 0.48f),
+                            NeonCyan.copy(alpha = if (light) 0.75f else 0.38f),
                         ),
                     ),
                 ),
@@ -204,14 +218,14 @@ fun NeonSectionHeader(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 text = title,
-                color = NeonText,
+                color = neonTextColor(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     text = subtitle,
-                    color = NeonMutedText,
+                    color = neonMutedTextColor(),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -249,7 +263,7 @@ fun NeonQuickActionCard(
             NeonIconTile(icon = icon, accent = accent)
             Text(
                 text = title,
-                color = if (enabled) NeonText else NeonMutedText,
+                color = if (enabled) neonTextColor() else neonMutedTextColor(),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -257,7 +271,7 @@ fun NeonQuickActionCard(
             )
             Text(
                 text = subtitle,
-                color = NeonMutedText,
+                color = neonMutedTextColor(),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -295,7 +309,7 @@ fun NeonToolRow(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     title,
-                    color = if (enabled) NeonText else NeonMutedText,
+                    color = if (enabled) neonTextColor() else neonMutedTextColor(),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -303,7 +317,7 @@ fun NeonToolRow(
                 )
                 Text(
                     description,
-                    color = NeonMutedText,
+                    color = neonMutedTextColor(),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -423,13 +437,13 @@ fun NeonLibraryScreen(
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = NeonCyan) },
-                        placeholder = { Text("Tema ara", color = NeonMutedText) },
+                        placeholder = { Text("Tema ara", color = neonMutedTextColor()) },
                         shape = RoundedCornerShape(18.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = NeonCyan,
                             unfocusedBorderColor = Color(0xFF55588D),
-                            focusedTextColor = NeonText,
-                            unfocusedTextColor = NeonText,
+                            focusedTextColor = neonTextColor(),
+                            unfocusedTextColor = neonTextColor(),
                             cursorColor = NeonCyan,
                         ),
                     )
@@ -449,8 +463,8 @@ fun NeonLibraryScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             NeonIconTile(Icons.Filled.FolderOpen, NeonPurple, size = 52.dp)
-                            Text(emptyTitle, color = NeonText, fontWeight = FontWeight.Bold)
-                            Text(emptyDescription, color = NeonMutedText, style = MaterialTheme.typography.bodySmall)
+                            Text(emptyTitle, color = neonTextColor(), fontWeight = FontWeight.Bold)
+                            Text(emptyDescription, color = neonMutedTextColor(), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -470,8 +484,8 @@ fun NeonLibraryScreen(
                                 item.preview?.invoke() ?: NeonPreviewPlaceholder(item.accent)
                             }
                             Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(item.title, color = NeonText, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(item.subtitle, color = NeonMutedText, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(item.title, color = neonTextColor(), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(item.subtitle, color = neonMutedTextColor(), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 if (!item.badge.isNullOrBlank()) NeonBadge(item.badge, item.accent)
                             }
                         }
@@ -514,7 +528,10 @@ fun NeonThemeBuilderScreen(
                             title = "Tema bileşenleri",
                             subtitle = "İstediğin kaynakları çalışma alanına ekle",
                         )
-                        sections.chunked(2).forEach { rowSections ->
+                        sections.filter { it.fullWidth }.forEach { section ->
+                            NeonBuilderRow(section)
+                        }
+                        sections.filterNot { it.fullWidth }.chunked(2).forEach { rowSections ->
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 rowSections.forEach { section ->
                                     NeonBuilderRow(section, Modifier.weight(1f))
@@ -532,8 +549,8 @@ fun NeonThemeBuilderScreen(
                             onClick = onSecondaryAction,
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = NeonSurfaceHigh,
-                                contentColor = NeonText,
+                                containerColor = neonSurfaceHighColor(),
+                                contentColor = neonTextColor(),
                             ),
                         ) {
                             Icon(Icons.Filled.GridView, contentDescription = null)
@@ -588,11 +605,11 @@ fun NeonToolsScreen(
                     ) {
                         NeonIconTile(Icons.Filled.GridView, NeonPurple, size = 42.dp)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("Yeni tasarımı kullan", color = NeonText, fontWeight = FontWeight.Bold)
+                            Text("Yeni tasarımı kullan", color = neonTextColor(), fontWeight = FontWeight.Bold)
                             Text(
                                 if (redesignedUi) "Panel, Kitaplık ve Temanı Oluştur için neon glass arayüzü aktif"
                                 else "Klasik ekran düzeni aktif",
-                                color = NeonMutedText,
+                                color = neonMutedTextColor(),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -632,18 +649,23 @@ private fun NeonScreenBackdrop(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val light = neonIsLight()
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(NeonBackground, NeonBackgroundMid, Color(0xFF17113A)),
+                    colors = if (light) {
+                        listOf(Color(0xFFF7F3FF), Color(0xFFE8F3FF), Color(0xFFFBEAFF))
+                    } else {
+                        listOf(NeonBackground, NeonBackgroundMid, Color(0xFF17113A))
+                    },
                 ),
             )
             .drawBehind {
                 // Low-opacity color pools create the neon ambience without an image dependency.
-                drawCircle(NeonPurple.copy(alpha = 0.11f), radius = size.minDimension * 0.58f, center = androidx.compose.ui.geometry.Offset(size.width * 0.94f, 0f))
-                drawCircle(NeonCyan.copy(alpha = 0.07f), radius = size.minDimension * 0.44f, center = androidx.compose.ui.geometry.Offset(0f, size.height * 0.82f))
+                drawCircle(NeonPurple.copy(alpha = if (light) 0.16f else 0.11f), radius = size.minDimension * 0.58f, center = androidx.compose.ui.geometry.Offset(size.width * 0.94f, 0f))
+                drawCircle(NeonCyan.copy(alpha = if (light) 0.12f else 0.07f), radius = size.minDimension * 0.44f, center = androidx.compose.ui.geometry.Offset(0f, size.height * 0.82f))
             },
     ) {
         content()
@@ -665,8 +687,8 @@ private fun NeonHeroHeader(
     ) {
         NeonIconTile(icon = icon, accent = NeonPurple, size = 52.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, color = NeonText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = NeonMutedText, style = MaterialTheme.typography.bodySmall)
+            Text(title, color = neonTextColor(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = neonMutedTextColor(), style = MaterialTheme.typography.bodySmall)
         }
         if (!statusLabel.isNullOrBlank()) NeonBadge(statusLabel, statusColor)
     }
@@ -714,7 +736,7 @@ private fun NeonMetricsRow(metrics: List<NeonMetric>) {
             NeonGlassCard(modifier = Modifier.weight(1f), accent = metric.accent) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(metric.value, color = metric.accent, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(metric.label, color = NeonMutedText, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(metric.label, color = neonMutedTextColor(), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -754,11 +776,11 @@ private fun NeonLibraryRow(item: NeonLibraryItem, padded: Boolean = false) {
     ) {
         NeonIconTile(item.icon, item.accent, size = 42.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(item.title, color = NeonText, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(item.subtitle, color = NeonMutedText, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.title, color = neonTextColor(), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.subtitle, color = neonMutedTextColor(), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (!item.badge.isNullOrBlank()) NeonBadge(item.badge, item.accent)
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = NeonMutedText)
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = neonMutedTextColor())
     }
 }
 
@@ -775,12 +797,12 @@ private fun NeonBuilderRow(section: NeonBuilderSection, modifier: Modifier = Mod
     ) {
         section.preview?.invoke() ?: NeonIconTile(section.icon, section.accent, size = 42.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(section.title, color = NeonText, fontWeight = FontWeight.SemiBold)
-            Text(section.description, color = NeonMutedText, style = MaterialTheme.typography.bodySmall)
+            Text(section.title, color = neonTextColor(), fontWeight = FontWeight.SemiBold)
+            Text(section.description, color = neonMutedTextColor(), style = MaterialTheme.typography.bodySmall)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(section.selectedValue ?: "Seç", color = section.accent, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = NeonMutedText, modifier = Modifier.size(18.dp))
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = neonMutedTextColor(), modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -805,8 +827,8 @@ private fun NeonPanelBanner(label: String, color: Color) {
         ) {
             NeonIconTile(Icons.Filled.PhoneAndroid, NeonCyan, size = 48.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Cihaz durumu", color = NeonText, fontWeight = FontWeight.Bold)
-                Text("HyperOS tema çalışma alanı hazır", color = NeonMutedText, style = MaterialTheme.typography.labelSmall)
+                Text("Cihaz durumu", color = neonTextColor(), fontWeight = FontWeight.Bold)
+                Text("HyperOS tema çalışma alanı hazır", color = neonMutedTextColor(), style = MaterialTheme.typography.labelSmall)
             }
             NeonBadge(label, color)
         }
@@ -842,8 +864,8 @@ private fun NeonBuilderPreview() {
             Text("09:41", color = Color.White, fontWeight = FontWeight.Bold)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text("Tema önizleme", color = NeonText, fontWeight = FontWeight.Bold)
-            Text("Seçtiğin bileşenleri canlı görünümle kontrol et.", color = NeonMutedText, style = MaterialTheme.typography.labelSmall)
+            Text("Tema önizleme", color = neonTextColor(), fontWeight = FontWeight.Bold)
+            Text("Seçtiğin bileşenleri canlı görünümle kontrol et.", color = neonMutedTextColor(), style = MaterialTheme.typography.labelSmall)
             NeonBadge("MODERN", NeonCyan)
         }
     }

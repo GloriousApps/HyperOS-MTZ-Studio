@@ -729,11 +729,7 @@ internal fun shouldShowThemeManagerDowngradeButton(
 ): Boolean {
     if (!allowRootDowngrade || current?.installed != true || runtimeProfile == null) return false
     if (runtimeProfile.compatibleLocalMtzPath) return false
-    // The controlled 3.4.1.23 Global build is intentionally handled by the root bridge, but the
-    // verified 3.0.5.6 fallback must remain available when that bridge cannot be used.
-    val controlledGlobal = ThemeManagerContract.canonicalVersion(current.versionName) ==
-        ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION
-    return !rootModuleMode || controlledGlobal
+    return !rootModuleMode
 }
 
 private fun targetLabel(target: ThemeRuntimeTarget?): String = when (target) {

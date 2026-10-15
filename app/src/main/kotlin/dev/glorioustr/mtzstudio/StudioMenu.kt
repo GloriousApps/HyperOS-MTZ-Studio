@@ -1892,6 +1892,7 @@ internal fun PersonalizeScreen(
                     accent = Color(0xFFB54DFF),
                     selectedValue = selectedBaseName,
                     onClick = { showBaseThemeDialog = true },
+                    fullWidth = true,
                     preview = baseTheme?.let { theme ->
                         {
                             ThemePreview(
@@ -1911,6 +1912,7 @@ internal fun PersonalizeScreen(
                     selectedValue = compositionName.takeIf(String::isNotBlank)
                         ?: stringResource(R.string.theme_name_label),
                     onClick = { showCompositionDetailsDialog = true },
+                    fullWidth = true,
                 ),
             )
         for (category in availableCategories) {
