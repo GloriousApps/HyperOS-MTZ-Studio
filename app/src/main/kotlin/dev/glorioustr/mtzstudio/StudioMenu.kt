@@ -1267,6 +1267,13 @@ internal fun ThemesScreen(
                     accent = if (theme.id.value == activeThemeId) Color(0xFF54E6B2) else Color(0xFF9B6DFF),
                     badge = if (theme.id.value == activeThemeId) stringResource(R.string.theme_active_badge) else null,
                     onClick = { detailsTheme = theme },
+                    preview = {
+                        ThemePreview(
+                            theme = theme,
+                            purpose = ThemePreviewPurpose.GALLERY,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    },
                 )
             },
             modifier = modifier,
@@ -1872,6 +1879,14 @@ internal fun PersonalizeScreen(
                     accent = Color(0xFFB54DFF),
                     selectedValue = selectedBaseName,
                     onClick = { showBaseThemeDialog = true },
+                    preview = baseTheme?.let { theme ->
+                        {
+                            ThemePreview(
+                                theme = theme,
+                                modifier = Modifier.size(42.dp, 60.dp).clip(RoundedCornerShape(8.dp)),
+                            )
+                        }
+                    },
                 ),
             )
         builderSections.add(

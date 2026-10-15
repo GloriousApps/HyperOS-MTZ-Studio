@@ -19,6 +19,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -115,6 +119,7 @@ data class NeonLibraryItem(
     val accent: Color = NeonPurple,
     val badge: String? = null,
     val onClick: () -> Unit = {},
+    val preview: (@Composable () -> Unit)? = null,
 )
 
 data class NeonBuilderSection(
@@ -124,6 +129,7 @@ data class NeonBuilderSection(
     val accent: Color = NeonPurple,
     val selectedValue: String? = null,
     val onClick: () -> Unit = {},
+    val preview: (@Composable () -> Unit)? = null,
 )
 
 data class NeonMetric(
@@ -340,6 +346,9 @@ fun NeonPanelScreen(
                     icon = Icons.Filled.Dashboard,
                 )
             }
+            item {
+                NeonPanelBanner()
+            }
             if (metrics.isNotEmpty()) {
                 item { NeonMetricsRow(metrics) }
             }
@@ -390,19 +399,21 @@ fun NeonLibraryScreen(
     emptyDescription: String = "İlk temanı içe aktararak çalışma alanını oluştur.",
 ) {
     NeonScreenBackdrop(modifier) {
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 18.dp, top = 18.dp, end = 18.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 NeonHeroHeader(
                     title = title,
                     subtitle = subtitle,
                     icon = Icons.Filled.ColorLens,
                 )
             }
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = query,
@@ -428,7 +439,7 @@ fun NeonLibraryScreen(
                 }
             }
             if (items.isEmpty()) {
-                item {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     NeonGlassCard(accent = NeonPurple) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(28.dp),
@@ -442,9 +453,26 @@ fun NeonLibraryScreen(
                     }
                 }
             } else {
-                items(items, key = { it.title }) { item ->
-                    NeonGlassCard(accent = item.accent, onClick = item.onClick) {
-                        NeonLibraryRow(item, padded = true)
+                gridItems(items, key = { it.title }) { item ->
+                    NeonGlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        accent = item.accent,
+                        onClick = item.onClick,
+                    ) {
+                        Column {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(126.dp)
+                                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                                    .background(Color(0xFF071D4B)),
+                            ) {
+                                item.preview?.invoke() ?: NeonPreviewPlaceholder(item.accent)
+                            }
+                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(item.title, color = NeonText, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(item.subtitle, color = NeonMutedText, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (!item.badge.isNullOrBlank()) NeonBadge(item.badge, item.accent)
+                            }
+                        }
                     }
                 }
             }
@@ -479,6 +507,7 @@ fun NeonThemeBuilderScreen(
             item {
                 NeonGlassCard(accent = NeonViolet) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        NeonBuilderPreview()
                         NeonSectionHeader(
                             title = "Tema bileşenleri",
                             subtitle = "İstediğin kaynakları çalışma alanına ekle",
@@ -738,7 +767,7 @@ private fun NeonBuilderRow(section: NeonBuilderSection) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        NeonIconTile(section.icon, section.accent, size = 42.dp)
+        section.preview?.invoke() ?: NeonIconTile(section.icon, section.accent, size = 42.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(section.title, color = NeonText, fontWeight = FontWeight.SemiBold)
             Text(section.description, color = NeonMutedText, style = MaterialTheme.typography.bodySmall)
@@ -758,6 +787,60 @@ private fun NeonDivider(modifier: Modifier = Modifier) {
             .height(1.dp)
             .background(Color(0xFF4D4E82).copy(alpha = 0.42f)),
     )
+}
+
+@Composable
+private fun NeonPanelBanner() {
+    NeonGlassCard(accent = NeonBlue) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            NeonIconTile(Icons.Filled.PhoneAndroid, NeonCyan, size = 48.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Cihaz durumu", color = NeonText, fontWeight = FontWeight.Bold)
+                Text("HyperOS tema çalışma alanı hazır", color = NeonMutedText, style = MaterialTheme.typography.labelSmall)
+            }
+            NeonBadge("SHEVERY BAĞLI", NeonGreen)
+        }
+    }
+}
+
+@Composable
+private fun NeonPreviewPlaceholder(accent: Color) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(76.dp, 106.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Brush.linearGradient(listOf(accent.copy(alpha = 0.80f), NeonBlue.copy(alpha = 0.45f)))),
+        ) {
+            NeonIconTile(Icons.Filled.Palette, Color.White, size = 42.dp)
+        }
+    }
+}
+
+@Composable
+private fun NeonBuilderPreview() {
+    Row(
+        Modifier.fillMaxWidth().height(156.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(86.dp, 126.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Brush.linearGradient(listOf(NeonPurple, NeonBlue, Color(0xFF0B2F6C)))),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("09:41", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text("Tema önizleme", color = NeonText, fontWeight = FontWeight.Bold)
+            Text("Seçtiğin bileşenleri canlı görünümle kontrol et.", color = NeonMutedText, style = MaterialTheme.typography.labelSmall)
+            NeonBadge("MODERN", NeonCyan)
+        }
+    }
 }
 
 private fun defaultNeonMetrics() = listOf(
