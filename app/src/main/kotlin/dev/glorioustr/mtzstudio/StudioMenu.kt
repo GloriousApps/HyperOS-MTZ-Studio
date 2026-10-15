@@ -195,6 +195,64 @@ internal fun StudioPanelScreen(
             showShizukuTutorial = true
         }
     }
+    if (redesignedUi) {
+        val statusLabel = when (accessMode) {
+            StudioAccessMode.ROOT -> "ROOT AKTİF"
+            StudioAccessMode.SHIZUKU -> "SHEVERY AKTİF"
+            StudioAccessMode.STANDARD -> "YETKİ BEKLENİYOR"
+            null -> "HAZIRLANIYOR"
+        }
+        NeonPanelScreen(
+            modifier = modifier,
+            title = "Merhaba",
+            subtitle = "MTZ Studio · HyperOS tema çalışma alanın",
+            statusLabel = statusLabel,
+            statusColor = if (accessMode == StudioAccessMode.STANDARD) Color(0xFFFFA45B) else Color(0xFF54E6B2),
+            quickActions = listOf(
+                NeonQuickAction(
+                    title = stringResource(R.string.mtz_import_title),
+                    subtitle = stringResource(R.string.panel_mtz_short),
+                    icon = Icons.Filled.Download,
+                    accent = Color(0xFF5D8DFF),
+                    onClick = onAddMtz,
+                    enabled = !importing,
+                ),
+                NeonQuickAction(
+                    title = stringResource(R.string.bak_import_title),
+                    subtitle = stringResource(R.string.panel_bak_short),
+                    icon = Icons.Filled.Restore,
+                    accent = Color(0xFFB54DFF),
+                    onClick = onAddBak,
+                    enabled = showBakImport && !bakImporting,
+                ),
+                NeonQuickAction(
+                    title = stringResource(R.string.dest_backup),
+                    subtitle = stringResource(R.string.panel_cloud_sync_short),
+                    icon = Icons.Filled.CloudDone,
+                    accent = Color(0xFF54E6B2),
+                    onClick = onOpenBackup,
+                ),
+                NeonQuickAction(
+                    title = "Tema yöneticisi",
+                    subtitle = "Uyumluluk ve geri dönüş",
+                    icon = Icons.Filled.Settings,
+                    accent = Color(0xFFFFA45B),
+                    onClick = onOpenAuthorizationManager,
+                    enabled = authorizationManagerName != null,
+                ),
+            ),
+            footerContent = {
+                ThemeManagerCompatibilityCard(
+                    inspector = themeManagerInspector,
+                    updater = themeManagerUpdater,
+                    openInput = openInput,
+                    allowRootDowngrade = allowRootDowngrade,
+                )
+            },
+        )
+        if (showShizukuTutorial) ShizukuPairingTutorialDialog { showShizukuTutorial = false }
+        return
+    }
     val uriHandler = LocalUriHandler.current
     val wirelessDebuggingEnabled = remember(accessMode) {
         runCatching { Settings.Global.getInt(context.contentResolver, "adb_wifi_enabled", 0) == 1 }.getOrDefault(false)
@@ -1053,6 +1111,27 @@ internal fun StudioToolsScreen(
         OverlayMenuItem(StudioDestination.THEME_PROTECTION, Icons.Filled.Security, Color(0xFF2E7D32), R.string.overlay_theme_protection_desc),
     ).filter { showThemeProtection || it.destination != StudioDestination.THEME_PROTECTION }
     val about = OverlayMenuItem(StudioDestination.ABOUT, Icons.Filled.Info, Color(0xFF7E57C2), R.string.overlay_about_desc)
+    if (redesignedUi) {
+        NeonToolsScreen(
+            modifier = modifier,
+            tools = (items + about).map { item ->
+                NeonToolItem(
+                    title = stringResource(item.destination.titleRes),
+                    description = stringResource(item.descriptionRes),
+                    icon = item.icon,
+                    accent = item.color,
+                    onClick = { onNavigate(item.destination) },
+                )
+            } + NeonToolItem(
+                title = stringResource(R.string.app_update_check),
+                description = stringResource(R.string.app_update_check_desc),
+                icon = Icons.Filled.SystemUpdateAlt,
+                accent = Color(0xFF54E6B2),
+                onClick = onCheckForUpdates,
+            ),
+        )
+        return
+    }
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Text(stringResource(R.string.tools_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
@@ -1168,7 +1247,7 @@ internal fun ThemesScreen(
     val previousTheme = galleryThemes.firstOrNull { it.id.value == previousThemeId }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(if (redesignedUi) 2 else 3),
         modifier = modifier.fillMaxSize().padding(horizontal = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),

@@ -375,7 +375,10 @@ private fun StudioScreen(
     var showThemeProtectionRestartDialog by remember { mutableStateOf(false) }
     val studioState = remember { context.getSharedPreferences("studio-ui-state", 0) }
     var redesignedUi by rememberSaveable {
-        mutableStateOf(studioState.getBoolean("redesigned-ui", true))
+        // The neon four-screen design is now the supported primary UI. Do not preserve the old
+        // reversible toggle across upgrades, otherwise an existing installation can silently
+        // continue rendering the pre-redesign screens after installing the new artifact.
+        mutableStateOf(true)
     }
     var rootAccessAvailable by remember { mutableStateOf<Boolean?>(null) }
     // Keep this unknown until the asynchronous root/Shizuku probe finishes. Rendering STANDARD
