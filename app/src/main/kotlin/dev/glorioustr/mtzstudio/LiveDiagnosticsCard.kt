@@ -198,6 +198,7 @@ internal fun LiveDiagnosticsCard(
             description = stringResource(R.string.diag_export_action_desc),
             icon = Icons.Filled.Description,
             accent = Color(0xFF0066FF),
+            neonStyle = neonStyle,
             onClick = {
                 scope.launch {
                     runCatching { withContext(Dispatchers.IO) { recorder.createExport() } }
@@ -211,6 +212,7 @@ internal fun LiveDiagnosticsCard(
             description = stringResource(R.string.diag_themes_apk_desc),
             icon = Icons.Filled.Android,
             accent = Color(0xFF7C4DFF),
+            neonStyle = neonStyle,
             onClick = {
                 scope.launch {
                     runCatching { withContext(Dispatchers.IO) { recorder.exportInstalledThemeManagerApk() } }
@@ -232,6 +234,7 @@ internal fun LiveDiagnosticsCard(
             description = stringResource(R.string.diag_telegram_support_desc),
             icon = Icons.Filled.Send,
             accent = Color(0xFF00BCD4),
+            neonStyle = neonStyle,
             onClick = { uriHandler.openUri(DEVELOPER_TELEGRAM_URL) },
         )
 
@@ -267,6 +270,7 @@ private fun DiagnosticsActionCard(
     description: String,
     icon: ImageVector,
     accent: Color,
+    neonStyle: Boolean = false,
     onClick: () -> Unit,
 ) {
     StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
