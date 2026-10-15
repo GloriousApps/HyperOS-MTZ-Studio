@@ -43,6 +43,8 @@ internal class RootThemeImportModuleInstaller(
         val runtimeVersionCode: Long? = null,
         val runtimeMinSdk: Int? = null,
         val runtimeVerified: Boolean = false,
+        /** The post-boot service verified the selected APK without needing a reinstall. */
+        val runtimeActive: Boolean = false,
         val bridgeReady: Boolean = false,
         val disabled: Boolean = false,
         val removed: Boolean = false,
@@ -74,8 +76,9 @@ internal class RootThemeImportModuleInstaller(
             else
               echo NOT_INSTALLED
             fi
-            [ -f "${'$'}target/disable" ] && echo DISABLED:true || echo DISABLED:false
-            if [ -f "${'$'}target/remove" ] || [ -f "${'$'}target/.remove" ]; then echo REMOVED:true; else echo REMOVED:false; fi
+              [ -f "${'$'}target/disable" ] && echo DISABLED:true || echo DISABLED:false
+              if [ -f "${'$'}target/remove" ] || [ -f "${'$'}target/.remove" ]; then echo REMOVED:true; else echo REMOVED:false; fi
+              [ -f "${'$'}target/runtime-active" ] && grep -qx 'true' "${'$'}target/runtime-active" && echo RUNTIME_ACTIVE:true || echo RUNTIME_ACTIVE:false
             # The pinned bridge dex writes its bridge version, not the module version.
             # Only accept a marker written after this Themes process started this boot.
             bridge=false
@@ -138,6 +141,7 @@ internal class RootThemeImportModuleInstaller(
         val rawBridgeReady = lines.value("BRIDGE_READY").equals("true", ignoreCase = true)
         val disabled = lines.value("DISABLED").equals("true", ignoreCase = true)
         val removed = lines.value("REMOVED").equals("true", ignoreCase = true)
+        val runtimeActive = lines.value("RUNTIME_ACTIVE").equals("true", ignoreCase = true)
 
         val runtimeVersion = packageInfo?.versionName
         val runtimeCode = packageInfo?.longVersionCodeCompat()
@@ -188,6 +192,7 @@ internal class RootThemeImportModuleInstaller(
             runtimeVersionCode = runtimeCode,
             runtimeMinSdk = runtimeMinSdk,
             runtimeVerified = runtimeVerified,
+            runtimeActive = runtimeActive,
             bridgeReady = bridgeReady,
             disabled = disabled,
             removed = removed,

@@ -264,8 +264,11 @@ internal fun ThemeManagerCompatibilityCard(
         // The module can be installed and current while its runtime bridge is still waiting for
         // the next boot. Do not interpret a non-active bridge as a request to reinstall the module.
         val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState, selectedTarget)
+        // The post-boot service verifies the live APK through runtime-active. The bridge marker
+        // is a separate, stricter health signal and can remain unavailable until Themes starts;
+        // it must not make an already-running module look as if it needs another reboot.
         val rootRuntimeReady = adoptedExternalRuntime ||
-            (rootModuleCurrent && rootModuleState?.activeTarget == selectedTarget)
+            (rootModuleCurrent && rootModuleState?.runtimeActive == true)
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -292,7 +295,7 @@ internal fun ThemeManagerCompatibilityCard(
                         when {
                             adoptedExternalRuntime -> "Harici v7 runtime benimsendi"
                             rootModuleMode && rootRuntimeReady -> "Modül güncel"
-                            rootModuleMode && rootModuleCurrent -> "Yeniden başlatma gerekli"
+                            rootModuleMode && rootModuleCurrent -> "Modül kurulu"
                             rootModuleMode && rootModuleState?.active == true -> "Güncelleme var"
                             rootModuleMode && rootModuleState?.installed == true -> "Yeniden başlatın"
                             rootModuleMode -> "Etkinleştirilebilir"
@@ -375,8 +378,8 @@ internal fun ThemeManagerCompatibilityCard(
                             Text(
                                 when {
                                     adoptedExternalRuntime -> "Harici V7 runtime hazır"
-                                    rootRuntimeReady -> "${targetLabel(selectedTarget)} runtime hazır"
-                                    rootModuleCurrent -> "${targetLabel(selectedTarget)} modülü kurulu; yeniden başlatma bekleniyor"
+                                    rootRuntimeReady -> "${targetLabel(selectedTarget)} runtime etkin"
+                                    rootModuleCurrent -> "${targetLabel(selectedTarget)} modülü kurulu; çalışma durumu denetleniyor"
                                     module?.active == true -> "Başka bir runtime etkin"
                                     module?.installed == true -> "Yeniden başlatma bekleniyor"
                                     else -> "Kurulum bekleniyor"
@@ -407,13 +410,17 @@ internal fun ThemeManagerCompatibilityCard(
                     }
                     if (compactReady) {
                         Text(
-                            "Tema aktarımı için güvenli yol hazır.",
+                            if (rootModuleState?.activeTarget == selectedTarget) {
+                                "Tema aktarımı için güvenli yol hazır."
+                            } else {
+                                "Modül etkin; Xiaomi Temalar köprüsü ilk kullanımda denetlenir. Yeniden kurulum gerekmez."
+                            },
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
                     } else if (rootModuleCurrent) {
                         Text(
-                            "${targetLabel(selectedTarget)} root modülü kurulu. Modülü yeniden kurmanız gerekmez; Xiaomi Temalar köprüsünü etkinleştirmek için telefonu yeniden başlatın.",
+                            "${targetLabel(selectedTarget)} root modülü kurulu. Modülü yeniden kurmanız gerekmez; çalışma durumu yeniden denetleniyor.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
