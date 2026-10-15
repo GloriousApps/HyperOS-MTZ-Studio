@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FontDownload
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
@@ -1114,6 +1115,8 @@ internal fun StudioToolsScreen(
     if (redesignedUi) {
         NeonToolsScreen(
             modifier = modifier,
+            redesignedUi = redesignedUi,
+            onRedesignedUiChange = onRedesignedUiChange,
             tools = (items + about).map { item ->
                 NeonToolItem(
                     title = stringResource(item.destination.titleRes),
@@ -1237,6 +1240,7 @@ internal fun ThemesScreen(
     var detailsTheme by remember { mutableStateOf<LibraryTheme?>(null) }
     var showLibraryManager by remember { mutableStateOf(false) }
     var libraryFilter by remember { mutableIntStateOf(0) }
+    var libraryQuery by remember { mutableStateOf("") }
     val galleryThemes = themes.filter(LibraryTheme::isThemeGalleryItem)
     val visibleGalleryThemes = when (libraryFilter) {
         1 -> galleryThemes.filter { it.includeInThemeGallery }
@@ -1245,6 +1249,117 @@ internal fun ThemesScreen(
     }
     val activeTheme = galleryThemes.firstOrNull { it.id.value == activeThemeId }
     val previousTheme = galleryThemes.firstOrNull { it.id.value == previousThemeId }
+
+    if (redesignedUi) {
+        NeonLibraryScreen(
+            items = visibleGalleryThemes.filter { theme ->
+                val query = libraryQuery.trim()
+                query.isBlank() ||
+                    (theme.archive.metadata?.name ?: theme.displayName).contains(query, ignoreCase = true)
+            }.map { theme ->
+                NeonLibraryItem(
+                    title = theme.archive.metadata?.name ?: theme.displayName,
+                    subtitle = theme.archive.metadata?.let { metadata ->
+                        metadata.designer?.takeIf(String::isNotBlank)
+                            ?: metadata.author?.takeIf(String::isNotBlank)
+                    } ?: stringResource(R.string.app_name),
+                    icon = Icons.Filled.Palette,
+                    accent = if (theme.id.value == activeThemeId) Color(0xFF54E6B2) else Color(0xFF9B6DFF),
+                    badge = if (theme.id.value == activeThemeId) stringResource(R.string.theme_active_badge) else null,
+                    onClick = { detailsTheme = theme },
+                )
+            },
+            modifier = modifier,
+            query = libraryQuery,
+            onQueryChange = { libraryQuery = it },
+            onRefresh = if (nativeCatalogMode && catalogError != null) {
+                onRetryCatalog
+            } else {
+                { showLibraryManager = true }
+            },
+            emptyTitle = stringResource(if (!nativeCatalogMode) R.string.empty_themes_title else R.string.catalog_empty_title),
+            emptyDescription = stringResource(if (!nativeCatalogMode) R.string.empty_themes_desc else R.string.catalog_empty_desc),
+        )
+
+        detailsTheme?.let { theme ->
+            ThemeDetailsDialog(
+                theme = theme,
+                isActive = theme.id.value == activeThemeId,
+                translationProgress = translationProgress.takeIf { it.themeId == theme.id.value },
+                onDismiss = { detailsTheme = null },
+                onApply = {
+                    detailsTheme = null
+                    onApplyTheme(theme)
+                },
+                onTranslate = {
+                    detailsTheme = null
+                    onTranslateTheme(theme)
+                },
+                onDelete = {
+                    detailsTheme = null
+                    pendingDeleteTheme = theme
+                },
+                onCustomize = {
+                    detailsTheme = null
+                    onCustomizeTheme(theme)
+                },
+                onRollback = if (theme.id.value == activeThemeId) previousTheme?.let { previous ->
+                    {
+                        detailsTheme = null
+                        onRollbackTheme(previous)
+                    }
+                } else null,
+            )
+        }
+
+        pendingDeleteTheme?.let { themeToDelete ->
+            AlertDialog(
+                onDismissRequest = { pendingDeleteTheme = null },
+                title = { Text(stringResource(R.string.delete_theme_dialog_title)) },
+                text = {
+                    Text(
+                        stringResource(
+                            R.string.delete_theme_dialog_desc,
+                            themeToDelete.archive.metadata?.name ?: themeToDelete.displayName,
+                        ),
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onDeleteTheme(themeToDelete)
+                            pendingDeleteTheme = null
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
+                    ) { Text(stringResource(R.string.action_delete)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDeleteTheme = null }) { Text(stringResource(R.string.action_cancel)) }
+                },
+            )
+        }
+
+        if (showLibraryManager) {
+            LibraryManagerDialog(
+                themes = galleryThemes,
+                canImportDeviceThemes = showDeviceImport,
+                busy = deviceImportRunning,
+                onImportDeviceThemes = {
+                    showLibraryManager = false
+                    onOpenDeviceThemePicker()
+                },
+                onDeleteThemes = { selected ->
+                    showLibraryManager = false
+                    onDeleteThemes(selected)
+                },
+                onDismiss = { showLibraryManager = false },
+            )
+        }
+        return
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(if (redesignedUi) 2 else 3),
@@ -1733,6 +1848,7 @@ internal fun PersonalizeScreen(
 ) {
     var showBaseThemeDialog by remember { mutableStateOf(false) }
     var quickPickCategory by remember { mutableStateOf<ComponentCategory?>(null) }
+    var showCompositionDetailsDialog by remember { mutableStateOf(false) }
     val baseTheme = baseThemeId?.let { id -> themes.firstOrNull { it.id.value == id } }
     val baseMakerName = baseTheme?.archive?.metadata?.let { metadata ->
         metadata.designer?.takeIf(String::isNotBlank)
@@ -1741,6 +1857,203 @@ internal fun PersonalizeScreen(
 
     val availableCategories = dev.glorioustr.mtzstudio.core.ThemeVisualPolicy.personalizationCategories
     val visibleSelections = selections.values.filter { it.category.isPersonalizationOption() }
+
+    if (redesignedUi) {
+        val selectedBaseName = baseTheme?.archive?.metadata?.name ?: baseTheme?.displayName
+        val canCompose = !operationRunning && compositionName.isNotBlank() &&
+            (baseTheme != null || visibleSelections.any { !it.useDefault } ||
+                customHomeWallpaperUri != null || customLockWallpaperUri != null)
+        val builderSections = mutableListOf<NeonBuilderSection>()
+        builderSections.add(
+                NeonBuilderSection(
+                    title = stringResource(R.string.base_theme_title),
+                    description = stringResource(R.string.base_theme_desc),
+                    icon = Icons.Filled.ColorLens,
+                    accent = Color(0xFFB54DFF),
+                    selectedValue = selectedBaseName,
+                    onClick = { showBaseThemeDialog = true },
+                ),
+            )
+        builderSections.add(
+                NeonBuilderSection(
+                    title = stringResource(R.string.save_theme_as),
+                    description = stringResource(R.string.theme_maker_name_label),
+                    icon = Icons.Filled.Edit,
+                    accent = Color(0xFF5D8DFF),
+                    selectedValue = compositionName.takeIf(String::isNotBlank)
+                        ?: stringResource(R.string.theme_name_label),
+                    onClick = { showCompositionDetailsDialog = true },
+                ),
+            )
+        for (category in availableCategories) {
+                val selected = selections[category]
+                val selectedTheme = selected?.let { selection ->
+                    themes.firstOrNull { theme ->
+                        theme.id == selection.themeId &&
+                            if (selection.useDefault) {
+                                dev.glorioustr.mtzstudio.core.ThemeVisualPolicy.isPreviewOnly(
+                                    theme.archive.components,
+                                    theme.archive.entries,
+                                    category,
+                                )
+                            } else {
+                                theme.archive.components.any {
+                                    it.category == category && it.rootPath == selection.rootPath
+                                }
+                            }
+                    }
+                }
+            builderSections.add(
+                    NeonBuilderSection(
+                        title = stringResource(categoryLabelRes(category)),
+                        description = stringResource(R.string.category_quick_picker_desc),
+                        icon = categoryIcon(category),
+                        accent = Color(0xFF55E4FF),
+                        selectedValue = selectedTheme?.archive?.metadata?.name ?: selectedTheme?.displayName,
+                        onClick = { quickPickCategory = category },
+                    ),
+            )
+        }
+        builderSections.add(
+                NeonBuilderSection(
+                    title = stringResource(R.string.custom_home_wallpaper_title),
+                    description = stringResource(R.string.custom_home_wallpaper_desc),
+                    icon = Icons.Filled.Image,
+                    accent = Color(0xFF5D8DFF),
+                    selectedValue = customHomeWallpaperUri?.let { stringResource(R.string.custom_home_wallpaper_selected) },
+                    onClick = onPickHomeWallpaper,
+                ),
+        )
+        if (customHomeWallpaperUri != null) {
+            builderSections.add(
+                    NeonBuilderSection(
+                        title = "Ana ekran duvar kâğıdını kaldır",
+                        description = "Seçili görseli kompozisyondan çıkar",
+                        icon = Icons.Filled.Clear,
+                        accent = Color(0xFFFFA45B),
+                        onClick = onRemoveHomeWallpaper,
+                    ),
+            )
+        }
+        builderSections.add(
+                NeonBuilderSection(
+                    title = stringResource(R.string.custom_lock_wallpaper_title),
+                    description = stringResource(R.string.custom_lock_wallpaper_desc),
+                    icon = Icons.Filled.Lock,
+                    accent = Color(0xFF9B6DFF),
+                    selectedValue = customLockWallpaperUri?.let { stringResource(R.string.custom_lock_wallpaper_selected) },
+                    onClick = onPickLockWallpaper,
+                ),
+        )
+        if (customLockWallpaperUri != null) {
+            builderSections.add(
+                    NeonBuilderSection(
+                        title = "Kilit ekranı duvar kâğıdını kaldır",
+                        description = "Seçili görseli kompozisyondan çıkar",
+                        icon = Icons.Filled.Clear,
+                        accent = Color(0xFFFFA45B),
+                        onClick = onRemoveLockWallpaper,
+                    ),
+            )
+        }
+        if (operationRunning || status.isNotBlank() || lastResult != null) {
+            builderSections.add(
+                    NeonBuilderSection(
+                        title = "Durum",
+                        description = status.takeIf(String::isNotBlank) ?: "Kompozisyon hazır",
+                        icon = if (operationRunning) Icons.Filled.MonitorHeart else Icons.Filled.VerifiedUser,
+                        accent = if (operationRunning) Color(0xFFFFA45B) else Color(0xFF54E6B2),
+                        selectedValue = lastResult?.output?.fileName?.toString(),
+                    ),
+            )
+        }
+        NeonThemeBuilderScreen(
+            sections = builderSections,
+            modifier = modifier,
+            primaryActionLabel = if (operationRunning) "Oluşturuluyor…" else stringResource(R.string.save_theme_as),
+            onPrimaryAction = if (canCompose) onCompose else {},
+            secondaryActionLabel = if (lastResult != null) stringResource(R.string.action_share) else null,
+            onSecondaryAction = lastResult?.let { result -> { onShare(result.output) } },
+        )
+
+        if (showBaseThemeDialog) {
+            HorizontalThemePickerDialog(
+                title = stringResource(R.string.base_theme_dialog_title),
+                description = stringResource(R.string.base_theme_picker_desc),
+                choices = themes.filter(LibraryTheme::isThemeGalleryItem).map { theme -> ThemeChoice(theme = theme) },
+                selectedKey = baseTheme?.id?.value,
+                onSelect = { choice ->
+                    onSelectBaseTheme(choice.theme)
+                    showBaseThemeDialog = false
+                },
+                onClear = if (baseTheme != null) {
+                    {
+                        onSelectBaseTheme(null)
+                        showBaseThemeDialog = false
+                    }
+                } else null,
+                onDismiss = { showBaseThemeDialog = false },
+            )
+        }
+
+        if (showCompositionDetailsDialog) {
+            AlertDialog(
+                onDismissRequest = { showCompositionDetailsDialog = false },
+                title = { Text(stringResource(R.string.save_theme_as)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = compositionName,
+                            onValueChange = onCompositionNameChange,
+                            label = { Text(stringResource(R.string.theme_name_label)) },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = compositionMakerName,
+                            onValueChange = onCompositionMakerNameChange,
+                            label = { Text(stringResource(R.string.theme_maker_name_label)) },
+                            placeholder = baseMakerName?.let { maker -> { Text(maker) } },
+                            singleLine = true,
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showCompositionDetailsDialog = false }) {
+                        Text(stringResource(R.string.action_close))
+                    }
+                },
+            )
+        }
+
+        quickPickCategory?.let { category ->
+            val current = selections[category]
+            val choices = themes.mapNotNull { theme ->
+                val component = theme.archive.components.firstOrNull { it.category == category }
+                    ?: return@mapNotNull null
+                ThemeChoice(theme = theme, category = category, rootPath = component.rootPath)
+            }
+            HorizontalThemePickerDialog(
+                title = stringResource(R.string.category_quick_picker_title, stringResource(categoryLabelRes(category))),
+                description = stringResource(R.string.category_quick_picker_desc),
+                choices = choices,
+                selectedKey = current?.let {
+                    if (it.useDefault) "${it.themeId.value}:default:${category.name}" else "${it.themeId.value}:${it.rootPath}"
+                },
+                onSelect = { choice ->
+                    selections[category] = UiSelection(choice.theme.id, category, choice.rootPath.orEmpty(), useDefault = choice.useDefault)
+                    quickPickCategory = null
+                },
+                onClear = if (current != null) {
+                    {
+                        selections.remove(category)
+                        quickPickCategory = null
+                    }
+                } else null,
+                onDismiss = { quickPickCategory = null },
+            )
+        }
+        return
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -3365,6 +3678,8 @@ private fun ThemeDetailsDialog(
     onApply: () -> Unit,
     onTranslate: () -> Unit,
     onDelete: () -> Unit,
+    onCustomize: (() -> Unit)? = null,
+    onRollback: (() -> Unit)? = null,
 ) {
     val title = theme.archive.metadata?.name ?: theme.displayName
     val categories = theme.archive.components.asSequence()
@@ -3481,6 +3796,16 @@ private fun ThemeDetailsDialog(
                             onDelete = onDelete,
                             translationProgress = translationProgress,
                         )
+                        onCustomize?.let { customize ->
+                            Button(onClick = customize, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.library_customize))
+                            }
+                        }
+                        onRollback?.let { rollback ->
+                            OutlinedButton(onClick = rollback, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.library_rollback))
+                            }
+                        }
                         TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
                     }
                 }

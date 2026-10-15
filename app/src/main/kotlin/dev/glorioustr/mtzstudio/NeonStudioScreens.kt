@@ -57,6 +57,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -531,6 +532,8 @@ fun NeonToolsScreen(
     subtitle: String = "Tema çalışma alanını güçlendiren yardımcılar",
     sectionTitle: String = "Tüm araçlar",
     sectionSubtitle: String = "Bir araca dokunarak işlemi başlat",
+    redesignedUi: Boolean = true,
+    onRedesignedUiChange: (Boolean) -> Unit = {},
 ) {
     NeonScreenBackdrop(modifier) {
         LazyColumn(
@@ -540,6 +543,27 @@ fun NeonToolsScreen(
         ) {
             item {
                 NeonHeroHeader(title = title, subtitle = subtitle, icon = Icons.Filled.Build)
+            }
+            item {
+                NeonGlassCard(accent = NeonPurple) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        NeonIconTile(Icons.Filled.GridView, NeonPurple, size = 42.dp)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Yeni tasarımı kullan", color = NeonText, fontWeight = FontWeight.Bold)
+                            Text(
+                                if (redesignedUi) "Panel, Kitaplık ve Temanı Oluştur için neon glass arayüzü aktif"
+                                else "Klasik ekran düzeni aktif",
+                                color = NeonMutedText,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Switch(checked = redesignedUi, onCheckedChange = onRedesignedUiChange)
+                    }
+                }
             }
             item {
                 NeonGlassCard(accent = NeonCyan) {

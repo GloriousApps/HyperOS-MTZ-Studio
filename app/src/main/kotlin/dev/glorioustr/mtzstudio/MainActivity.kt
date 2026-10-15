@@ -375,10 +375,15 @@ private fun StudioScreen(
     var showThemeProtectionRestartDialog by remember { mutableStateOf(false) }
     val studioState = remember { context.getSharedPreferences("studio-ui-state", 0) }
     var redesignedUi by rememberSaveable {
-        // The neon four-screen design is now the supported primary UI. Do not preserve the old
-        // reversible toggle across upgrades, otherwise an existing installation can silently
-        // continue rendering the pre-redesign screens after installing the new artifact.
-        mutableStateOf(true)
+        // Migrate existing installs to the new design once, then respect the user's toggle.
+        val migrated = studioState.getBoolean("redesigned-ui-migrated", false)
+        if (!migrated) {
+            studioState.edit()
+                .putBoolean("redesigned-ui", true)
+                .putBoolean("redesigned-ui-migrated", true)
+                .apply()
+        }
+        mutableStateOf(if (migrated) studioState.getBoolean("redesigned-ui", true) else true)
     }
     var rootAccessAvailable by remember { mutableStateOf<Boolean?>(null) }
     // Keep this unknown until the asynchronous root/Shizuku probe finishes. Rendering STANDARD
