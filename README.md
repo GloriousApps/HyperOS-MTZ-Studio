@@ -20,19 +20,28 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.5.0"><strong>v5.5.0 APK indir</strong></a>
-  · <a href="docs/release-notes-v5.5.0.md">Sürüm notları</a>
+  <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.6.0"><strong>v5.6.0 APK indir</strong></a>
+  · <a href="docs/release-notes-v5.6.0.md">Sürüm notları</a>
   · <a href="docs/theme-manager-compatibility.md">Uyumluluk</a>
   · <a href="https://github.com/GloriousApps/HyperOS-MTZ-Studio/issues">Sorun bildir</a>
 </p>
 
-## v5.5 arayüzü
+## v5.6 arayüzü
 
+### Yeni neon tasarım
 <p align="center">
-  <img src="docs/screenshots/v4/shizuku-panel.png" alt="Shizuku ve Tema Yöneticisi uyumluluk paneli" width="24%">
-  <img src="docs/screenshots/v5/root-module-panel.png" alt="Root MTZ Import runtime paneli" width="24%">
-  <img src="docs/screenshots/v4/shizuku-library.png" alt="Aktif tema ve kayıtlı temalar kitaplığı" width="24%">
-  <img src="docs/screenshots/v4/composer.png" alt="Temanı Oluştur: Widget ve bileşen seçimleri" width="24%">
+  <img src="docs/screenshots/v6/neon-panel.png" alt="Yeni neon Panel" width="24%">
+  <img src="docs/screenshots/v6/neon-library.png" alt="Yeni neon Kitaplık" width="24%">
+  <img src="docs/screenshots/v6/neon-builder.png" alt="Yeni neon Temanı Oluştur" width="24%">
+  <img src="docs/screenshots/v6/neon-tools.png" alt="Yeni neon Araçlar" width="24%">
+</p>
+
+### Klasik tasarım
+<p align="center">
+  <img src="docs/screenshots/v6/classic-panel.png" alt="Klasik Panel" width="24%">
+  <img src="docs/screenshots/v6/classic-library.png" alt="Klasik Kitaplık" width="24%">
+  <img src="docs/screenshots/v6/classic-builder.png" alt="Klasik Temanı Oluştur" width="24%">
+  <img src="docs/screenshots/v6/classic-tools.png" alt="Klasik Araçlar" width="24%">
 </p>
 
 ## Neler yapar?
@@ -78,7 +87,7 @@ Xiaomi son uygulama ekranını ve tema kabul davranışını ROM’a göre deği
 
 ## Kurulum
 
-1. [v5.5.0 Release](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.5.0) sayfasından `MTZ_Studio_v5.5.0.apk` dosyasını indirin.
+1. [v5.6.0 Release](https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.6.0) sayfasından `MTZ_Studio_v5.6.0.apk` dosyasını indirin.
 2. Eski bir sürümden geçiyorsanız önemli Studio kitaplığınızı yedekleyin.
 3. APK’yı kurun, uygulamayı açın ve erişim modunun algılanmasını bekleyin.
 4. Rootsuz tema uygulama için Shizuku/Shevery iznini verin.

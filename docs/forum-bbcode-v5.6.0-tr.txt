@@ -1,0 +1,153 @@
+[CENTER][IMG]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/app/src/main/res/drawable-nodpi/logo_banner.png[/IMG]
+[SIZE=7][B]HyperOS MTZ Studio v5.6.0[/B][/SIZE]
+[SIZE=4]Xiaomi HyperOS için açık kaynaklı MTZ tema stüdyosu[/SIZE]
+[URL='https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.6.0'][B]APK İndir[/B][/URL] • [URL='https://github.com/GloriousApps/HyperOS-MTZ-Studio']Kaynak Kod[/URL]
+[/CENTER]
+
+[HR][/HR]
+
+[SIZE=5][B]Önemli: Rootsuz kullanım gereksinimi[/B][/SIZE]
+
+[B][COLOR=rgb(226, 80, 65)]Rootsuz cihazlarda tema uygulamak için Shizuku veya Shevery gereklidir.[/COLOR][/B]
+
+Hizmet hazır değilse MTZ Studio; kurulum sihirbazını, Shevery bağlantısını, görsel kablosuz hata ayıklama rehberini ve videolu anlatımı doğrudan gösterir.
+
+[URL='https://github.com/HmnDev-Tech/shevery/releases']Shevery’yi indir[/URL] • [URL='https://www.youtube.com/shorts/pnHNdU6LppA']Videolu kurulum anlatımı[/URL]
+
+[HR][/HR]
+
+[SIZE=5][B]v5.6.0 ile gelenler[/B][/SIZE]
+
+[LIST]
+[*][B]Yeni dört menülü arayüz:[/B] Panel, Kitaplık, Temanı Oluştur ve Araçlar ekranları neon tasarım ile yenilendi.
+[*][B]Klasik tasarıma geri dönüş:[/B] Yeni görünüm, Araçlar ekranındaki [B]Yeni menü tasarımı[/B] anahtarıyla kapatılabilir.
+[*][B]Yeni Panel düzeni:[/B] MTZ Import, BAK Converter ve Yedekleme hızlı işlemleri artık aynı satırda üç ayrı kart olarak gösterilir.
+[*][B]Cihaz Durumu:[/B] Cihaz modeli, HyperOS sürümü, Root yöneticisi veya Shevery/Shizuku bilgisi tek bir bölümde gösterilir.
+[*][B]Tekrarsız durum göstergeleri:[/B] Root/Shevery durumu üst çubukta tek ana gösterge olarak tutulur; panel içindeki tekrarlar kaldırılır.
+[*][B]Gerçek kitaplık sayımı:[/B] Font-only ve tekil bileşen MTZ’leri tam tema sayısına dahil edilmez.
+[*][B]Yeni çalışma alanı özeti:[/B] Kitaplık sayısı, son tema ve gerçek çalışma durumu gösterilir; sahte taslak/uyum değerleri kaldırılır.
+[*][B]Sade Root runtime kartı:[/B] Root MTZ Import durumu, ana ekranı kalabalıklaştırmadan kısa durum bilgisiyle gösterilir. Teknik ayrıntılar bilgi simgesinden açılır.
+[*][B]Root MTZ Import Modülü 2.0.0:[/B] Global ve Non-Global Theme Manager runtime’ları için doğrulanmış modül kurulumu ve güncelleme akışı.
+[*][B]Theme Manager V7 uyumluluğu:[/B] Cihazda geçerli Mods-Center Theme Manager V7 kurulumu varsa mevcut runtime algılanır ve üzerine yazılmadan benimsenir.
+[*][B]Güvenli V7 davranışı:[/B] MTZ Studio geçerli V7 runtime’ın üzerine kendi Themes APK’sını kurmaz; mevcut V7 kurulumu korunur.
+[*][B]Canlı APK doğrulama düzeltmesi:[/B] Güncellenmiş sistem uygulamalarında Package Manager ile `pm path` tarafından bildirilen farklı APK yolları artık doğru şekilde doğrulanır.
+[*][B]Yanlış yeniden başlatma durumu düzeltildi:[/B] Yeniden başlatma sonrası aktif Root runtime doğru algılanır; modül gereksiz yere yeniden kurulum veya yeniden başlatma istemez.
+[/LIST]
+
+[HR][/HR]
+
+[SIZE=5][B]Kitaplık yenilikleri[/B][/SIZE]
+
+[LIST]
+[*][B]İki sütunlu tema galerisi:[/B] Yeni tasarımda tema önizlemeleri daha büyük ve daha okunabilir gösterilir.
+[*][B]Koleksiyon filtreleri:[/B] Temalar [B]Tümü[/B], [B]Oluşturulan[/B] ve [B]İçe aktarılan[/B] olarak filtrelenebilir.
+[*][B]Aktif tema görünümü:[/B] Aktif tema, uygulama yöntemi ve geri alma/özelleştirme işlemleri daha görünür hale getirildi.
+[*]Tema detaylarını açma, uygulama, çeviri, silme ve geri alma işlemleri korunmaya devam ediyor.
+[*]Kitaplığı Yönet ekranında çoklu tema silme ve yerel temaları içe aktarma desteği devam ediyor.
+[/LIST]
+
+[HR][/HR]
+
+[SIZE=5][B]Temanı Oluştur yenilikleri[/B][/SIZE]
+
+[LIST]
+[*][B]Kompozisyon akışı:[/B] Seçilen tema bölümlerinin ilerlemesi canlı olarak gösterilir.
+[*][B]Bölüm sayacı:[/B] Kaç bileşenin seçildiği ve toplam kaç bölüm bulunduğu ekranda gösterilir.
+[*][B]Tema bölümleri başlığı:[/B] Simgeler, kilit ekranı, durum çubuğu, arama tuşları, SMS ekranı, başlatıcı, widget ve diğer bölümler daha düzenli şekilde sunulur.
+[*][B]Neon kart yapısı:[/B] Yeni tasarım, klasik ekrandaki okunabilir iki sütunlu bileşen kart yapısını neon görünümle birleştirir.
+[*]Temel tema seçimi ve değiştirme
+[*]Özel ana ekran ve kilit ekranı duvar kâğıdı seçimi
+[*]Tema adı ve yapımcı adı belirleme
+[*]Hazırlanan temayı kaydetme, önizleme, paylaşma ve MTZ olarak oluşturma
+[/LIST]
+
+[HR][/HR]
+
+[SIZE=5][B]Temel özellikler[/B][/SIZE]
+
+[LIST]
+[*]Tek MTZ veya aynı anda en fazla 5 MTZ içe aktarma
+[*]Desteklenen Xiaomi Temalar sürümlerinde Studio kitaplığı ile yerel Temalar kitaplığını eşitleme
+[*]BAK Converter ile `.bak` yedeklerini MTZ’ye dönüştürme
+[*]Tema ve kilit ekranı metinlerini uygulama diline çevirme
+[*]Çevrilen MTZ’nin eski, çevrilmemiş kopyayla karışmasını engelleyen eşitleme sistemi
+[*]Farklı temalardan bileşen seçerek yeni MTZ oluşturma
+[*]`clock_2x4` widget bileşeniyle tema oluşturma desteği
+[*]Bulut/WebDAV yedekleme ve geri yükleme
+[*]Otomatik GitHub güncelleme denetimi
+[*]Yüzde ilerlemeli APK indirme ve [B]İndir ve Kur / Daha Sonra[/B] seçenekleri
+[*]Root, Shizuku ve Shevery için dinamik yetkilendirme denetimi
+[*]Tema koruması ve Live Diagnostics
+[/LIST]
+
+[HR][/HR]
+
+[SIZE=5][B]Tema Yöneticisi uyumluluğu[/B][/SIZE]
+
+MTZ Studio, kurulu Xiaomi Temalar sürümünü ve cihazın runtime durumunu çalışma anında doğrular.
+
+Desteklenen çalışma yolları:
+
+[LIST]
+[*][B]Global runtime:[/B] Xiaomi Themes `3.4.1.23-global`
+[*][B]Non-Global runtime:[/B] Xiaomi Themes `11.5.3.1`
+[*][B]Theme Manager V7:[/B] Geçerli Mods-Center V7 kurulumu varsa mevcut runtime korunur ve benimsenir.
+[*][B]Modern yerel kitaplık:[/B] Theme Manager V7 veya modern Themes sürümlerinde Xiaomi Temalar’ın yerel kitaplık/import yolu kullanılır.
+[/LIST]
+
+Root modülü kurulu değilse ve geçerli bir harici V7 runtime bulunamazsa cihaz hedefi algılanır ve Global/Non-Global runtime seçenekleri gösterilir.
+
+Global Root MTZ Import modülü uygulama içinden kurulabilir veya güncellenebilir. Global bridge’in etkinleşmesi için modül kurulumundan sonra cihazın yeniden başlatılması gerekebilir; runtime zaten etkinleşmişse tekrar kurulum gerekmez.
+
+Geçerli bir V7 runtime algılanırsa MTZ Studio kendi Themes APK’sını üzerine yazmaz.
+
+[HR][/HR]
+
+[SIZE=5][B]Ekran görüntüleri[/B][/SIZE]
+
+[SIZE=4][B]Yeni neon tasarım[/B][/SIZE]
+[CENTER]
+[IMG width="24%"]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/docs/screenshots/v6/neon-panel.png[/IMG]
+[IMG width="24%"]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/docs/screenshots/v6/neon-library.png[/IMG]
+[IMG width="24%"]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/docs/screenshots/v6/neon-builder.png[/IMG]
+[IMG width="24%"]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/docs/screenshots/v6/neon-tools.png[/IMG]
+[/CENTER]
+
+[SIZE=4][B]Klasik tasarım[/B][/SIZE]
+[CENTER]
+[IMG width="24%"]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/docs/screenshots/v6/classic-panel.png[/IMG]
+[IMG width="24%"]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/docs/screenshots/v6/classic-library.png[/IMG]
+[IMG width="24%"]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/docs/screenshots/v6/classic-builder.png[/IMG]
+[IMG width="24%"]https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/docs/screenshots/v6/classic-tools.png[/IMG]
+[/CENTER]
+
+[HR][/HR]
+
+[SIZE=5][B]Kurulum[/B][/SIZE]
+
+[LIST=1]
+[*][URL='https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.6.0']GitHub v5.6.0 Release sayfasını açın.[/URL]
+[*][B]MTZ_Studio_v5.6.0.apk[/B] dosyasını indirin ve mevcut kurulumun üzerine yükleyin.
+[*]Rootlu cihazlarda Root iznini verin. Gerekirse Panel’deki Root MTZ Import kartından uygun runtime modülünü kurun.
+[*]Root modülü yeni kurulduysa, ekrandaki yönlendirmeye göre cihazı yeniden başlatın.
+[*]Rootsuz cihazlarda Shizuku veya Shevery hizmetini başlatın.
+[*]MTZ Studio için istenen Shizuku/Shevery iznini onaylayın.
+[/LIST]
+
+[B]Sürüm:[/B] 5.6.0
+[B]Sürüm kodu:[/B] 78
+[B]Minimum Android:[/B] Android 8.0
+[B]Hedef Android:[/B] Android 16
+[B]Paket adı:[/B] dev.glorioustr.mtzstudio
+
+[CENTER]
+[SIZE=5][URL='https://github.com/GloriousApps/HyperOS-MTZ-Studio/releases/tag/v5.6.0'][B]HyperOS MTZ Studio v5.6.0 APK İndir[/B][/URL][/SIZE]
+
+[URL='https://github.com/GloriousApps/HyperOS-MTZ-Studio']GitHub ve Kaynak Kod[/URL] • [URL='https://github.com/GloriousApps/HyperOS-MTZ-Studio/issues']Sorun Bildir[/URL] • [URL='https://t.me/Glorioustr']Telegram Destek[/URL]
+[/CENTER]
+
+[HR][/HR]
+
+[B][COLOR=rgb(226, 80, 65)]Uyarı:[/COLOR][/B] Xiaomi Temalar uygulamasının içe aktarma ve tema uygulama davranışı cihazın ROM’una, bölgesine, root yöneticisine ve Temalar sürümüne göre değişebilir.
+
+[CENTER][B]Geliştirici: GloriousApps[/B][/CENTER]
