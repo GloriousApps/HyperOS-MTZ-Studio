@@ -209,6 +209,17 @@ internal fun StudioPanelScreen(
             subtitle = "MTZ Studio · HyperOS tema çalışma alanın",
             statusLabel = statusLabel,
             statusColor = if (accessMode == StudioAccessMode.STANDARD) Color(0xFFFFA45B) else Color(0xFF54E6B2),
+            deviceStatusLabel = when (accessMode) {
+                StudioAccessMode.ROOT -> "ROOT AKTİF"
+                StudioAccessMode.SHIZUKU -> "SHEVERY / SHIZUKU BAĞLI"
+                StudioAccessMode.STANDARD -> "YETKİ GEREKLİ"
+                null -> "DURUM KONTROLÜ"
+            },
+            deviceStatusColor = when (accessMode) {
+                StudioAccessMode.ROOT -> Color(0xFFB54DFF)
+                StudioAccessMode.SHIZUKU -> Color(0xFF54E6B2)
+                else -> Color(0xFFFFA45B)
+            },
             quickActions = listOf(
                 NeonQuickAction(
                     title = stringResource(R.string.mtz_import_title),
@@ -248,6 +259,7 @@ internal fun StudioPanelScreen(
                     updater = themeManagerUpdater,
                     openInput = openInput,
                     allowRootDowngrade = allowRootDowngrade,
+                    neonStyle = true,
                 )
             },
         )
@@ -1310,6 +1322,7 @@ internal fun ThemesScreen(
                     detailsTheme = null
                     onCustomizeTheme(theme)
                 },
+                neonStyle = true,
                 onRollback = if (theme.id.value == activeThemeId) previousTheme?.let { previous ->
                     {
                         detailsTheme = null
@@ -3047,6 +3060,7 @@ internal fun ThemeProtectionScreen(
     onOpenFramework: () -> Unit,
     onRestartDevice: () -> Unit,
     onRefresh: () -> Unit,
+    neonStyle: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -3055,7 +3069,7 @@ internal fun ThemeProtectionScreen(
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
         item {
-            StudioCard(Modifier.fillMaxWidth()) {
+            StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -3094,7 +3108,7 @@ internal fun ThemeProtectionScreen(
         }
 
         item {
-            StudioCard(Modifier.fillMaxWidth()) {
+            StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -3241,6 +3255,7 @@ internal fun AppearanceScreen(
     onSelect: (AppAppearance) -> Unit,
     contentStyle: AppContentStyle,
     onContentStyleSelect: (AppContentStyle) -> Unit,
+    neonUi: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -3256,7 +3271,7 @@ internal fun AppearanceScreen(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (!neonUi) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     AppearanceModeCard(AppAppearance.SYSTEM, selected == AppAppearance.SYSTEM, onSelect, Modifier.weight(1f))
                     AppearanceModeCard(AppAppearance.AMOLED, selected == AppAppearance.AMOLED, onSelect, Modifier.weight(1f))
                 }
@@ -3266,7 +3281,7 @@ internal fun AppearanceScreen(
                 }
             }
         }
-        item {
+        if (!neonUi) item {
             Text(
                 stringResource(R.string.appearance_content_style_title),
                 modifier = Modifier.padding(top = 8.dp),
@@ -3274,7 +3289,7 @@ internal fun AppearanceScreen(
                 style = MaterialTheme.typography.titleMedium,
             )
         }
-        item {
+        if (!neonUi) item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf(AppContentStyle.DEFAULT, AppContentStyle.LIQUID_GLASS).forEach { style ->
                     ContentStyleCard(
@@ -3617,13 +3632,14 @@ private fun ThemeActionDock(
     onTranslate: () -> Unit,
     onDelete: () -> Unit,
     translationProgress: ThemeTranslationProgress? = null,
+    neonStyle: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = if (neonStyle) Color(0xFF0B2050) else MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, if (neonStyle) Color(0xFF55E4FF).copy(alpha = 0.58f) else MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column {
             Button(
@@ -3695,6 +3711,7 @@ private fun ThemeDetailsDialog(
     onDelete: () -> Unit,
     onCustomize: (() -> Unit)? = null,
     onRollback: (() -> Unit)? = null,
+    neonStyle: Boolean = false,
 ) {
     val title = theme.archive.metadata?.name ?: theme.displayName
     val categories = theme.archive.components.asSequence()
@@ -3709,7 +3726,8 @@ private fun ThemeDetailsDialog(
         Surface(
             modifier = Modifier.fillMaxWidth(0.92f).heightIn(max = 720.dp),
             shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = if (neonStyle) Color(0xFF081536) else MaterialTheme.colorScheme.surface,
+            border = if (neonStyle) BorderStroke(1.dp, Color(0xFF5D8DFF).copy(alpha = 0.72f)) else null,
             tonalElevation = 8.dp,
         ) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(0.dp)) {
@@ -3810,9 +3828,14 @@ private fun ThemeDetailsDialog(
                             onTranslate = onTranslate,
                             onDelete = onDelete,
                             translationProgress = translationProgress,
+                            neonStyle = neonStyle,
                         )
                         onCustomize?.let { customize ->
-                            Button(onClick = customize, modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = customize,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = if (neonStyle) ButtonDefaults.buttonColors(containerColor = Color(0xFF7B43FF)) else ButtonDefaults.buttonColors(),
+                            ) {
                                 Text(stringResource(R.string.library_customize))
                             }
                         }
@@ -3862,14 +3885,14 @@ private fun StatusBadge(text: String, color: Color, modifier: Modifier = Modifie
 }
 
 @Composable
-internal fun AboutScreen(modifier: Modifier = Modifier) {
+internal fun AboutScreen(modifier: Modifier = Modifier, neonStyle: Boolean = false) {
     val uriHandler = LocalUriHandler.current
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            StudioCard(Modifier.fillMaxWidth()) {
+            StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -3950,7 +3973,7 @@ internal fun AboutScreen(modifier: Modifier = Modifier) {
             }
         }
         item {
-            StudioCard(Modifier.fillMaxWidth()) {
+            StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
                         stringResource(R.string.about_capabilities_title),
@@ -3987,7 +4010,7 @@ internal fun AboutScreen(modifier: Modifier = Modifier) {
             }
         }
         item {
-            StudioCard(Modifier.fillMaxWidth()) {
+            StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),

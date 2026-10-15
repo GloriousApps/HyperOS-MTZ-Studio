@@ -74,6 +74,7 @@ internal fun ThemeManagerCompatibilityCard(
     updater: RootThemeManagerUpdater,
     openInput: (Uri) -> InputStream?,
     allowRootDowngrade: Boolean,
+    neonStyle: Boolean = false,
 ) {
     val recommendedApkName = "Xiaomi_Themes_3.0.5.6-global.apk"
     val recommendedDownloadUrl =
@@ -251,7 +252,7 @@ internal fun ThemeManagerCompatibilityCard(
         onDispose { staged?.let { runCatching { updater.discard(it) } } }
     }
 
-    StudioCard(Modifier.fillMaxWidth()) {
+    StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
         val compatibleLocalMtzPath = runtimeProfile?.compatibleLocalMtzPath == true
         val applyActivityUnavailable = runtimeProfile != null && installed?.installed == true && !compatibleLocalMtzPath
         // Legacy Global builds such as 3.0.5.6 expose ApplyThemeForScreenshot and are therefore

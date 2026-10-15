@@ -21,9 +21,26 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun StudioCard(
     modifier: Modifier = Modifier,
+    neon: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = MaterialTheme.shapes.large
+    if (neon) {
+        Box(
+            modifier = modifier
+                .shadow(3.dp, shape)
+                .clip(shape)
+                .background(Brush.linearGradient(listOf(Color(0xE6222550), Color(0xCC101B43), Color(0xE6111738))))
+                .border(
+                    1.dp,
+                    Brush.linearGradient(listOf(Color(0xFF9B6DFF), Color(0xFF5D8DFF), Color(0xFF55E4FF))),
+                    shape,
+                ),
+        ) {
+            Column(Modifier.fillMaxWidth(), content = content)
+        }
+        return
+    }
     if (LocalAppContentStyle.current != AppContentStyle.LIQUID_GLASS) {
         Card(modifier = modifier, shape = shape, content = content)
         return

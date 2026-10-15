@@ -54,7 +54,7 @@ import java.util.Locale
 
 /** BYOK configuration ported from BAK Importer. Credentials remain encrypted on-device. */
 @Composable
-internal fun AiTranslationSettingsScreen(modifier: Modifier = Modifier) {
+internal fun AiTranslationSettingsScreen(modifier: Modifier = Modifier, neonStyle: Boolean = false) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
@@ -88,7 +88,7 @@ internal fun AiTranslationSettingsScreen(modifier: Modifier = Modifier) {
     )
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        StudioCard(Modifier.fillMaxWidth()) {
+        StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
@@ -117,7 +117,7 @@ internal fun AiTranslationSettingsScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
-        StudioCard(Modifier.fillMaxWidth()) {
+        StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Filled.AutoFixHigh, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(19.dp))

@@ -330,6 +330,8 @@ fun NeonPanelScreen(
     recentTitle: String = "Son çalışmalar",
     onSeeAllRecent: (() -> Unit)? = null,
     footerContent: @Composable () -> Unit = {},
+    deviceStatusLabel: String = "SHEVERY BAĞLI",
+    deviceStatusColor: Color = NeonGreen,
 ) {
     NeonScreenBackdrop(modifier) {
         LazyColumn(
@@ -347,7 +349,7 @@ fun NeonPanelScreen(
                 )
             }
             item {
-                NeonPanelBanner()
+                NeonPanelBanner(deviceStatusLabel, deviceStatusColor)
             }
             if (metrics.isNotEmpty()) {
                 item { NeonMetricsRow(metrics) }
@@ -512,9 +514,13 @@ fun NeonThemeBuilderScreen(
                             title = "Tema bileşenleri",
                             subtitle = "İstediğin kaynakları çalışma alanına ekle",
                         )
-                        sections.forEachIndexed { index, section ->
-                            NeonBuilderRow(section)
-                            if (index < sections.lastIndex) NeonDivider()
+                        sections.chunked(2).forEach { rowSections ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                rowSections.forEach { section ->
+                                    NeonBuilderRow(section, Modifier.weight(1f))
+                                }
+                                if (rowSections.size == 1) Spacer(Modifier.weight(1f))
+                            }
                         }
                     }
                 }
@@ -757,9 +763,9 @@ private fun NeonLibraryRow(item: NeonLibraryItem, padded: Boolean = false) {
 }
 
 @Composable
-private fun NeonBuilderRow(section: NeonBuilderSection) {
+private fun NeonBuilderRow(section: NeonBuilderSection, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = section.onClick)
@@ -790,7 +796,7 @@ private fun NeonDivider(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun NeonPanelBanner() {
+private fun NeonPanelBanner(label: String, color: Color) {
     NeonGlassCard(accent = NeonBlue) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -802,7 +808,7 @@ private fun NeonPanelBanner() {
                 Text("Cihaz durumu", color = NeonText, fontWeight = FontWeight.Bold)
                 Text("HyperOS tema çalışma alanı hazır", color = NeonMutedText, style = MaterialTheme.typography.labelSmall)
             }
-            NeonBadge("SHEVERY BAĞLI", NeonGreen)
+            NeonBadge(label, color)
         }
     }
 }

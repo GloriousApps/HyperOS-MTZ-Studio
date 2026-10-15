@@ -62,6 +62,7 @@ internal fun LiveDiagnosticsCard(
     shareDiagnostics: (Path) -> Unit,
     shareThemeManagerApk: (Path) -> Unit,
     openAppShareForThemesExport: () -> Unit,
+    neonStyle: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -92,7 +93,7 @@ internal fun LiveDiagnosticsCard(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        StudioCard(Modifier.fillMaxWidth()) {
+        StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(
@@ -268,7 +269,7 @@ private fun DiagnosticsActionCard(
     accent: Color,
     onClick: () -> Unit,
 ) {
-    StudioCard(Modifier.fillMaxWidth()) {
+    StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,

@@ -2142,6 +2142,7 @@ private fun StudioScreen(
                 shareDiagnostics = shareDiagnostics,
                 shareThemeManagerApk = shareThemeManagerApk,
                 openAppShareForThemesExport = openAppShareForThemesExport,
+                neonStyle = redesignedUi,
                 modifier = contentModifier,
             )
             destination == StudioDestination.BACKUP -> BackupRestoreScreen(
@@ -2183,10 +2184,11 @@ private fun StudioScreen(
                 onSelect = onAppearanceChange,
                 contentStyle = contentStyle,
                 onContentStyleSelect = onContentStyleChange,
+                neonUi = redesignedUi,
                 modifier = contentModifier,
             )
-            destination == StudioDestination.AI_TRANSLATION -> AiTranslationSettingsScreen(modifier = contentModifier)
-            destination == StudioDestination.ABOUT -> AboutScreen(modifier = contentModifier)
+            destination == StudioDestination.AI_TRANSLATION -> AiTranslationSettingsScreen(modifier = contentModifier, neonStyle = redesignedUi)
+            destination == StudioDestination.ABOUT -> AboutScreen(modifier = contentModifier, neonStyle = redesignedUi)
             destination == StudioDestination.THEME_PROTECTION -> ThemeProtectionScreen(
                 state = themeProtectionState,
                 onEnable = ThemeProtectionServiceClient::requestActivation,
@@ -2217,6 +2219,7 @@ private fun StudioScreen(
                         ThemeProtectionServiceClient.refresh()
                     }
                 },
+                neonStyle = redesignedUi,
                 modifier = contentModifier,
             )
             destination.category != null -> CategoryScreen(
