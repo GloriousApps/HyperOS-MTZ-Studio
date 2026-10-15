@@ -26,14 +26,29 @@ internal fun StudioCard(
 ) {
     val shape = MaterialTheme.shapes.large
     if (neon) {
+        val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
         Box(
             modifier = modifier
                 .shadow(3.dp, shape)
                 .clip(shape)
-                .background(Brush.linearGradient(listOf(Color(0xE6222550), Color(0xCC101B43), Color(0xE6111738))))
+                .background(
+                    Brush.linearGradient(
+                        if (lightSurface) {
+                            listOf(Color(0xF7FFFFFF), Color(0xFFEAF1FF), Color(0xFFF8EFFF))
+                        } else {
+                            listOf(Color(0xE6222550), Color(0xCC101B43), Color(0xE6111738))
+                        },
+                    ),
+                )
                 .border(
                     1.dp,
-                    Brush.linearGradient(listOf(Color(0xFF9B6DFF), Color(0xFF5D8DFF), Color(0xFF55E4FF))),
+                    Brush.linearGradient(
+                        if (lightSurface) {
+                            listOf(Color(0xFF7650C7), Color(0xFF426FCC), Color(0xFF168BA0))
+                        } else {
+                            listOf(Color(0xFF9B6DFF), Color(0xFF5D8DFF), Color(0xFF55E4FF))
+                        },
+                    ),
                     shape,
                 ),
         ) {

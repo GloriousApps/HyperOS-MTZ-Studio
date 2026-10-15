@@ -348,6 +348,8 @@ fun NeonPanelScreen(
     footerContent: @Composable () -> Unit = {},
     deviceStatusLabel: String = "SHEVERY BAĞLI",
     deviceStatusColor: Color = NeonGreen,
+    deviceManagerLabel: String? = null,
+    onDeviceManagerClick: (() -> Unit)? = null,
 ) {
     NeonScreenBackdrop(modifier) {
         LazyColumn(
@@ -365,7 +367,12 @@ fun NeonPanelScreen(
                 )
             }
             item {
-                NeonPanelBanner(deviceStatusLabel, deviceStatusColor)
+                NeonPanelBanner(
+                    label = deviceStatusLabel,
+                    color = deviceStatusColor,
+                    managerLabel = deviceManagerLabel,
+                    onManagerClick = onDeviceManagerClick,
+                )
             }
             if (metrics.isNotEmpty()) {
                 item { NeonMetricsRow(metrics) }
@@ -856,7 +863,12 @@ private fun NeonDivider(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun NeonPanelBanner(label: String, color: Color) {
+private fun NeonPanelBanner(
+    label: String,
+    color: Color,
+    managerLabel: String? = null,
+    onManagerClick: (() -> Unit)? = null,
+) {
     NeonGlassCard(accent = NeonBlue) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -869,6 +881,13 @@ private fun NeonPanelBanner(label: String, color: Color) {
                 Text("HyperOS tema çalışma alanı hazır", color = neonMutedTextColor(), style = MaterialTheme.typography.labelSmall)
             }
             NeonBadge(label, color)
+        }
+        if (managerLabel != null && onManagerClick != null) {
+            TextButton(onClick = onManagerClick, modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 4.dp)) {
+                Icon(Icons.Filled.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(managerLabel)
+            }
         }
     }
 }

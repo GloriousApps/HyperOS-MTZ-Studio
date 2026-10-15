@@ -1905,6 +1905,7 @@ private fun StudioScreen(
         },
         bottomBar = {
             if (destination in primaryDestinations) {
+                val lightNavigation = MaterialTheme.colorScheme.background.luminance() > 0.5f
                 Box(
                     Modifier
                         .fillMaxWidth()
@@ -1939,11 +1940,11 @@ private fun StudioScreen(
                                     icon = { Icon(icon, contentDescription = null) },
                                     label = { Text(stringResource(label), maxLines = 1, style = MaterialTheme.typography.labelSmall) },
                                     colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = Color(0xFFF0EDF7),
-                                        selectedTextColor = Color(0xFFF0EDF7),
-                                        indicatorColor = Color(0xFF554A70),
-                                        unselectedIconColor = Color(0xFFD7D2E0),
-                                        unselectedTextColor = Color(0xFFB9B4C4),
+                                        selectedIconColor = if (lightNavigation) Color(0xFF34205B) else Color(0xFFF0EDF7),
+                                        selectedTextColor = if (lightNavigation) Color(0xFF34205B) else Color(0xFFF0EDF7),
+                                        indicatorColor = if (lightNavigation) Color(0xFFD9C5FF) else Color(0xFF554A70),
+                                        unselectedIconColor = if (lightNavigation) Color(0xFF4F4860) else Color(0xFFD7D2E0),
+                                        unselectedTextColor = if (lightNavigation) Color(0xFF4F4860) else Color(0xFFB9B4C4),
                                     ),
                                 )
                             }

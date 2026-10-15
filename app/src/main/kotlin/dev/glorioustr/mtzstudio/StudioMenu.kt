@@ -220,6 +220,12 @@ internal fun StudioPanelScreen(
                 StudioAccessMode.SHIZUKU -> Color(0xFF54E6B2)
                 else -> Color(0xFFFFA45B)
             },
+            deviceManagerLabel = when (accessMode) {
+                StudioAccessMode.ROOT -> "Root yöneticisini aç"
+                StudioAccessMode.SHIZUKU -> "Shevery / Shizuku uygulamasını aç"
+                else -> null
+            },
+            onDeviceManagerClick = if (authorizationManagerName != null) onOpenAuthorizationManager else null,
             quickActions = listOf(
                 NeonQuickAction(
                     title = stringResource(R.string.mtz_import_title),
@@ -244,14 +250,6 @@ internal fun StudioPanelScreen(
                     accent = Color(0xFF54E6B2),
                     onClick = onOpenBackup,
                 ),
-                NeonQuickAction(
-                    title = "Tema yöneticisi",
-                    subtitle = "Uyumluluk ve geri dönüş",
-                    icon = Icons.Filled.Settings,
-                    accent = Color(0xFFFFA45B),
-                    onClick = onOpenAuthorizationManager,
-                    enabled = authorizationManagerName != null,
-                ),
             ),
             footerContent = {
                 ThemeManagerCompatibilityCard(
@@ -267,6 +265,11 @@ internal fun StudioPanelScreen(
         return
     }
     val uriHandler = LocalUriHandler.current
+    val managerActionLabel = when (accessMode) {
+        StudioAccessMode.ROOT -> "Root yöneticisini aç"
+        StudioAccessMode.SHIZUKU -> "Shevery / Shizuku uygulamasını aç"
+        else -> "Yetkilendirme uygulamasını aç"
+    }
     val wirelessDebuggingEnabled = remember(accessMode) {
         runCatching { Settings.Global.getInt(context.contentResolver, "adb_wifi_enabled", 0) == 1 }.getOrDefault(false)
     }
@@ -346,7 +349,7 @@ internal fun StudioPanelScreen(
                             Button(onClick = onOpenAuthorizationManager) {
                                 Icon(Icons.Filled.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.panel_manage_service))
+                                Text(managerActionLabel)
                             }
                         }
                     }
