@@ -398,6 +398,11 @@
     <string name="tm_dialog_confirm">Confirm and execute</string>
     <string name="tm_status_waiting_root">Waiting for root permission and package manager result…</string>
     <string name="tm_status_root_failed">Root operation failed: %1$s</string>
+    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
+    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
+    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
+    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
+    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 
     <!-- Shizuku-compatible Authorization Gate -->
     <string name="shevery_dialog_title">Shizuku / Shevery access</string>

@@ -23,7 +23,18 @@ data class ThemeManagerRuntimeProfile(
     val publicMtzImportResolvable: Boolean,
     val splitApkCount: Int,
     val exportedThemeActivityCandidates: List<String>,
+    /** True when the verified 3.4.x Themes account/local-resource shell is exported. */
+    val themeResourceTabResolvable: Boolean = false,
 ) {
+    /**
+     * A manual handoff is not an importer and must never be reported as automatic apply support.
+     * It only gives the user a known Themes surface from which Xiaomi's own local-resource flow
+     * can be continued.
+     */
+    val manualLocalLibraryHandoffAvailable: Boolean
+        get() = ThemeManagerContract.canonicalVersion(versionName) ==
+            ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION && themeResourceTabResolvable
+
     /** A verified legacy apply activity or a verified modern native import library is sufficient. */
     val compatibleLocalMtzPath: Boolean
         get() = legacyTesterResolvable ||
@@ -50,6 +61,16 @@ class ThemeManagerCapabilityProbe(private val context: Context) {
         }
         val modernLocalLibraryResolvable = runCatching {
             context.packageManager.resolveActivity(modernLocalLibrary, PackageManager.MATCH_DEFAULT_ONLY) != null
+        }.getOrDefault(false)
+        val themeResourceTabResolvable = runCatching {
+            Intent().apply {
+                component = ComponentName(
+                    ThemeManagerContract.PACKAGE_NAME,
+                    ThemeManagerContract.THEME_RESOURCE_TAB_COMPONENT,
+                )
+                putExtra("extra_outer_tab_id", "mine")
+                putExtra("EXTRA_TAB_ID", "theme")
+            }.resolveActivity(context.packageManager) != null
         }.getOrDefault(false)
         val publicMtzImport = listOf(
             "application/vnd.miui.mtz",
@@ -95,6 +116,7 @@ class ThemeManagerCapabilityProbe(private val context: Context) {
             publicMtzImportResolvable = publicMtzImport,
             splitApkCount = splits,
             exportedThemeActivityCandidates = candidates,
+            themeResourceTabResolvable = themeResourceTabResolvable,
         )
     }
 

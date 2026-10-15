@@ -122,9 +122,24 @@ object RootlessRestoreAssistant {
         } else null
         if (legacyTester?.resolveActivity(context.packageManager) != null) return legacyTester
 
-        // Do not reference a guessed Xiaomi internal activity.  Some Global releases, including
-        // 2.15.6.12, removed MineResourceTabActivity entirely.  Opening the package launcher is
-        // safe and lets the user complete any ROM-specific manual import from Downloads/MTZ Studio.
+        val manualThemeLibrary = Intent().apply {
+            component = ComponentName(
+                THEME_MANAGER_PACKAGE,
+                ThemeManagerContract.THEME_RESOURCE_TAB_COMPONENT,
+            )
+            putExtra("extra_outer_tab_id", "mine")
+            putExtra("EXTRA_TAB_ID", "theme")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (ThemeManagerContract.canonicalVersion(version) ==
+            ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION &&
+            manualThemeLibrary.resolveActivity(context.packageManager) != null
+        ) return manualThemeLibrary
+
+        // Do not reference a guessed Xiaomi internal activity on older builds. Some Global
+        // releases removed the old local-resource activity entirely. Opening the package launcher
+        // is the safe fallback and lets the user complete any ROM-specific manual import from
+        // Downloads/MTZ Studio.
         return checkNotNull(context.packageManager.getLaunchIntentForPackage(THEME_MANAGER_PACKAGE)) {
             "Xiaomi Temalar uygulamasının açılabilir bir ekranı bulunamadı"
         }.apply {

@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#101017"/>
+      <stop offset="1" stop-color="#171621"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8e63ff"/>
+      <stop offset="0.52" stop-color="#48d9ff"/>
+      <stop offset="1" stop-color="#d16cff"/>
+    </linearGradient>
+    <linearGradient id="preview" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#211b55"/>
+      <stop offset="0.42" stop-color="#6a3ac1"/>
+      <stop offset="1" stop-color="#1dd6d0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000000" flood-opacity="0.32"/>
+    </filter>
+    <style>
+      .body { font-family: "Google Sans", "Segoe UI", Arial, sans-serif; fill: #f0edf7; }
+      .muted { font-family: "Google Sans", "Segoe UI", Arial, sans-serif; fill: #b9b4c4; }
+      .small { font-family: "Google Sans", "Segoe UI", Arial, sans-serif; fill: #d7d2e0; font-size: 24px; }
+      .label { font-family: "Google Sans", "Segoe UI", Arial, sans-serif; fill: #aaa4b7; font-size: 21px; letter-spacing: 1px; }
+    </style>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+
+  <!-- Status bar -->
+  <text x="68" y="70" class="body" font-size="26">09:41</text>
+  <text x="810" y="70" class="body" font-size="22">5G</text>
+  <path d="M866 58 h34 M872 49 h22 M878 40 h10" stroke="#f0edf7" stroke-width="6" stroke-linecap="round"/>
+  <path d="M932 41 h44 v27 h-44 z" fill="none" stroke="#f0edf7" stroke-width="4" rx="5"/>
+  <rect x="978" y="49" width="7" height="12" rx="3" fill="#f0edf7"/>
+  <text x="1004" y="70" class="body" font-size="24">56</text>
+
+  <!-- App header -->
+  <rect x="70" y="118" width="58" height="58" rx="17" fill="#171520" stroke="url(#brand)" stroke-width="4"/>
+  <path d="M84 132 l17 -9 27 14 -15 8 -12 -6 -17 9z" fill="#7e55ff"/>
+  <path d="M84 132 v28 l17 9 v-27z" fill="#34d6ed" opacity=".85"/>
+  <path d="M101 142 v27 l27 -14 v-28z" fill="#d16cff" opacity=".72"/>
+  <text x="148" y="151" class="body" font-size="34" font-weight="700">Hyper<tspan fill="#4ed9ff">OS</tspan></text>
+  <text x="151" y="178" class="muted" font-size="17" letter-spacing="4">MTZ STUDIO</text>
+  <rect x="872" y="127" width="138" height="48" rx="24" fill="#5c3a9c"/>
+  <circle cx="898" cy="151" r="7" fill="#6ff0d3"/>
+  <text x="914" y="160" class="body" font-size="19" font-weight="600">ROOT AKTİF</text>
+
+  <!-- Intro -->
+  <text x="70" y="250" class="body" font-size="44" font-weight="600">Theme Manager</text>
+  <text x="70" y="288" class="muted" font-size="24">Güvenli runtime ve tema kitaplığı</text>
+  <rect x="815" y="235" width="195" height="40" rx="20" fill="#24202f" stroke="#6d5c91" stroke-width="2"/>
+  <text x="837" y="262" class="small" font-size="19">v5.4.1 • V7</text>
+
+  <!-- External runtime card -->
+  <rect x="42" y="330" width="996" height="345" rx="34" fill="#38363e" filter="url(#shadow)"/>
+  <circle cx="115" cy="407" r="48" fill="#2f6d70"/>
+  <path d="M115 374 l27 11 v24 c0 24-17 39-27 44-10-5-27-20-27-44v-24z" fill="none" stroke="#6de4d0" stroke-width="6"/>
+  <path d="M115 386 v55" stroke="#6de4d0" stroke-width="5"/>
+  <text x="188" y="397" class="body" font-size="33" font-weight="600">Harici V7 runtime</text>
+  <rect x="758" y="366" width="226" height="48" rx="24" fill="#3b8f88"/>
+  <circle cx="784" cy="390" r="7" fill="#b5ffed"/>
+  <text x="802" y="398" class="body" font-size="18" font-weight="600">BENİMSENDİ</text>
+  <text x="84" y="500" class="label">KAYNAK</text>
+  <text x="84" y="535" class="body" font-size="25">Mods-Center • miui_theme_mod v7</text>
+  <text x="555" y="500" class="label">KURULU THEMES</text>
+  <text x="555" y="535" class="body" font-size="25">11.5.3.1  •  code 11531</text>
+  <line x1="84" y1="572" x2="996" y2="572" stroke="#514d59" stroke-width="2"/>
+  <circle cx="101" cy="621" r="15" fill="#63e4cc"/>
+  <path d="M94 621 l5 6 11-13" fill="none" stroke="#173d3b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="130" y="630" class="small">APK hash doğrulandı</text>
+  <circle cx="495" cy="621" r="15" fill="#63e4cc"/>
+  <path d="M488 621 l5 6 11-13" fill="none" stroke="#173d3b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="524" y="630" class="small">Üzerine yazma engellendi</text>
+
+  <!-- Protection notice -->
+  <rect x="42" y="705" width="996" height="118" rx="28" fill="#282532" stroke="#65529a" stroke-width="2"/>
+  <circle cx="94" cy="764" r="25" fill="#594296"/>
+  <text x="84" y="773" class="body" font-size="28" font-weight="700">i</text>
+  <text x="137" y="750" class="body" font-size="24" font-weight="600">Mevcut kurulum korunuyor</text>
+  <text x="137" y="785" class="muted" font-size="21">MTZ Studio, V7 Themes APK’sını değiştirmeden çalışacak.</text>
+  <rect x="875" y="738" width="127" height="52" rx="26" fill="#c9b0ff"/>
+  <text x="901" y="771" fill="#39226c" font-size="20" font-family="Segoe UI, Arial" font-weight="600">AYRINTI</text>
+
+  <!-- Library title -->
+  <text x="70" y="900" class="body" font-size="32" font-weight="600">Tema kitaplığı</text>
+  <text x="770" y="900" class="muted" font-size="22">1 hazır tema</text>
+
+  <!-- Theme preview card -->
+  <rect x="42" y="930" width="996" height="410" rx="34" fill="#38363e" filter="url(#shadow)"/>
+  <rect x="72" y="960" width="315" height="350" rx="26" fill="url(#preview)"/>
+  <circle cx="230" cy="1090" r="67" fill="#ffffff" opacity=".11"/>
+  <path d="M200 1125 q30-83 61 0" fill="none" stroke="#ffffff" stroke-width="12" opacity=".82" stroke-linecap="round"/>
+  <path d="M187 1127 q42 34 86 0" fill="none" stroke="#ffffff" stroke-width="7" opacity=".7" stroke-linecap="round"/>
+  <text x="111" y="1219" fill="#ffffff" font-size="30" font-family="Segoe UI, Arial" font-weight="600">Circle UI</text>
+  <text x="111" y="1253" fill="#d9f7ff" font-size="22" font-family="Segoe UI, Arial">OS27  •  Modern kitaplık</text>
+  <rect x="423" y="986" width="555" height="62" rx="31" fill="#2b2735"/>
+  <circle cx="458" cy="1017" r="14" fill="#62e4cd"/>
+  <path d="M451 1017 l5 5 10-12" fill="none" stroke="#173d3b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="490" y="1026" class="small" font-size="22">Yerel kitaplık yolu hazır</text>
+  <text x="423" y="1115" class="body" font-size="30" font-weight="600">Circle UI - OS27</text>
+  <text x="423" y="1155" class="muted" font-size="22">Tema arşivi doğrulandı ve uygulamaya hazır.</text>
+  <text x="423" y="1195" class="muted" font-size="22">V7 runtime korunarak Xiaomi Themes üzerinden</text>
+  <text x="423" y="1230" class="muted" font-size="22">modern yerel uygulama akışı kullanılacak.</text>
+  <rect x="423" y="1260" width="248" height="58" rx="29" fill="#c9b0ff"/>
+  <text x="482" y="1297" fill="#39226c" font-size="22" font-family="Segoe UI, Arial" font-weight="700">UYGULA</text>
+  <rect x="689" y="1260" width="213" height="58" rx="29" fill="#514b5d"/>
+  <text x="730" y="1297" class="small" font-size="21">DETAYLAR</text>
+
+  <!-- Flow -->
+  <text x="70" y="1425" class="body" font-size="31" font-weight="600">Güvenli uygulama akışı</text>
+  <rect x="42" y="1460" width="996" height="180" rx="30" fill="#38363e"/>
+  <circle cx="117" cy="1517" r="24" fill="#5c4c87"/><text x="109" y="1526" class="body" font-size="20" font-weight="700">1</text>
+  <text x="158" y="1525" class="small" font-size="21">Arşiv doğrulanır</text>
+  <circle cx="365" cy="1517" r="24" fill="#5c4c87"/><text x="357" y="1526" class="body" font-size="20" font-weight="700">2</text>
+  <text x="406" y="1525" class="small" font-size="21">V7 korunur</text>
+  <circle cx="615" cy="1517" r="24" fill="#5c4c87"/><text x="607" y="1526" class="body" font-size="20" font-weight="700">3</text>
+  <text x="656" y="1525" class="small" font-size="21">Tema uygulanır</text>
+  <circle cx="865" cy="1517" r="24" fill="#5c4c87"/><text x="857" y="1526" class="body" font-size="20" font-weight="700">4</text>
+  <text x="906" y="1525" class="small" font-size="21">Sonuç kontrolü</text>
+  <line x1="141" y1="1517" x2="341" y2="1517" stroke="#71639e" stroke-width="3"/>
+  <line x1="389" y1="1517" x2="591" y2="1517" stroke="#71639e" stroke-width="3"/>
+  <line x1="639" y1="1517" x2="841" y2="1517" stroke="#71639e" stroke-width="3"/>
+  <text x="84" y="1590" class="muted" font-size="21">Tüm kritik adımlar canlı tanılama paneline kaydedilir.</text>
+
+  <!-- Bottom navigation -->
+  <rect x="42" y="1690" width="996" height="150" rx="42" fill="#15141c" stroke="#5c5667" stroke-width="2"/>
+  <rect x="71" y="1712" width="178" height="67" rx="34" fill="#554a70"/>
+  <path d="M119 1731 h17 v17 h-17z M141 1731 h17 v17 h-17z M119 1753 h17 v17 h-17z M141 1753 h17 v17 h-17z" fill="#f0eaff"/>
+  <text x="107" y="1815" class="small" font-size="20">Panel</text>
+  <circle cx="386" cy="1745" r="20" fill="none" stroke="#d7d2e0" stroke-width="5"/><circle cx="386" cy="1745" r="6" fill="#d7d2e0"/>
+  <text x="340" y="1815" class="small" font-size="20">Kitaplık</text>
+  <path d="M599 1728 h7 v34 h-7z M617 1728 h7 v34 h-7z M635 1728 h7 v34 h-7z M591 1736 h59 M591 1754 h59" stroke="#d7d2e0" stroke-width="4"/>
+  <text x="556" y="1815" class="small" font-size="20">Runtime</text>
+  <path d="M850 1727 l28 28 M877 1722 l17 17 -13 13 -17-17z M839 1754 l-15 15" stroke="#d7d2e0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="826" y="1815" class="small" font-size="20">Araçlar</text>
+
+  <rect x="420" y="1870" width="240" height="8" rx="4" fill="#d7d2e0" opacity=".8"/>
+</svg>

@@ -33,16 +33,16 @@ internal fun StudioCard(
     val lightSurface = colors.background.luminance() > 0.5f
     val glassBase = Brush.linearGradient(
         colors = if (lightSurface) {
-            listOf(Color(0xFFD0DCE8), Color(0xFFD8D8E5), Color(0xFFD2D8E5))
+            listOf(Color(0xFFE5DDF2), Color(0xFFE1E7F1), Color(0xFFEADCF0))
         } else {
-            listOf(Color(0xFF182B3F), Color(0xFF302D42), Color(0xFF222C3D))
+            listOf(Color(0xFF38363E), Color(0xFF302C3D), Color(0xFF3A3347))
         },
     )
     val glassEdge = Brush.linearGradient(
         colors = listOf(
-            colors.primary.copy(alpha = 0.72f),
-            colors.outline.copy(alpha = 0.58f),
-            colors.secondary.copy(alpha = 0.56f),
+            Color(0xFF8E63FF).copy(alpha = 0.72f),
+            colors.outline.copy(alpha = 0.64f),
+            Color(0xFF48D9FF).copy(alpha = 0.56f),
         ),
     )
 

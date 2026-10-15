@@ -57,6 +57,7 @@ import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
 import dev.glorioustr.mtzstudio.tester.ThemeManagerInspector
 import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
 import dev.glorioustr.mtzstudio.tester.VerifiedThemeManagerApk
+import dev.glorioustr.mtzstudio.tester.ThemeManagerRuntimeProfile
 import dev.glorioustr.mtzstudio.tester.ThemeRuntimeArtifacts
 import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTarget
 import dev.glorioustr.mtzstudio.shevery.SheveryAccess
@@ -107,6 +108,7 @@ internal fun ThemeManagerCompatibilityCard(
     var showRootModuleConfirmation by remember { mutableStateOf(false) }
     var showRootModuleRestartDialog by remember { mutableStateOf(false) }
     var showRootModuleInfo by remember { mutableStateOf(false) }
+    var downgradeFailed by remember { mutableStateOf(false) }
     var rootModuleState by remember { mutableStateOf<RootThemeImportModuleInstaller.State?>(null) }
     var detectedRuntimeTarget by remember { mutableStateOf<ThemeRuntimeTarget?>(null) }
     var selectedRuntimeTarget by remember { mutableStateOf<ThemeRuntimeTarget?>(null) }
@@ -132,6 +134,7 @@ internal fun ThemeManagerCompatibilityCard(
         }
         val current = installed ?: return
         scope.launch {
+            downgradeFailed = false
             status = resources.getString(R.string.tm_verifying_apk)
             var stagedApk: VerifiedThemeManagerApk? = null
             runCatching {
@@ -174,7 +177,15 @@ internal fun ThemeManagerCompatibilityCard(
                 }
                 status = result.message
             }.onFailure { error ->
+                downgradeFailed = true
                 status = resources.getString(R.string.tm_apk_rejected, error.message ?: error::class.simpleName)
+                ThemeManagerWarningNotifier.notifyDowngradeFailure(
+                    context = context,
+                    targetVersion = ThemeManagerContract.RECOMMENDED_VERSION,
+                    installedVersion = installed?.versionName
+                        ?: resources.getString(R.string.tm_version_unknown),
+                    reason = error.message ?: error::class.simpleName.orEmpty(),
+                )
             }
             stagedApk?.let { runCatching { withContext(Dispatchers.IO) { updater.discard(it) } } }
         }
@@ -463,13 +474,12 @@ internal fun ThemeManagerCompatibilityCard(
                     }
                 }
             }
-             if ((runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) ||
-                 (rootModuleMode && status.contains("kurulamadı", ignoreCase = true))) {
+             if ((runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) || downgradeFailed) {
                  Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
              }
 
             val current = installed
-            if (allowRootDowngrade && current != null && current.installed && runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) {
+            if (shouldShowThemeManagerDowngradeButton(allowRootDowngrade, current, runtimeProfile, rootModuleMode)) {
                 OutlinedButton(
                     onClick = {
                         apkPicker.launch(
@@ -555,22 +565,54 @@ internal fun ThemeManagerCompatibilityCard(
                         showConfirmation = false
                         val apk = verifiedApk ?: return@TextButton
                         scope.launch {
+                            downgradeFailed = false
                             status = resources.getString(R.string.tm_status_waiting_root)
                             runCatching {
                                 withContext(Dispatchers.IO) { updater.installVerifiedDowngrade(apk) }
                             }.onSuccess { result ->
                                 installed = result.installedAfter
+                                runtimeProfile = withContext(Dispatchers.IO) {
+                                    ThemeManagerCapabilityProbe(context).probe(result.installedAfter)
+                                }
                                 status = buildString {
                                     append(result.message).append(" · ").append(result.authorizationSource)
                                     if (result.commandOutput.isNotBlank()) append(" · ").append(result.commandOutput)
                                 }
                                 if (result.success) {
+                                    downgradeFailed = false
                                     withContext(Dispatchers.IO) { updater.discard(apk) }
                                     verifiedApk = null
                                     riskAccepted = false
+                                } else {
+                                    downgradeFailed = true
+                                    val currentVersion = result.installedAfter.versionName
+                                        ?: resources.getString(R.string.tm_version_unknown)
+                                    val reason = listOf(result.message, result.commandOutput)
+                                        .filter { it.isNotBlank() }
+                                        .joinToString(" · ")
+                                    status = resources.getString(
+                                        R.string.tm_downgrade_failed,
+                                        ThemeManagerContract.RECOMMENDED_VERSION,
+                                        currentVersion,
+                                        reason,
+                                    )
+                                    ThemeManagerWarningNotifier.notifyDowngradeFailure(
+                                        context = context,
+                                        targetVersion = ThemeManagerContract.RECOMMENDED_VERSION,
+                                        installedVersion = currentVersion,
+                                        reason = reason,
+                                    )
                                 }
                             }.onFailure { error ->
+                                downgradeFailed = true
                                 status = resources.getString(R.string.tm_status_root_failed, error.message ?: error::class.simpleName)
+                                ThemeManagerWarningNotifier.notifyDowngradeFailure(
+                                    context = context,
+                                    targetVersion = ThemeManagerContract.RECOMMENDED_VERSION,
+                                    installedVersion = installed?.versionName
+                                        ?: resources.getString(R.string.tm_version_unknown),
+                                    reason = error.message ?: error::class.simpleName.orEmpty(),
+                                )
                             }
                         }
                     },
@@ -676,6 +718,21 @@ internal fun ThemeManagerCompatibilityCard(
             },
         )
     }
+}
+
+internal fun shouldShowThemeManagerDowngradeButton(
+    allowRootDowngrade: Boolean,
+    current: InstalledThemeManager?,
+    runtimeProfile: ThemeManagerRuntimeProfile?,
+    rootModuleMode: Boolean,
+): Boolean {
+    if (!allowRootDowngrade || current?.installed != true || runtimeProfile == null) return false
+    if (runtimeProfile.compatibleLocalMtzPath) return false
+    // The controlled 3.4.1.23 Global build is intentionally handled by the root bridge, but the
+    // verified 3.0.5.6 fallback must remain available when that bridge cannot be used.
+    val controlledGlobal = ThemeManagerContract.canonicalVersion(current.versionName) ==
+        ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION
+    return !rootModuleMode || controlledGlobal
 }
 
 private fun targetLabel(target: ThemeRuntimeTarget?): String = when (target) {

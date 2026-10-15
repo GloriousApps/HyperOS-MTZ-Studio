@@ -123,6 +123,43 @@ class ThemeManagerCompatibilityTest {
     }
 
     @Test
+    fun `controlled 3.4 profile exposes manual library handoff without automatic import`() {
+        val profile = ThemeManagerRuntimeProfile(
+            packageInstalled = true,
+            versionName = "3.4.1.23-global",
+            knownBehavior = ThemeManagerBehavior.UNKNOWN,
+            legacyTesterResolvable = false,
+            modernLocalLibraryResolvable = false,
+            publicMtzImportResolvable = false,
+            splitApkCount = 0,
+            exportedThemeActivityCandidates = listOf(
+                ThemeManagerContract.THEME_RESOURCE_TAB_COMPONENT,
+            ),
+            themeResourceTabResolvable = true,
+        )
+
+        assertTrue(profile.manualLocalLibraryHandoffAvailable)
+        assertFalse(profile.compatibleLocalMtzPath)
+    }
+
+    @Test
+    fun `manual library handoff is not inferred for an unknown version`() {
+        val profile = ThemeManagerRuntimeProfile(
+            packageInstalled = true,
+            versionName = "3.4.1.24-global",
+            knownBehavior = ThemeManagerBehavior.UNKNOWN,
+            legacyTesterResolvable = false,
+            modernLocalLibraryResolvable = false,
+            publicMtzImportResolvable = false,
+            splitApkCount = 0,
+            exportedThemeActivityCandidates = emptyList(),
+            themeResourceTabResolvable = true,
+        )
+
+        assertFalse(profile.manualLocalLibraryHandoffAvailable)
+    }
+
+    @Test
     fun `modded persistent import disables redundant global protection`() {
         val installed = InstalledThemeManager(
             installed = true,

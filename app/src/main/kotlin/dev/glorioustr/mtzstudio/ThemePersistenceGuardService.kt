@@ -23,6 +23,9 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
+internal fun shouldReportThemeGuardConnectionLost(previous: Boolean?, connected: Boolean): Boolean =
+    previous == true && !connected
+
 /**
  * Watches the actual Xiaomi theme component files while Shizuku is available. A BAK restore only
  * imports a theme into Xiaomi's private library; persistence is armed separately after the user
@@ -275,7 +278,12 @@ class ThemePersistenceGuardService : Service() {
     private fun shellQuote(value: String): String = "'${value.replace("'", "'\"'\"'")}'"
 
     private fun readFingerprint(): String? {
+        val access = SheveryAccess(applicationContext)
         return runCatching {
+            if (!access.status().isReady()) {
+                updateConnectionState(connected = false)
+                return@runCatching null
+            }
             val result = executePrivileged(FINGERPRINT_COMMAND, 20)
             check(result.exitCode == 0 && result.output.isNotBlank()) { "Tema bileşenleri okunamadı" }
             updateConnectionState(connected = true)
@@ -286,10 +294,25 @@ class ThemePersistenceGuardService : Service() {
                 .joinToString("|")
                 .sha256()
         }.onFailure {
-            updateConnectionState(connected = false)
-            diagnostics.record("theme_watch_check_failed", "Tema bileşeni kontrolü tamamlanamadı", error = it)
+            // A live ADB-mode Shevery service can be healthy while the shell command is denied
+            // by the ROM's theme-data SELinux policy.  That is not a lost Shevery connection and
+            // must not produce the alarming "connection lost" notification shown at startup.
+            val serviceReady = access.status().isReady()
+            updateConnectionState(connected = serviceReady)
+            diagnostics.record(
+                if (serviceReady) "theme_watch_target_check_failed" else "theme_watch_check_failed",
+                if (serviceReady) {
+                    "Shizuku/Shevery bağlı ancak tema bileşenleri okunamadı"
+                } else {
+                    "Tema bileşeni kontrolü tamamlanamadı"
+                },
+                error = it,
+            )
         }.getOrNull()
     }
+
+    private fun SheveryAuthorizationStatus.isReady(): Boolean =
+        this == SheveryAuthorizationStatus.ADB_READY || this == SheveryAuthorizationStatus.ROOT_READY
 
     private fun updateConnectionState(connected: Boolean) {
         val previous = privilegeConnected
@@ -299,20 +322,20 @@ class ThemePersistenceGuardService : Service() {
             NOTIFICATION_ID,
             monitoringNotification(if (connected) ConnectionState.ACTIVE else ConnectionState.WAITING),
         )
-        if (!connected && previous != false) {
+        if (shouldReportThemeGuardConnectionLost(previous, connected)) {
             diagnostics.record(
                 "theme_guard_connection_lost",
                 "Shizuku/Shevery bağlantısı kesildi; tema koruması bağlantıyı bekliyor",
             )
             showConnectionLostNotification()
-        } else if (connected && previous == false) {
-            manager.cancel(CONNECTION_NOTIFICATION_ID)
-            diagnostics.record(
-                "theme_guard_connection_restored",
-                "Shizuku/Shevery bağlantısı geri geldi; tema koruması otomatik sürdürüldü",
-            )
         } else if (connected) {
             manager.cancel(CONNECTION_NOTIFICATION_ID)
+            if (previous == false) {
+                diagnostics.record(
+                    "theme_guard_connection_restored",
+                    "Shizuku/Shevery bağlantısı geri geldi; tema koruması otomatik sürdürüldü",
+                )
+            }
         }
     }
 

@@ -185,6 +185,11 @@ class ThemeApplyCoordinator(
     }
 
     fun rootGlobalModuleBridgeReady(): Boolean {
+        // ADB-mode Shizuku/Shevery is valid for the rootless import paths, but it cannot
+        // inspect /data/adb or the root-only bridge marker.  Do not turn that expected
+        // capability mismatch into an authorization failure every time prepare() probes the
+        // optional root bridge.
+        if (!commandRunner.isRootReadySilently()) return false
         // Use the exact same module inspection as the compatibility card.  Maintaining a
         // second probe here made the card say “module current” while Apply silently fell back
         // to a stale Xiaomi activity on FolkPatch devices.
@@ -393,16 +398,19 @@ class ThemeApplyCoordinator(
                 "legacyTesterResolved" to (legacyIntent != null),
             ),
         )
+        val publicIntent = legacyIntent ?: publicThemeManagerIntent(theme.archive.source)
+        val publicProtocol = when {
+            legacyIntent != null -> ThemeApplyProtocol.ROOTLESS_LEGACY_TESTER
+            publicIntent.component?.className == ThemeManagerContract.THEME_RESOURCE_TAB_COMPONENT ->
+                ThemeApplyProtocol.ROOTLESS_MANUAL_IMPORT
+            else -> ThemeApplyProtocol.ROOTLESS_FILE_MANAGER_HANDOFF
+        }
         return PreparedThemeApply(
             themeId = theme.id.value,
             themeName = themeName,
             stagedPath = "",
-            intent = legacyIntent ?: publicThemeManagerIntent(theme.archive.source),
-            protocol = if (legacyIntent != null) {
-                ThemeApplyProtocol.ROOTLESS_LEGACY_TESTER
-            } else {
-                ThemeApplyProtocol.ROOTLESS_FILE_MANAGER_HANDOFF
-            },
+            intent = publicIntent,
+            protocol = publicProtocol,
             manualImportPath = publicFile.absolutePath,
         )
     }
@@ -575,6 +583,32 @@ class ThemeApplyCoordinator(
             }
         }
 
+        // 3.4.x removed the old MTZ MIME handler, but kept an exported Themes shell with the
+        // account/local-resource surface. This is a manual continuation point only: the user must
+        // still choose the exported file and confirm import inside Xiaomi Themes.
+        val manualThemeLibrary = Intent().apply {
+            component = ComponentName(
+                THEME_MANAGER_PACKAGE,
+                ThemeManagerContract.THEME_RESOURCE_TAB_COMPONENT,
+            )
+            putExtra("extra_outer_tab_id", "mine")
+            putExtra("EXTRA_TAB_ID", "theme")
+        }
+        if (ThemeManagerContract.canonicalVersion(installedThemeManagerVersion()) ==
+            ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION &&
+            manualThemeLibrary.resolveActivity(context.packageManager) != null
+        ) {
+            diagnostics.record(
+                "rootless_themes_library_handoff",
+                "3.4.x Temalar yerel kaynak ekranı açılacak; MTZ içe aktarma kullanıcı tarafından tamamlanacak",
+                mapOf(
+                    "component" to ThemeManagerContract.THEME_RESOURCE_TAB_COMPONENT,
+                    "file" to source.fileName.toString(),
+                ),
+            )
+            return manualThemeLibrary
+        }
+
         // These Global branches removed their former public Themes import activity.  Xiaomi File
         // Manager is installed on the supported ROM families and can receive a public MTZ URI,
         // then hand it to the version-specific Themes importer.  Do not restrict this intent to
@@ -618,10 +652,23 @@ class ThemeApplyCoordinator(
         ) { "Xiaomi Temalar tema ayrıntı ekranı açılamadı: ${result.output.takeLast(500)}" }
     }
 
-    private fun safeThemeManagerLauncherIntent(): Intent =
-        checkNotNull(context.packageManager.getLaunchIntentForPackage(THEME_MANAGER_PACKAGE)) {
+    private fun safeThemeManagerLauncherIntent(): Intent {
+        val manualThemeLibrary = Intent().apply {
+            component = ComponentName(
+                THEME_MANAGER_PACKAGE,
+                ThemeManagerContract.THEME_RESOURCE_TAB_COMPONENT,
+            )
+            putExtra("extra_outer_tab_id", "mine")
+            putExtra("EXTRA_TAB_ID", "theme")
+        }
+        if (ThemeManagerContract.canonicalVersion(installedThemeManagerVersion()) ==
+            ThemeManagerContract.ROOT_GLOBAL_RECOMMENDED_VERSION &&
+            manualThemeLibrary.resolveActivity(context.packageManager) != null
+        ) return manualThemeLibrary
+        return checkNotNull(context.packageManager.getLaunchIntentForPackage(THEME_MANAGER_PACKAGE)) {
             "Xiaomi Temalar uygulamasının açılabilir bir ekranı bulunamadı"
         }
+    }
 
     private fun modernLocalThemeUri(localId: String): Uri =
         Uri.parse("ViewLocalResource://view.local.resource#$localId")

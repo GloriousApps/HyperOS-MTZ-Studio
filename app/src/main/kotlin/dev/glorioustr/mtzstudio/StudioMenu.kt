@@ -1168,7 +1168,7 @@ internal fun ThemesScreen(
     val previousTheme = galleryThemes.firstOrNull { it.id.value == previousThemeId }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(if (redesignedUi) 2 else 3),
+        columns = GridCells.Fixed(3),
         modifier = modifier.fillMaxSize().padding(horizontal = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -2993,7 +2993,7 @@ private fun ThemeGalleryCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(if (redesignedUi) 0.70f else 0.58f)
+                .aspectRatio(if (redesignedUi) 0.90f else 0.58f)
                 .clip(RoundedCornerShape(14.dp))
                 .clickable(onClick = onOpenDetails),
         ) {

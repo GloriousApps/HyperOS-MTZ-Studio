@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="2200" height="3900" viewBox="0 0 2200 3900">
+  <rect width="2200" height="3900" fill="#0b0a10"/>
+  <text x="1100" y="90" text-anchor="middle" fill="#f0edf7" font-family="Segoe UI,Arial" font-size="48" font-weight="600">HyperOS MTZ Studio v5.4.1 — dört menü tasarımı</text>
+  <text x="1100" y="145" text-anchor="middle" fill="#aaa4b7" font-family="Segoe UI,Arial" font-size="26">Panel • Kitaplık • Temanı Oluştur • Araçlar</text>
+  <rect x="55" y="205" width="1010" height="1800" rx="42" fill="#15141c" stroke="#4c4658" stroke-width="3"/>
+  <rect x="1135" y="205" width="1010" height="1800" rx="42" fill="#15141c" stroke="#4c4658" stroke-width="3"/>
+  <rect x="55" y="2075" width="1010" height="1800" rx="42" fill="#15141c" stroke="#4c4658" stroke-width="3"/>
+  <rect x="1135" y="2075" width="1010" height="1800" rx="42" fill="#15141c" stroke="#4c4658" stroke-width="3"/>
+  <image x="70" y="220" width="980" height="1742" preserveAspectRatio="xMidYMid meet" xlink:href="panel-v5.4.1.svg"/>
+  <image x="1150" y="220" width="980" height="1742" preserveAspectRatio="xMidYMid meet" xlink:href="kitaplik-v5.4.1.svg"/>
+  <image x="70" y="2090" width="980" height="1742" preserveAspectRatio="xMidYMid meet" xlink:href="tema-olustur-v5.4.1.svg"/>
+  <image x="1150" y="2090" width="980" height="1742" preserveAspectRatio="xMidYMid meet" xlink:href="araclar-v5.4.1.svg"/>
+</svg>

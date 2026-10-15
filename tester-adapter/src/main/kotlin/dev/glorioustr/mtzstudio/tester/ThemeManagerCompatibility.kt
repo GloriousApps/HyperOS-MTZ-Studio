@@ -12,6 +12,8 @@ object ThemeManagerContract {
     const val PACKAGE_NAME = "com.android.thememanager"
     const val LEGACY_TESTER_ACTION = "com.android.thememanager.support3.0"
     const val LEGACY_TESTER_COMPONENT = "com.android.thememanager.ApplyThemeForScreenshot"
+    /** Exported 3.4.x shell for the Themes home/account/local-resource screens. */
+    const val THEME_RESOURCE_TAB_COMPONENT = "com.android.thememanager.ThemeResourceTabActivity"
     const val MODERN_LOCAL_LIBRARY_COMPONENT =
         "com.android.thememanager.mine.remote.view.activity.MineResourceTabActivity"
 

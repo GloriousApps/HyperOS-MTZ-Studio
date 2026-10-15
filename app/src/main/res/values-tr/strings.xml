@@ -398,6 +398,11 @@
     <string name="tm_dialog_confirm">Onayla ve çalıştır</string>
     <string name="tm_status_waiting_root">Root izni ve paket yöneticisi sonucu bekleniyor…</string>
     <string name="tm_status_root_failed">Root işlemi başarısız: %1$s</string>
+    <string name="tm_downgrade_failed">Themes %1$s sürümüne geçirilemedi. Etkin sürüm hâlâ %2$s. %3$s</string>
+    <string name="tm_downgrade_warning_channel">Tema Yöneticisi geri dönüş uyarıları</string>
+    <string name="tm_downgrade_warning_title">Xiaomi Themes geri dönüşü başarısız</string>
+    <string name="tm_downgrade_warning_text">Themes %1$s sürümüne geçemedi. Etkin sürüm %2$s olarak kaldı. %3$s</string>
+    <string name="tm_downgrade_unknown_reason">Paket yöneticisi istenen sürümü reddetti veya etkinleştirmedi.</string>
 
     <!-- Shizuku uyumlu yetkilendirme kapısı -->
     <string name="shevery_dialog_title">Shizuku / Shevery erişimi</string>

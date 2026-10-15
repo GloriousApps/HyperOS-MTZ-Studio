@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -173,6 +174,8 @@ class MainActivity : ComponentActivity() {
             "knownBehavior" to capabilityProfile.knownBehavior,
             "legacyTesterResolvable" to capabilityProfile.legacyTesterResolvable,
             "modernLocalLibraryResolvable" to capabilityProfile.modernLocalLibraryResolvable,
+            "themeResourceTabResolvable" to capabilityProfile.themeResourceTabResolvable,
+            "manualLocalLibraryHandoffAvailable" to capabilityProfile.manualLocalLibraryHandoffAvailable,
             "compatibleLocalMtzPath" to capabilityProfile.compatibleLocalMtzPath,
             "splitApkCount" to capabilityProfile.splitApkCount,
             "exportedThemeActivityCandidates" to capabilityProfile.exportedThemeActivityCandidates.joinToString(),
@@ -1869,8 +1872,8 @@ private fun StudioScreen(
                         ) {
                             Text(
                                 text = when (accessMode) {
-                                    StudioAccessMode.ROOT -> "ROOT"
-                                    StudioAccessMode.SHIZUKU -> "SHIZUKU"
+                                    StudioAccessMode.ROOT -> "ROOT AKTİF"
+                                    StudioAccessMode.SHIZUKU -> "SHEVERY AKTİF"
                                     StudioAccessMode.STANDARD -> stringResource(R.string.panel_required)
                                     null -> "…"
                                 },
@@ -1910,6 +1913,7 @@ private fun StudioScreen(
                         NavigationBar(
                             modifier = Modifier.height(80.dp),
                             containerColor = Color.Transparent,
+                            tonalElevation = 0.dp,
                             windowInsets = WindowInsets(0, 0, 0, 0),
                         ) {
                             listOf(
@@ -1926,6 +1930,13 @@ private fun StudioScreen(
                                     },
                                     icon = { Icon(icon, contentDescription = null) },
                                     label = { Text(stringResource(label), maxLines = 1, style = MaterialTheme.typography.labelSmall) },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = Color(0xFFF0EDF7),
+                                        selectedTextColor = Color(0xFFF0EDF7),
+                                        indicatorColor = Color(0xFF554A70),
+                                        unselectedIconColor = Color(0xFFD7D2E0),
+                                        unselectedTextColor = Color(0xFFB9B4C4),
+                                    ),
                                 )
                             }
                         }

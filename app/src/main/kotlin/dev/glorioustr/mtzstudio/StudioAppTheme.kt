@@ -55,7 +55,7 @@ internal class AppearanceStore(context: Context) {
     fun loadContentStyle(): AppContentStyle = runCatching {
         val stored = Files.newBufferedReader(contentStyleFile).use { reader -> reader.readLine() }
         if (stored.trim() == "MATERIAL_YOU") AppContentStyle.DEFAULT else AppContentStyle.valueOf(stored.trim())
-    }.getOrDefault(AppContentStyle.DEFAULT)
+    }.getOrDefault(AppContentStyle.LIQUID_GLASS)
 
     fun saveContentStyle(style: AppContentStyle) {
         saveValue(contentStyleFile, ".content-style.tmp", style.name)
@@ -106,7 +106,7 @@ internal fun StudioAppTheme(
             val backgroundModifier = if (contentStyle == AppContentStyle.LIQUID_GLASS) {
                 val gradient = when {
                     appearance == AppAppearance.AMOLED -> listOf(Color.Black, Color.Black)
-                    useDark -> listOf(Color(0xFF08111F), Color(0xFF16213A), Color(0xFF241B38))
+                    useDark -> listOf(Color(0xFF101017), Color(0xFF191622), Color(0xFF211B35))
                     else -> listOf(Color(0xFFE7F6FF), Color(0xFFF5ECFF), Color(0xFFDDEBFF))
                 }
                 Modifier.background(Brush.linearGradient(gradient))
@@ -122,22 +122,22 @@ internal fun StudioAppTheme(
 
 private fun liquidGlassColors(useDark: Boolean, amoled: Boolean) = if (useDark) {
     darkColorScheme(
-        primary = Color(0xFFBBD9FF),
-        onPrimary = Color(0xFF10243D),
-        secondary = Color(0xFFD9C4FF),
-        onSecondary = Color(0xFF2B1C3E),
-        background = if (amoled) Color.Black else Color(0xFF08111F),
-        onBackground = Color(0xFFF5F7FF),
-        surface = Color(0x662B3448),
-        onSurface = Color(0xFFF5F7FF),
-        surfaceVariant = Color(0x77404A62),
-        onSurfaceVariant = Color(0xFFD6DEEF),
-        surfaceContainer = Color(0x66333D52),
-        surfaceContainerLow = Color(0x552B3448),
-        surfaceContainerHigh = Color(0x77414A60),
-        surfaceContainerHighest = Color(0x884B5469),
-        outline = Color(0x99D7E7FF),
-        outlineVariant = Color(0x55D7E7FF),
+         primary = Color(0xFFC9B0FF),
+         onPrimary = Color(0xFF39226C),
+         secondary = Color(0xFF4ED9FF),
+         onSecondary = Color(0xFF082D38),
+         background = if (amoled) Color.Black else Color(0xFF101017),
+         onBackground = Color(0xFFF5F7FF),
+         surface = Color(0xFF38363E),
+         onSurface = Color(0xFFF5F7FF),
+         surfaceVariant = Color(0xFF514B5D),
+         onSurfaceVariant = Color(0xFFB9B4C4),
+         surfaceContainer = Color(0xFF38363E),
+         surfaceContainerLow = Color(0xFF282532),
+         surfaceContainerHigh = Color(0xFF45414D),
+         surfaceContainerHighest = Color(0xFF554A70),
+         outline = Color(0xFF6D5C91),
+         outlineVariant = Color(0xFF5C5667),
     )
 } else {
     lightColorScheme(
@@ -145,7 +145,7 @@ private fun liquidGlassColors(useDark: Boolean, amoled: Boolean) = if (useDark) 
         onPrimary = Color.White,
         secondary = Color(0xFF6B538A),
         onSecondary = Color.White,
-        background = Color(0xFFE7F6FF),
+         background = Color(0xFFF1ECF8),
         onBackground = Color(0xFF172034),
         surface = Color(0x66FFFFFF),
         onSurface = Color(0xFF172034),
