@@ -338,16 +338,22 @@ fun NeonPanelScreen(
     modifier: Modifier = Modifier,
     title: String = "Panel",
     subtitle: String = "HyperOS tema çalışma alanın",
-    statusLabel: String = "HAZIR",
+    statusLabel: String? = null,
     statusColor: Color = NeonGreen,
-    metrics: List<NeonMetric> = defaultNeonMetrics(),
+    metrics: List<NeonMetric> = emptyList(),
+    themeCount: Int? = null,
+    activeThemeName: String? = null,
+    workspaceStatus: String = "Hazır",
     quickActions: List<NeonQuickAction> = defaultNeonPanelActions(),
     recentItems: List<NeonLibraryItem> = emptyList(),
     recentTitle: String = "Son çalışmalar",
     onSeeAllRecent: (() -> Unit)? = null,
     footerContent: @Composable () -> Unit = {},
-    deviceStatusLabel: String = "SHEVERY BAĞLI",
-    deviceStatusColor: Color = NeonGreen,
+    deviceName: String = "-",
+    platformName: String = "-",
+    managerTitle: String = "ROOT YÖNETİCİSİ",
+    managerName: String = "-",
+    managerDescription: String = "",
     deviceManagerLabel: String? = null,
     onDeviceManagerClick: (() -> Unit)? = null,
 ) {
@@ -368,13 +374,24 @@ fun NeonPanelScreen(
             }
             item {
                 NeonPanelBanner(
-                    label = deviceStatusLabel,
-                    color = deviceStatusColor,
+                    deviceName = deviceName,
+                    platformName = platformName,
+                    managerTitle = managerTitle,
+                    managerName = managerName,
+                    managerDescription = managerDescription,
                     managerLabel = deviceManagerLabel,
                     onManagerClick = onDeviceManagerClick,
                 )
             }
-            if (metrics.isNotEmpty()) {
+            if (themeCount != null) {
+                item {
+                    NeonWorkspaceSummary(
+                        themeCount = themeCount,
+                        activeThemeName = activeThemeName,
+                        workspaceStatus = workspaceStatus,
+                    )
+                }
+            } else if (metrics.isNotEmpty()) {
                 item { NeonMetricsRow(metrics) }
             }
             item {
@@ -755,9 +772,38 @@ private fun NeonMetricsRow(metrics: List<NeonMetric>) {
 }
 
 @Composable
+private fun NeonWorkspaceSummary(
+    themeCount: Int,
+    activeThemeName: String?,
+    workspaceStatus: String,
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        listOf(
+            Triple(themeCount.toString(), "Kitaplık", NeonPurple),
+            Triple(activeThemeName ?: "Henüz yok", "Son tema", NeonCyan),
+            Triple(workspaceStatus, "Durum", NeonGreen),
+        ).forEach { (value, label, accent) ->
+            NeonGlassCard(modifier = Modifier.weight(1f), accent = accent) {
+                Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        value,
+                        color = accent,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(label, color = neonMutedTextColor(), style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun NeonActionGrid(actions: List<NeonQuickAction>) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        actions.chunked(2).forEach { rowActions ->
+        actions.chunked(3).forEach { rowActions ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 rowActions.forEach { action ->
                     NeonQuickActionCard(
@@ -864,8 +910,11 @@ private fun NeonDivider(modifier: Modifier = Modifier) {
 
 @Composable
 private fun NeonPanelBanner(
-    label: String,
-    color: Color,
+    deviceName: String,
+    platformName: String,
+    managerTitle: String,
+    managerName: String,
+    managerDescription: String,
     managerLabel: String? = null,
     onManagerClick: (() -> Unit)? = null,
 ) {
@@ -880,7 +929,21 @@ private fun NeonPanelBanner(
                 Text("Cihaz durumu", color = neonTextColor(), fontWeight = FontWeight.Bold)
                 Text("HyperOS tema çalışma alanı hazır", color = neonMutedTextColor(), style = MaterialTheme.typography.labelSmall)
             }
-            NeonBadge(label, color)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("CİHAZ & SÜRÜM", color = neonMutedTextColor(), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                Text(deviceName, color = neonTextColor(), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(platformName, color = NeonBlue, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(managerTitle, color = neonMutedTextColor(), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                Text(managerName, color = NeonGreen, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(managerDescription, color = neonMutedTextColor(), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
         if (managerLabel != null && onManagerClick != null) {
             TextButton(onClick = onManagerClick, modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 4.dp)) {
@@ -927,12 +990,6 @@ private fun NeonBuilderPreview() {
         }
     }
 }
-
-private fun defaultNeonMetrics() = listOf(
-    NeonMetric("12", "Tema", NeonPurple),
-    NeonMetric("03", "Taslak", NeonCyan),
-    NeonMetric("100%", "Uyum", NeonGreen),
-)
 
 private fun defaultNeonPanelActions() = listOf(
     NeonQuickAction("Kitaplığı aç", "Temalarını görüntüle", Icons.Filled.FolderOpen, NeonCyan),

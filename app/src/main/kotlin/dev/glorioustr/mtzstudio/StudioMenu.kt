@@ -184,6 +184,9 @@ internal fun StudioPanelScreen(
     authorizationManagerName: String?,
     onOpenAuthorizationManager: () -> Unit,
     allowRootDowngrade: Boolean,
+    themeCount: Int = 0,
+    activeThemeName: String? = null,
+    workspaceStatus: String = "Hazır",
     redesignedUi: Boolean = false,
     shizukuSetupRequest: Int,
     modifier: Modifier = Modifier,
@@ -196,29 +199,32 @@ internal fun StudioPanelScreen(
             showShizukuTutorial = true
         }
     }
+    val deviceName = remember { listOf(Build.MANUFACTURER, Build.MODEL).filter(String::isNotBlank).joinToString(" ").trim() }
+    val platformName = remember { hyperOsVersionLabel() }
     if (redesignedUi) {
-        val statusLabel = when (accessMode) {
-            StudioAccessMode.ROOT -> "ROOT AKTİF"
-            StudioAccessMode.SHIZUKU -> "SHEVERY AKTİF"
-            StudioAccessMode.STANDARD -> "YETKİ BEKLENİYOR"
-            null -> "HAZIRLANIYOR"
-        }
         NeonPanelScreen(
             modifier = modifier,
             title = "Merhaba",
             subtitle = "MTZ Studio · HyperOS tema çalışma alanın",
-            statusLabel = statusLabel,
-            statusColor = if (accessMode == StudioAccessMode.STANDARD) Color(0xFFFFA45B) else Color(0xFF54E6B2),
-            deviceStatusLabel = when (accessMode) {
-                StudioAccessMode.ROOT -> "ROOT AKTİF"
-                StudioAccessMode.SHIZUKU -> "SHEVERY / SHIZUKU BAĞLI"
-                StudioAccessMode.STANDARD -> "YETKİ GEREKLİ"
-                null -> "DURUM KONTROLÜ"
+            themeCount = themeCount,
+            activeThemeName = activeThemeName,
+            workspaceStatus = workspaceStatus,
+            deviceName = deviceName,
+            platformName = platformName,
+            managerTitle = when (accessMode) {
+                StudioAccessMode.ROOT -> "ROOT YÖNETİCİSİ"
+                StudioAccessMode.SHIZUKU -> "SHEVERY / SHIZUKU"
+                else -> "YETKİLENDİRME"
             },
-            deviceStatusColor = when (accessMode) {
-                StudioAccessMode.ROOT -> Color(0xFFB54DFF)
-                StudioAccessMode.SHIZUKU -> Color(0xFF54E6B2)
-                else -> Color(0xFFFFA45B)
+            managerName = when (accessMode) {
+                StudioAccessMode.ROOT -> authorizationManagerName ?: stringResource(R.string.panel_root_service)
+                StudioAccessMode.SHIZUKU -> authorizationManagerName ?: stringResource(R.string.panel_service_unavailable)
+                else -> authorizationManagerName ?: stringResource(R.string.panel_service_unavailable)
+            },
+            managerDescription = when (accessMode) {
+                StudioAccessMode.ROOT -> stringResource(R.string.panel_root_access_ready)
+                StudioAccessMode.SHIZUKU -> stringResource(R.string.panel_shizuku_active)
+                else -> stringResource(R.string.panel_required)
             },
             deviceManagerLabel = when (accessMode) {
                 StudioAccessMode.ROOT -> "Root yöneticisini aç"
@@ -273,8 +279,6 @@ internal fun StudioPanelScreen(
     val wirelessDebuggingEnabled = remember(accessMode) {
         runCatching { Settings.Global.getInt(context.contentResolver, "adb_wifi_enabled", 0) == 1 }.getOrDefault(false)
     }
-    val deviceName = remember { listOf(Build.MANUFACTURER, Build.MODEL).filter(String::isNotBlank).joinToString(" ").trim() }
-    val platformName = remember { hyperOsVersionLabel() }
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -288,15 +292,6 @@ internal fun StudioPanelScreen(
                             if (accessMode == StudioAccessMode.STANDARD) Color(0xFFFF8A3D) else Color(0xFF00BFA5),
                         )
                         Text(stringResource(R.string.panel_authorization_title), modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                        StatusBadge(
-                            text = when (accessMode) {
-                                StudioAccessMode.ROOT -> stringResource(R.string.panel_root_active)
-                                StudioAccessMode.SHIZUKU -> stringResource(R.string.panel_shizuku_active)
-                                StudioAccessMode.STANDARD -> stringResource(R.string.panel_required)
-                                null -> "…"
-                            },
-                            color = if (accessMode == StudioAccessMode.STANDARD) Color(0xFFE65100) else Color(0xFF00897B),
-                        )
                     }
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -400,13 +395,10 @@ internal fun StudioPanelScreen(
                         QuickActionCard(stringResource(R.string.dest_backup), stringResource(R.string.panel_cloud_sync_short), Icons.Filled.CloudDone, Color(0xFF607D8B), onOpenBackup, Modifier.weight(1f))
                     }
                 } else {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         QuickActionCard(stringResource(R.string.mtz_import_title), if (importing) stringResource(R.string.mtz_import_btn_importing) else stringResource(R.string.panel_mtz_short), Icons.Filled.Download, Color(0xFF0066FF), onAddMtz, Modifier.weight(1f), !importing)
                         QuickActionCard(stringResource(R.string.bak_import_title), if (bakImporting) stringResource(R.string.bak_import_inspecting) else stringResource(R.string.panel_bak_short), Icons.Filled.Restore, Color(0xFF7000FF), onAddBak, Modifier.weight(1f), showBakImport && !bakImporting)
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         QuickActionCard(stringResource(R.string.dest_backup), stringResource(R.string.panel_cloud_sync_short), Icons.Filled.CloudDone, Color(0xFF607D8B), onOpenBackup, Modifier.weight(1f))
-                        Spacer(Modifier.weight(1f))
                     }
                 }
             }

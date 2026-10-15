@@ -1985,6 +1985,15 @@ private fun StudioScreen(
                     }
                 },
                 allowRootDowngrade = rootAccessAvailable == true,
+                themeCount = themes.size,
+                activeThemeName = activeThemeId?.let { id ->
+                    themes.firstOrNull { it.id.value == id }?.displayName
+                },
+                workspaceStatus = when {
+                    themeOperationRunning -> "İşleniyor"
+                    !catalogLoadFinished -> "Eşitleniyor"
+                    else -> "Hazır"
+                },
                 redesignedUi = redesignedUi,
                 shizukuSetupRequest = shizukuSetupRequest,
                 modifier = contentModifier,
