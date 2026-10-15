@@ -261,8 +261,11 @@ internal fun ThemeManagerCompatibilityCard(
         val rootModuleMode = allowRootDowngrade && (
             adoptedExternalRuntime || supportsRootMtzImportModule(installed?.versionName)
         )
-        val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState, selectedTarget) &&
-            rootModuleState?.activeTarget == selectedTarget
+        // The module can be installed and current while its runtime bridge is still waiting for
+        // the next boot. Do not interpret a non-active bridge as a request to reinstall the module.
+        val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState, selectedTarget)
+        val rootRuntimeReady = adoptedExternalRuntime ||
+            (rootModuleCurrent && rootModuleState?.activeTarget == selectedTarget)
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -288,7 +291,8 @@ internal fun ThemeManagerCompatibilityCard(
                     Text(
                         when {
                             adoptedExternalRuntime -> "Harici v7 runtime benimsendi"
-                            rootModuleMode && rootModuleState?.active == true && rootModuleCurrent -> "Modül güncel"
+                            rootModuleMode && rootRuntimeReady -> "Modül güncel"
+                            rootModuleMode && rootModuleCurrent -> "Yeniden başlatma gerekli"
                             rootModuleMode && rootModuleState?.active == true -> "Güncelleme var"
                             rootModuleMode && rootModuleState?.installed == true -> "Yeniden başlatın"
                             rootModuleMode -> "Etkinleştirilebilir"
@@ -360,7 +364,7 @@ internal fun ThemeManagerCompatibilityCard(
 
                 if (rootModuleMode) {
                     val module = rootModuleState
-                    val compactReady = adoptedExternalRuntime || rootModuleCurrent
+                    val compactReady = rootRuntimeReady
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -371,7 +375,8 @@ internal fun ThemeManagerCompatibilityCard(
                             Text(
                                 when {
                                     adoptedExternalRuntime -> "Harici V7 runtime hazır"
-                                    rootModuleCurrent -> "${targetLabel(selectedTarget)} runtime hazır"
+                                    rootRuntimeReady -> "${targetLabel(selectedTarget)} runtime hazır"
+                                    rootModuleCurrent -> "${targetLabel(selectedTarget)} modülü kurulu; yeniden başlatma bekleniyor"
                                     module?.active == true -> "Başka bir runtime etkin"
                                     module?.installed == true -> "Yeniden başlatma bekleniyor"
                                     else -> "Kurulum bekleniyor"
@@ -406,6 +411,12 @@ internal fun ThemeManagerCompatibilityCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
+                    } else if (rootModuleCurrent) {
+                        Text(
+                            "${targetLabel(selectedTarget)} root modülü kurulu. Modülü yeniden kurmanız gerekmez; Xiaomi Temalar köprüsünü etkinleştirmek için telefonu yeniden başlatın.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     } else if (!adoptedExternalRuntime) {
                     Text("Root çalışma zamanı hedefi", fontWeight = FontWeight.SemiBold)
                     Text(
@@ -431,7 +442,7 @@ internal fun ThemeManagerCompatibilityCard(
                     )
                     if (rootModuleCheckComplete) {
                         when {
-                            module?.installed != true || module.activeTarget != selectedTarget -> Button(onClick = {
+                            module?.installed != true || !rootModuleCurrent -> Button(onClick = {
                                 rootModuleUpdateRequested = false
                                 showRootModuleConfirmation = true
                             }) {
