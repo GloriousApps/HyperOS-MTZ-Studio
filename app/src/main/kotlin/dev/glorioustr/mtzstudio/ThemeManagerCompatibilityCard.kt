@@ -56,6 +56,7 @@ import dev.glorioustr.mtzstudio.tester.RootThemeManagerUpdater
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
 import dev.glorioustr.mtzstudio.tester.ThemeManagerInspector
 import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
+import dev.glorioustr.mtzstudio.tester.ThemeManagerFamily
 import dev.glorioustr.mtzstudio.tester.VerifiedThemeManagerApk
 import dev.glorioustr.mtzstudio.tester.ThemeManagerRuntimeProfile
 import dev.glorioustr.mtzstudio.tester.ThemeRuntimeArtifacts
@@ -118,6 +119,7 @@ internal fun ThemeManagerCompatibilityCard(
     val cyanAccent = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) Color(0xFF006A78) else Color(0xFF00DAF3)
     val selectedTarget = selectedRuntimeTarget ?: detectedRuntimeTarget ?: ThemeRuntimeTarget.GLOBAL
     val selectedArtifact = ThemeRuntimeArtifacts.forTarget(selectedTarget)
+    val recommendedVersion = recommendedThemeManagerVersion(allowRootDowngrade, selectedTarget)
     val adoptedExternalRuntime = rootModuleState?.adoptedExternalRuntime == true
 
     fun startShizukuDowngrade() {
@@ -194,6 +196,7 @@ internal fun ThemeManagerCompatibilityCard(
 
     fun refresh() {
         scope.launch {
+            var refreshedTarget = selectedTarget
             val detected = withContext(Dispatchers.IO) { inspector.inspect() }
             installed = detected
             val profile = withContext(Dispatchers.IO) { ThemeManagerCapabilityProbe(context).probe(detected) }
@@ -205,7 +208,10 @@ internal fun ThemeManagerCompatibilityCard(
                 runCatching { withContext(Dispatchers.IO) { rootModuleInstaller.detectTarget() } }
                     .onSuccess { detected ->
                         detectedRuntimeTarget = detected
-                        if (selectedRuntimeTarget == null) selectedRuntimeTarget = detected
+                        if (selectedRuntimeTarget == null) {
+                            selectedRuntimeTarget = detected
+                            refreshedTarget = detected
+                        }
                     }
                 runCatching { withContext(Dispatchers.IO) { runtimeManager.healthCheck() } }
             }
@@ -213,7 +219,10 @@ internal fun ThemeManagerCompatibilityCard(
             status = if (profile.compatibleLocalMtzPath) {
                 resources.getString(R.string.tm_recommended_active)
             } else {
-                resources.getString(R.string.tm_recommendation_notice, ThemeManagerContract.RECOMMENDED_VERSION)
+                resources.getString(
+                    R.string.tm_recommendation_notice,
+                    recommendedThemeManagerVersion(allowRootDowngrade, refreshedTarget),
+                )
             }
         }
     }
@@ -225,8 +234,10 @@ internal fun ThemeManagerCompatibilityCard(
                 status = resources.getString(R.string.tm_verifying_apk)
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        openInput(uri)?.use { updater.stageAndVerify(it, current) }
-                            ?: error(resources.getString(R.string.tm_error_apk_open))
+                        openInput(uri)?.use {
+                            updater.stageAndVerify(it, current, expectedVersion = recommendedVersion)
+                        }
+                        ?: error(resources.getString(R.string.tm_error_apk_open))
                     }
                 }.onSuccess { apk ->
                     verifiedApk?.let { previous -> withContext(Dispatchers.IO) { updater.discard(previous) } }
@@ -255,20 +266,29 @@ internal fun ThemeManagerCompatibilityCard(
     StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
         val compatibleLocalMtzPath = runtimeProfile?.compatibleLocalMtzPath == true
         val applyActivityUnavailable = runtimeProfile != null && installed?.installed == true && !compatibleLocalMtzPath
-        // Legacy Global builds such as 3.0.5.6 expose ApplyThemeForScreenshot and are therefore
-        // reported as compatible. They still need our root module to mirror an imported MTZ into
-        // Xiaomi Themes. Do not hide the module card merely because that legacy activity exists.
+        // Root mode is reserved for the exact runtime artifacts verified by the bundled module;
+        // other builds stay on the normal compatibility path.
         val rootModuleMode = allowRootDowngrade && (
             adoptedExternalRuntime || supportsRootMtzImportModule(installed?.versionName)
         )
+        val selectedRuntimeMatchesInstalled = isRootRuntimeVersionForTarget(installed?.versionName, selectedTarget)
+        val rootRuntimeVersionMismatch = allowRootDowngrade && installed?.installed == true &&
+            !selectedRuntimeMatchesInstalled && !adoptedExternalRuntime
         // The module can be installed and current while its runtime bridge is still waiting for
         // the next boot. Do not interpret a non-active bridge as a request to reinstall the module.
-        val rootModuleCurrent = rootModuleInstaller.isBundledVersion(rootModuleState, selectedTarget)
+        val rootModuleCurrent = selectedRuntimeMatchesInstalled &&
+            rootModuleInstaller.isBundledVersion(rootModuleState, selectedTarget)
         // The post-boot service verifies the live APK through runtime-active. The bridge marker
         // is a separate, stricter health signal and can remain unavailable until Themes starts;
         // it must not make an already-running module look as if it needs another reboot.
-        val rootRuntimeReady = adoptedExternalRuntime ||
-            (rootModuleCurrent && rootModuleState?.runtimeActive == true)
+        val rootRuntimeReady = selectedRuntimeMatchesInstalled && (adoptedExternalRuntime ||
+            (rootModuleCurrent &&
+                rootModuleState?.let { state ->
+                    state.runtimeActive &&
+                        state.runtimeVerified &&
+                        isRootRuntimeVersionForTarget(state.runtimeVersion, selectedTarget)
+                } == true)
+        )
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -293,7 +313,7 @@ internal fun ThemeManagerCompatibilityCard(
                 ) {
                     Text(
                         when {
-                            adoptedExternalRuntime -> "Harici v7 runtime benimsendi"
+                            adoptedExternalRuntime && rootRuntimeReady -> "Harici v7 runtime benimsendi"
                             rootModuleMode && rootRuntimeReady -> "Modül güncel"
                             rootModuleMode && rootModuleCurrent -> "Modül kurulu"
                             rootModuleMode && rootModuleState?.active == true -> "Güncelleme var"
@@ -326,6 +346,18 @@ internal fun ThemeManagerCompatibilityCard(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                if (rootRuntimeVersionMismatch) {
+                    Text(
+                        stringResource(
+                            R.string.tm_root_runtime_version_mismatch,
+                            recommendedVersion,
+                            current.versionName ?: stringResource(R.string.tm_version_unknown),
+                        ),
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 if (compatibleLocalMtzPath) {
                     Text(
                         stringResource(R.string.tm_panel_compatible_desc),
@@ -358,11 +390,13 @@ internal fun ThemeManagerCompatibilityCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    Text(
-                        stringResource(R.string.tm_rootless_import_unavailable),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    if (!allowRootDowngrade) {
+                        Text(
+                            stringResource(R.string.tm_rootless_import_unavailable),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
 
                 if (rootModuleMode) {
@@ -377,7 +411,7 @@ internal fun ThemeManagerCompatibilityCard(
                             Text("Root çalışma zamanı", fontWeight = FontWeight.SemiBold)
                             Text(
                                 when {
-                                    adoptedExternalRuntime -> "Harici V7 runtime hazır"
+                                    adoptedExternalRuntime && rootRuntimeReady -> "Harici V7 runtime hazır"
                                     rootRuntimeReady -> "${targetLabel(selectedTarget)} runtime etkin"
                                     rootModuleCurrent -> "${targetLabel(selectedTarget)} modülü kurulu; çalışma durumu denetleniyor"
                                     module?.active == true -> "Başka bir runtime etkin"
@@ -509,7 +543,7 @@ internal fun ThemeManagerCompatibilityCard(
                             ),
                         )
                     },
-                ) { Text(stringResource(R.string.tm_btn_select_apk_version, ThemeManagerContract.RECOMMENDED_VERSION)) }
+                ) { Text(stringResource(R.string.tm_btn_select_apk_version, recommendedVersion)) }
 
                 verifiedApk?.let { apk ->
                     Text(
@@ -526,7 +560,7 @@ internal fun ThemeManagerCompatibilityCard(
                     Button(
                         enabled = riskAccepted,
                         onClick = { showConfirmation = true },
-                    ) { Text(stringResource(R.string.tm_btn_downgrade_to_version, ThemeManagerContract.RECOMMENDED_VERSION)) }
+                    ) { Text(stringResource(R.string.tm_btn_downgrade_to_version, recommendedVersion)) }
                 }
             }
         }
@@ -611,13 +645,13 @@ internal fun ThemeManagerCompatibilityCard(
                                         .joinToString(" · ")
                                     status = resources.getString(
                                         R.string.tm_downgrade_failed,
-                                        ThemeManagerContract.RECOMMENDED_VERSION,
+                                        recommendedVersion,
                                         currentVersion,
                                         reason,
                                     )
                                     ThemeManagerWarningNotifier.notifyDowngradeFailure(
                                         context = context,
-                                        targetVersion = ThemeManagerContract.RECOMMENDED_VERSION,
+                                        targetVersion = recommendedVersion,
                                         installedVersion = currentVersion,
                                         reason = reason,
                                     )
@@ -627,7 +661,7 @@ internal fun ThemeManagerCompatibilityCard(
                                 status = resources.getString(R.string.tm_status_root_failed, error.message ?: error::class.simpleName)
                                 ThemeManagerWarningNotifier.notifyDowngradeFailure(
                                     context = context,
-                                    targetVersion = ThemeManagerContract.RECOMMENDED_VERSION,
+                                    targetVersion = recommendedVersion,
                                     installedVersion = installed?.versionName
                                         ?: resources.getString(R.string.tm_version_unknown),
                                     reason = error.message ?: error::class.simpleName.orEmpty(),
@@ -756,11 +790,31 @@ private fun targetLabel(target: ThemeRuntimeTarget?): String = when (target) {
     null -> "algılanamadı"
 }
 
-private fun supportsRootMtzImportModule(versionName: String?): Boolean {
-    // Module installation/inspection is independent of the Themes activity contract. Keep this
-    // available on every installed version: a fresh system can disable Themes before it is
-    // launched, but root module state must still be visible and repairable.
-    return !ThemeManagerContract.canonicalVersion(versionName).isNullOrBlank()
+internal fun supportsRootMtzImportModule(versionName: String?): Boolean {
+    val canonicalVersion = ThemeManagerContract.canonicalVersion(versionName) ?: return false
+    // The bundled bridge is verified only for the exact artifact selected for the detected
+    // Theme Manager family; an unknown newer build must stay on the incompatible path.
+    val target = when (ThemeManagerContract.familyOf(versionName)) {
+        ThemeManagerFamily.GLOBAL -> ThemeRuntimeTarget.GLOBAL
+        ThemeManagerFamily.CHINA -> ThemeRuntimeTarget.NON_GLOBAL
+        ThemeManagerFamily.UNKNOWN -> return false
+    }
+    return canonicalVersion == ThemeRuntimeArtifacts.forTarget(target).version
+}
+
+internal fun isRootRuntimeVersionForTarget(
+    versionName: String?,
+    target: ThemeRuntimeTarget,
+): Boolean = ThemeManagerContract.canonicalVersion(versionName) ==
+    ThemeManagerContract.canonicalVersion(ThemeRuntimeArtifacts.forTarget(target).versionName)
+
+internal fun recommendedThemeManagerVersion(
+    allowRootDowngrade: Boolean,
+    target: ThemeRuntimeTarget,
+): String = if (allowRootDowngrade) {
+    ThemeRuntimeArtifacts.forTarget(target).version
+} else {
+    ThemeManagerContract.RECOMMENDED_VERSION
 }
 
 private fun awaitDownload(manager: DownloadManager, downloadId: Long) {

@@ -387,6 +387,7 @@
     <string name="tm_error_apk_open">Seçilen APK açılamadı</string>
     <string name="tm_device_installed_compatible">%1$s · Uyumlu</string>
     <string name="tm_device_installed_incompatible">Cihaz: %1$s</string>
+    <string name="tm_root_runtime_version_mismatch">Root ile MTZ uygulamak için Xiaomi Temalar %1$s sürümü gereklidir. Kurulu sürüm: %2$s.</string>
     <string name="tm_version_unknown">sürüm bilinmiyor</string>
     <string name="tm_device_not_found">Desteklenen Xiaomi Tema Yöneticisi paketi bulunamadı</string>
     <string name="tm_btn_select_apk_version">%1$s APK seç</string>

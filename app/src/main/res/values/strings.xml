@@ -387,6 +387,7 @@
     <string name="tm_error_apk_open">The selected APK could not be opened</string>
     <string name="tm_device_installed_compatible">%1$s · Compatible</string>
     <string name="tm_device_installed_incompatible">Device: %1$s</string>
+    <string name="tm_root_runtime_version_mismatch">Root MTZ apply requires Xiaomi Themes %1$s. Installed version: %2$s.</string>
     <string name="tm_version_unknown">unknown version</string>
     <string name="tm_device_not_found">No supported Xiaomi Theme Manager package found</string>
     <string name="tm_btn_select_apk_version">Select %1$s APK</string>
