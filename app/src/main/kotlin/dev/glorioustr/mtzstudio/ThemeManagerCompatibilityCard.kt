@@ -2,12 +2,9 @@ package dev.glorioustr.mtzstudio
 
 import android.app.DownloadManager
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.os.ParcelFileDescriptor
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -53,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import dev.glorioustr.mtzstudio.tester.InstalledThemeManager
 import dev.glorioustr.mtzstudio.tester.PrivilegedCommandRunner
 import dev.glorioustr.mtzstudio.tester.RootThemeManagerUpdater
+import dev.glorioustr.mtzstudio.tester.RootTargetApk
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
 import dev.glorioustr.mtzstudio.tester.ThemeManagerInspector
 import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
@@ -67,20 +65,14 @@ import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.InputStream
 
 @Composable
 internal fun ThemeManagerCompatibilityCard(
     inspector: ThemeManagerInspector,
     updater: RootThemeManagerUpdater,
-    openInput: (Uri) -> InputStream?,
     allowRootDowngrade: Boolean,
     neonStyle: Boolean = false,
 ) {
-    val recommendedApkName = "Xiaomi_Themes_3.0.5.6-global.apk"
-    val recommendedDownloadUrl =
-        "https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/$recommendedApkName"
-    val recommendedApkSha256 = "24b99f995bf5f8509e591bdb1d36ce6f95260ec95648d13f9ddedc4e7d8edceb"
     val resources = LocalResources.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -119,7 +111,23 @@ internal fun ThemeManagerCompatibilityCard(
     val cyanAccent = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) Color(0xFF006A78) else Color(0xFF00DAF3)
     val selectedTarget = selectedRuntimeTarget ?: detectedRuntimeTarget ?: ThemeRuntimeTarget.GLOBAL
     val selectedArtifact = ThemeRuntimeArtifacts.forTarget(selectedTarget)
+    val recommendedApk = if (allowRootDowngrade) {
+        ThemeManagerContract.rootTargetApk(
+            when (selectedTarget) {
+                ThemeRuntimeTarget.GLOBAL -> ThemeManagerFamily.GLOBAL
+                ThemeRuntimeTarget.NON_GLOBAL -> ThemeManagerFamily.CHINA
+            },
+        ) ?: error("No verified Xiaomi Themes APK is registered for $selectedTarget")
+    } else {
+        RootTargetApk(
+            version = ThemeManagerContract.RECOMMENDED_VERSION,
+            apkName = "Xiaomi_Themes_3.0.5.6-global.apk",
+            sha256 = "24b99f995bf5f8509e591bdb1d36ce6f95260ec95648d13f9ddedc4e7d8edceb",
+        )
+    }
     val recommendedVersion = recommendedThemeManagerVersion(allowRootDowngrade, selectedTarget)
+    val recommendedDownloadUrl =
+        "https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/${recommendedApk.apkName}"
     val adoptedExternalRuntime = rootModuleState?.adoptedExternalRuntime == true
 
     fun startShizukuDowngrade() {
@@ -143,21 +151,25 @@ internal fun ThemeManagerCompatibilityCard(
             runCatching {
                 withContext(Dispatchers.IO) {
                     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                    val downloadName = "mtzstudio-${System.currentTimeMillis()}-$recommendedApkName"
+                    val downloadName = "mtzstudio-${System.currentTimeMillis()}-${recommendedApk.apkName}"
                     val request = DownloadManager.Request(Uri.parse(recommendedDownloadUrl))
-                        .setTitle(recommendedApkName)
-                        .setDescription("Xiaomi Themes ${ThemeManagerContract.RECOMMENDED_VERSION}")
+                        .setTitle(recommendedApk.apkName)
+                        .setDescription("Xiaomi Themes $recommendedVersion")
                         .setMimeType("application/vnd.android.package-archive")
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                         .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, downloadName)
                     val downloadId = manager.enqueue(request)
                     awaitDownload(manager, downloadId)
-                    val descriptor = manager.openDownloadedFile(downloadId)
-                    val verified = ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
-                        updater.stageAndVerify(input, current)
+                    val verified = try {
+                        val descriptor = manager.openDownloadedFile(downloadId)
+                        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                            updater.stageAndVerify(input, current, expectedVersion = recommendedVersion)
+                        }
+                    } finally {
+                        manager.remove(downloadId)
                     }
                     stagedApk = verified
-                    check(verified.sha256.equals(recommendedApkSha256, ignoreCase = true)) {
+                    check(verified.sha256.equals(recommendedApk.sha256, ignoreCase = true)) {
                         "Downloaded Xiaomi Themes APK checksum does not match"
                     }
                     val shellRunner = PrivilegedCommandRunner { command, timeout ->
@@ -184,7 +196,7 @@ internal fun ThemeManagerCompatibilityCard(
                 status = resources.getString(R.string.tm_apk_rejected, error.message ?: error::class.simpleName)
                 ThemeManagerWarningNotifier.notifyDowngradeFailure(
                     context = context,
-                    targetVersion = ThemeManagerContract.RECOMMENDED_VERSION,
+                    targetVersion = recommendedVersion,
                     installedVersion = installed?.versionName
                         ?: resources.getString(R.string.tm_version_unknown),
                     reason = error.message ?: error::class.simpleName.orEmpty(),
@@ -227,26 +239,38 @@ internal fun ThemeManagerCompatibilityCard(
         }
     }
 
-    val apkPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                val current = installed ?: withContext(Dispatchers.IO) { inspector.inspect() }.also { installed = it }
-                status = resources.getString(R.string.tm_verifying_apk)
-                runCatching {
-                    withContext(Dispatchers.IO) {
-                        openInput(uri)?.use {
-                            updater.stageAndVerify(it, current, expectedVersion = recommendedVersion)
-                        }
-                        ?: error(resources.getString(R.string.tm_error_apk_open))
+    fun downloadRecommendedApk() {
+        scope.launch {
+            val current = installed ?: withContext(Dispatchers.IO) { inspector.inspect() }.also { installed = it }
+            status = resources.getString(R.string.tm_verifying_apk)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                    val downloadName = "mtzstudio-${System.currentTimeMillis()}-${recommendedApk.apkName}"
+                    val request = DownloadManager.Request(Uri.parse(recommendedDownloadUrl))
+                        .setTitle(recommendedApk.apkName)
+                        .setDescription("Xiaomi Themes $recommendedVersion")
+                        .setMimeType("application/vnd.android.package-archive")
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, downloadName)
+                    val downloadId = manager.enqueue(request)
+                    awaitDownload(manager, downloadId)
+                    val descriptor = manager.openDownloadedFile(downloadId)
+                    val verified = ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                        updater.stageAndVerify(input, current, expectedVersion = recommendedVersion)
                     }
-                }.onSuccess { apk ->
-                    verifiedApk?.let { previous -> withContext(Dispatchers.IO) { updater.discard(previous) } }
-                    verifiedApk = apk
-                    riskAccepted = false
-                    status = resources.getString(R.string.tm_apk_verified, apk.versionName, apk.sha256)
-                }.onFailure { error ->
-                    status = resources.getString(R.string.tm_apk_rejected, error.message ?: error::class.simpleName)
+                    check(verified.sha256.equals(recommendedApk.sha256, ignoreCase = true)) {
+                        "Downloaded Xiaomi Themes APK checksum does not match"
+                    }
+                    verified
                 }
+            }.onSuccess { apk ->
+                verifiedApk?.let { previous -> withContext(Dispatchers.IO) { updater.discard(previous) } }
+                verifiedApk = apk
+                riskAccepted = false
+                status = resources.getString(R.string.tm_apk_verified, apk.versionName, apk.sha256)
+            }.onFailure { error ->
+                status = resources.getString(R.string.tm_apk_rejected, error.message ?: error::class.simpleName)
             }
         }
     }
@@ -535,15 +559,9 @@ internal fun ThemeManagerCompatibilityCard(
             if (shouldShowThemeManagerDowngradeButton(allowRootDowngrade, current, runtimeProfile, rootModuleMode)) {
                 OutlinedButton(
                     onClick = {
-                        apkPicker.launch(
-                            arrayOf(
-                                "application/vnd.android.package-archive",
-                                "application/octet-stream",
-                                "*/*",
-                            ),
-                        )
+                        downloadRecommendedApk()
                     },
-                ) { Text(stringResource(R.string.tm_btn_select_apk_version, recommendedVersion)) }
+                ) { Text(stringResource(R.string.tm_btn_download_apk, recommendedVersion)) }
 
                 verifiedApk?.let { apk ->
                     Text(

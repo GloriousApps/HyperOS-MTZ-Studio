@@ -25,9 +25,9 @@ object ThemeManagerContract {
     const val CONTROLLED_NON_GLOBAL_VERSION = "11.5.3.1"
     const val MODERN_NATIVE_LIBRARY_MIN_VERSION = "10.8.7.6"
 
-    // Root module target APKs, published to the project's GitHub releases. The user supplies
-    // these APKs; the app downloads and verifies them before installing. SHA-256 values are
-    // filled in once the APKs are published — an empty value blocks the install flow.
+    // Root module target APKs, served from the repository requirements directory. The app
+    // downloads and verifies them before installing. SHA-256 values are pinned so an unexpected
+    // or tampered package cannot enter the root installation flow.
     const val ROOT_GLOBAL_APK_NAME = "Xiaomi_Themes_3.4.1.23-global.apk"
     const val ROOT_CHINA_APK_NAME = "Xiaomi_Themes_11.5.3.1.apk"
     const val ROOT_GLOBAL_APK_SHA256 = "d405e78fac1eae48e105e57f5e3422ec0a0a6d53f779973d06e131e85b016037"

@@ -261,7 +261,6 @@ internal fun StudioPanelScreen(
                 ThemeManagerCompatibilityCard(
                     inspector = themeManagerInspector,
                     updater = themeManagerUpdater,
-                    openInput = openInput,
                     allowRootDowngrade = allowRootDowngrade,
                     neonStyle = true,
                 )
@@ -376,7 +375,6 @@ internal fun StudioPanelScreen(
             ThemeManagerCompatibilityCard(
                 inspector = themeManagerInspector,
                 updater = themeManagerUpdater,
-                openInput = openInput,
                 allowRootDowngrade = allowRootDowngrade,
             )
         }
@@ -747,7 +745,6 @@ internal fun HomeMenuScreen(
                             ThemeManagerCompatibilityCard(
                                 inspector = themeManagerInspector,
                                 updater = themeManagerUpdater,
-                                openInput = openInput,
                                 allowRootDowngrade = allowRootDowngrade,
                             )
                         }
