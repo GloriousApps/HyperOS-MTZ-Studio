@@ -251,10 +251,12 @@ internal class RootlessThemeRecovery(context: Context) {
             val themeCount = manifest.getProperty("themesContentCount", "0").toInt()
             var publicStage = "BACKUP_PUBLIC_ARCHIVE"
             // A fresh directory per operation, never a fixed filename that could replace an earlier backup.
-            // Some MIUI MediaProvider builds reject a trailing slash in RELATIVE_PATH even though
-            // AOSP normalizes it. Keep the provider value slash-free and retain a slash only in
-            // the receipt path used to identify the backup directory.
-            val relative = "Download/MTZ Studio/Backups/${System.currentTimeMillis()}-${UUID.randomUUID()}"
+            // Some MIUI MediaProvider builds materialize a nested RELATIVE_PATH as a directory
+            // row and then fail to expose files below it for readback. Keep the public directory
+            // shallow and make each file unique instead. The final URI/hash/size verification is
+            // still mandatory before PREPARED can be persisted.
+            val backupId = "${System.currentTimeMillis()}-${UUID.randomUUID()}"
+            val relative = "Download/MTZ Studio/Backups"
             val receiptPath = "$relative/"
             try {
                 ZipOutputStream(archive.outputStream().buffered()).use { zip ->
@@ -287,8 +289,9 @@ restorable snapshot of Themes private data.
                     .map { File(folder, it) }
                 val published = sources.map { source ->
                     check(source.isFile && source.length() > 0) { "Public backup source empty" }
+                    val publicName = "$backupId-${source.name}"
                     val values = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, source.name)
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, publicName)
                         put(MediaStore.MediaColumns.MIME_TYPE, when (source.extension) {
                             "zip" -> "application/zip"
                             "bak" -> "application/octet-stream"
@@ -315,7 +318,7 @@ restorable snapshot of Themes private data.
                     } catch (_: Exception) {
                         throw RootlessRecoveryFailure("BACKUP_PUBLIC_MEDIASTORE_WRITE")
                     }
-                    val receipt = PublicRecoveryFile(source.name, uri.toString(), digest(source), source.length())
+                    val receipt = PublicRecoveryFile(publicName, uri.toString(), digest(source), source.length())
                     // HyperOS 3's MediaProvider can accept writes to an IS_PENDING row but
                     // reject an immediate read from that same row. Do not weaken verification;
                     // defer the complete metadata/hash/size readback until after publication.
@@ -344,9 +347,11 @@ restorable snapshot of Themes private data.
         }
 
         override fun recheckPublic(receipt: PublicBackupReceipt) {
-            check(receipt.isComplete() && receipt.path.startsWith("Download/MTZ Studio/Backups/") &&
-                receipt.path.endsWith('/') && receipt.path.removeSuffix("/").removePrefix("Download/MTZ Studio/Backups/")
-                    .matches(Regex("[0-9]{10,}-[a-f0-9-]{36}"))) { "Public backup receipt incomplete" }
+            val normalizedPath = receipt.path.trimEnd('/')
+            val base = "Download/MTZ Studio/Backups"
+            val legacyNested = normalizedPath.removePrefix("$base/")
+                .matches(Regex("[0-9]{10,}-[a-f0-9-]{36}"))
+            check(receipt.isComplete() && (normalizedPath == base || legacyNested)) { "Public backup receipt incomplete" }
             receipt.files.forEach { verifyPublicFile(it, receipt.path, expectedPending = false) }
         }
 

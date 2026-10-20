@@ -26,12 +26,15 @@ data class PublicBackupReceipt(
     val themeCount: Int = 0,
     val schemaVersion: Int = 2,
 ) {
+    private fun hasFile(name: String): Boolean = files.any { it.name == name || it.name.endsWith("-$name") }
+
     fun isComplete(): Boolean = schemaVersion == 2 && path.isNotBlank() &&
         themesBackupStatus in setOf("PARTIAL", "EMPTY", "UNAVAILABLE", "FAILED") &&
-        files.map { it.name }.toSet().containsAll(setOf("studio-library.zip", "themes-apks.zip", "backup.properties", "README.txt")) &&
+        hasFile("studio-library.zip") && hasFile("themes-apks.zip") &&
+        hasFile("backup.properties") && hasFile("README.txt") &&
         files.size == files.map { it.name }.distinct().size &&
         files.all { it.uri.startsWith("content://media/") && it.sha256.matches(Regex("[a-f0-9]{64}")) && it.size > 0 } &&
-        (themesBackupStatus != "PARTIAL" || themeCount > 0 && files.any { it.name == "themes.bak" })
+        (themesBackupStatus != "PARTIAL" || themeCount > 0 && hasFile("themes.bak"))
 }
 
 data class RecoveryJournal(
