@@ -23,6 +23,7 @@ class RootlessRecoveryPresentationTest {
 
     @Test fun `only controlled reason codes appear in compact summary`() {
         assertEquals("ADB_SERVICE_PERMISSION_REQUIRED", controlledRecoveryReason("Preparation failed. Reason: ADB_SERVICE_PERMISSION_REQUIRED"))
+        assertEquals("BACKUP_PUBLIC_VERIFY_PATH", controlledRecoveryReason("Preparation failed. Reason: BACKUP_PUBLIC_VERIFY_PATH"))
         assertNull(controlledRecoveryReason("Detailed internal path /data/user/0/private"))
     }
 }

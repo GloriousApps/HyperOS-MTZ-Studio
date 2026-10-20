@@ -66,9 +66,27 @@ internal class RootlessThemeRecovery(context: Context) {
         runCatching {
             LiveDiagnosticsRecorder.get(app).record("rootless_recovery_state", journal.message,
                 mapOf("phase" to journal.phase, "baseline" to journal.baseline?.version, "target" to journal.target?.version))
+            controlledReason(journal.message)?.let { reason ->
+                if (journal.phase == "FAILED" || journal.phase == "RECOVERY_NEEDED") {
+                    LiveDiagnosticsRecorder.get(app).record(
+                        "rootless_recovery_failure",
+                        "Rootsuz Temalar kurtarma kontrollü hata kodu",
+                        mapOf(
+                            "phase" to journal.phase,
+                            "reason" to reason,
+                            "androidSdk" to Build.VERSION.SDK_INT,
+                            "mediaStoreDirectory" to "Download/MTZ Studio/Backups",
+                            "publicFileCount" to (journal.publicBackup?.files?.size ?: 0),
+                        ),
+                    )
+                }
+            }
         }
         return journal.toSnapshot()
     }
+
+    private fun controlledReason(message: String): String? =
+        Regex("(?:^|\\b)Reason: ([A-Z][A-Z0-9_]{0,99})\\b").find(message)?.groupValues?.get(1)
 
     private fun RecoveryJournal.toSnapshot() = Snapshot(
         phase, message, backupPath,
@@ -330,11 +348,7 @@ restorable snapshot of Themes private data.
                 }
                 publicStage = "BACKUP_PUBLIC_RECHECK"
                 val receipt = PublicBackupReceipt(receiptPath, published, themesStatus, themeCount)
-                try {
                     recheckPublic(receipt)
-                } catch (_: Exception) {
-                    throw RootlessRecoveryFailure("BACKUP_PUBLIC_MEDIASTORE_VERIFY")
-                }
                 return receipt
             } catch (error: Exception) {
                 created.forEach { runCatching { resolver.delete(it, null, null) } }
@@ -363,18 +377,41 @@ restorable snapshot of Themes private data.
 
         private fun verifyPublicFile(file: PublicRecoveryFile, relative: String, expectedPending: Boolean) {
             val uri = Uri.parse(file.uri)
-            check(uri.scheme == "content" && uri.authority == MediaStore.AUTHORITY &&
-                uri.path?.matches(Regex("/external(?:_primary)?/downloads/[0-9]+")) == true) { "Unexpected public backup URI" }
-            context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME,
-                MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.IS_PENDING), null, null, null).use { cursor ->
-                check(cursor != null && cursor.moveToFirst() && cursor.count == 1) { "Public backup row missing" }
-                check(cursor.getString(0) == file.name &&
-                    cursor.getString(1).trimEnd('/') == relative.trimEnd('/') &&
-                    cursor.getInt(2) == (if (expectedPending) 1 else 0)) { "Public backup destination changed" }
+            if (uri.scheme != "content" || uri.authority != MediaStore.AUTHORITY ||
+                uri.path?.matches(Regex("/external(?:_primary)?/downloads/[0-9]+")) != true) {
+                throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_URI")
             }
-            val stream = requireNotNull(context.contentResolver.openInputStream(uri)) { "Public backup unreadable" }
-            val (sha, size) = stream.use(::digestAndSize)
-            check(sha == file.sha256 && size == file.size && size > 0) { "Public backup checksum changed" }
+            try {
+                context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME,
+                    MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.IS_PENDING), null, null, null).use { cursor ->
+                    if (cursor == null || !cursor.moveToFirst()) throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_ROW")
+                    val actualName = cursor.getString(0)
+                    val actualPath = cursor.getString(1).trimEnd('/')
+                    val actualPending = cursor.getInt(2)
+                    if (actualName != file.name) throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_NAME")
+                    if (actualPath != relative.trimEnd('/')) throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_PATH")
+                    if (actualPending != (if (expectedPending) 1 else 0)) {
+                        throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_PENDING")
+                    }
+                }
+            } catch (failure: RootlessRecoveryFailure) {
+                throw failure
+            } catch (_: Exception) {
+                throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_METADATA")
+            }
+            val stream = try {
+                requireNotNull(context.contentResolver.openInputStream(uri))
+            } catch (_: Exception) {
+                throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_READBACK")
+            }
+            val (sha, size) = try {
+                stream.use(::digestAndSize)
+            } catch (_: Exception) {
+                throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_READBACK")
+            }
+            if (sha != file.sha256 || size != file.size || size <= 0) {
+                throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_HASH")
+            }
         }
 
         override fun factoryObservation(): String = runCatching {
