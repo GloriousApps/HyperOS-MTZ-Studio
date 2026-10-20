@@ -1,6 +1,6 @@
 # Rootsuz Temalar yeniden kurulum testi
 
-Bu deneysel APK: **5.6.3-rootless-test.3**, sürüm kodu **82**; kaynak dal **main**.
+Bu deneysel APK: **5.6.3-rootless-test.4**, sürüm kodu **83**; kaynak dal **main**.
 
 ## Kapsam ve risk
 

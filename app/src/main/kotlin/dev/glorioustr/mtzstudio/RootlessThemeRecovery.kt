@@ -249,6 +249,7 @@ internal class RootlessThemeRecovery(context: Context) {
             val manifest = Properties().apply { File(folder, "backup.properties").inputStream().use(::load) }
             val themesStatus = manifest.getProperty("themesContentStatus", "UNAVAILABLE")
             val themeCount = manifest.getProperty("themesContentCount", "0").toInt()
+            var publicStage = "BACKUP_PUBLIC_ARCHIVE"
             // A fresh directory per operation, never a fixed filename that could replace an earlier backup.
             val relative = "Download/MTZ Studio/Backups/${System.currentTimeMillis()}-${UUID.randomUUID()}/"
             try {
@@ -261,6 +262,7 @@ internal class RootlessThemeRecovery(context: Context) {
                     }
                 }
                 verifyZip(archive)
+                publicStage = "BACKUP_PUBLIC_README"
                 readme.writeText("""HyperOS MTZ Studio experimental recovery backup
 studio-library.zip is the Studio library backup for StudioBackupManager restore.
 themes-apks.zip contains the original installed base APK and every installed split APK,
@@ -274,7 +276,8 @@ OS restore, cross-version restoration and restoration after uninstall are NOT ve
 Uninstalling Themes can erase themes, accounts, settings, previews and other private data.
 Neither this archive nor the Studio library is a full Xiaomi Themes BAK or a
 restorable snapshot of Themes private data.
-""")
+                """)
+                publicStage = "BACKUP_PUBLIC_MEDIASTORE"
                 val sources = (listOf("studio-library.zip", "themes-apks.zip", "backup.properties", "README.txt") +
                     if (themesStatus == "PARTIAL") listOf("themes.bak") else emptyList())
                     .map { File(folder, it) }
@@ -300,15 +303,18 @@ restorable snapshot of Themes private data.
                     verifyPublicFile(receipt, relative, expectedPending = true)
                     receipt
                 }
+                publicStage = "BACKUP_PUBLIC_PUBLISH"
                 check(created.all { resolver.update(it, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1 }) {
                     "Public backup publication failed"
                 }
+                publicStage = "BACKUP_PUBLIC_RECHECK"
                 val receipt = PublicBackupReceipt(relative, published, themesStatus, themeCount)
                 recheckPublic(receipt)
                 return receipt
             } catch (error: Exception) {
                 created.forEach { runCatching { resolver.delete(it, null, null) } }
-                throw error
+                if (error is RootlessRecoveryFailure) throw error
+                throw RootlessRecoveryFailure(publicStage)
             } finally {
                 archive.delete()
                 readme.delete()
