@@ -316,11 +316,9 @@ restorable snapshot of Themes private data.
                         throw RootlessRecoveryFailure("BACKUP_PUBLIC_MEDIASTORE_WRITE")
                     }
                     val receipt = PublicRecoveryFile(source.name, uri.toString(), digest(source), source.length())
-                    try {
-                        verifyPublicFile(receipt, relative, expectedPending = true)
-                    } catch (_: Exception) {
-                        throw RootlessRecoveryFailure("BACKUP_PUBLIC_MEDIASTORE_VERIFY")
-                    }
+                    // HyperOS 3's MediaProvider can accept writes to an IS_PENDING row but
+                    // reject an immediate read from that same row. Do not weaken verification;
+                    // defer the complete metadata/hash/size readback until after publication.
                     receipt
                 }
                 publicStage = "BACKUP_PUBLIC_PUBLISH"
@@ -329,7 +327,11 @@ restorable snapshot of Themes private data.
                 }
                 publicStage = "BACKUP_PUBLIC_RECHECK"
                 val receipt = PublicBackupReceipt(receiptPath, published, themesStatus, themeCount)
-                recheckPublic(receipt)
+                try {
+                    recheckPublic(receipt)
+                } catch (_: Exception) {
+                    throw RootlessRecoveryFailure("BACKUP_PUBLIC_MEDIASTORE_VERIFY")
+                }
                 return receipt
             } catch (error: Exception) {
                 created.forEach { runCatching { resolver.delete(it, null, null) } }
