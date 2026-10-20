@@ -388,7 +388,21 @@ restorable snapshot of Themes private data.
                     val actualName = cursor.getString(0)
                     val actualPath = cursor.getString(1).trimEnd('/')
                     val actualPending = cursor.getInt(2)
-                    if (actualName != file.name) throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_NAME")
+                    if (actualName.isNullOrBlank()) throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_NAME")
+                    if (actualName != file.name) {
+                        // MIUI may normalize or collision-suffix DISPLAY_NAME while keeping the
+                        // URI, directory and bytes intact. The name is presentation metadata;
+                        // the URI/path/size/SHA-256 checks below identify the actual backup file.
+                        LiveDiagnosticsRecorder.get(context).record(
+                            "rootless_media_store_name_normalized",
+                            "MediaStore public yedek dosya adını normalize etti",
+                            mapOf(
+                                "expectedName" to file.name,
+                                "actualName" to actualName,
+                                "nameCheck" to "tolerated; URI/path/hash remain mandatory",
+                            ),
+                        )
+                    }
                     if (actualPath != relative.trimEnd('/')) throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_PATH")
                     if (actualPending != (if (expectedPending) 1 else 0)) {
                         throw RootlessRecoveryFailure("BACKUP_PUBLIC_VERIFY_PENDING")
