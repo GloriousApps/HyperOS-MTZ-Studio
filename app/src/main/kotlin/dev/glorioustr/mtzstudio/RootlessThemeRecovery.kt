@@ -251,7 +251,11 @@ internal class RootlessThemeRecovery(context: Context) {
             val themeCount = manifest.getProperty("themesContentCount", "0").toInt()
             var publicStage = "BACKUP_PUBLIC_ARCHIVE"
             // A fresh directory per operation, never a fixed filename that could replace an earlier backup.
-            val relative = "Download/MTZ Studio/Backups/${System.currentTimeMillis()}-${UUID.randomUUID()}/"
+            // Some MIUI MediaProvider builds reject a trailing slash in RELATIVE_PATH even though
+            // AOSP normalizes it. Keep the provider value slash-free and retain a slash only in
+            // the receipt path used to identify the backup directory.
+            val relative = "Download/MTZ Studio/Backups/${System.currentTimeMillis()}-${UUID.randomUUID()}"
+            val receiptPath = "$relative/"
             try {
                 ZipOutputStream(archive.outputStream().buffered()).use { zip ->
                     (files.map { File(it.path) } + File(folder, "backup.properties")).forEach { source ->
@@ -294,13 +298,29 @@ restorable snapshot of Themes private data.
                         put(MediaStore.MediaColumns.RELATIVE_PATH, relative)
                         put(MediaStore.MediaColumns.IS_PENDING, 1)
                     }
-                    val uri = requireNotNull(resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)) { "Public backup insert failed" }
+                    val uri = try {
+                        requireNotNull(resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)) {
+                            "Public backup insert failed"
+                        }
+                    } catch (_: Exception) {
+                        throw RootlessRecoveryFailure("BACKUP_PUBLIC_MEDIASTORE_INSERT")
+                    }
                     created += uri
-                    requireNotNull(resolver.openOutputStream(uri, "w")) { "Public backup output unavailable" }.use { output ->
-                        source.inputStream().use { it.copyTo(output) }
+                    try {
+                        // Use the provider's default write mode; it is more compatible with OEM
+                        // MediaProvider implementations than explicitly passing "w".
+                        requireNotNull(resolver.openOutputStream(uri)) { "Public backup output unavailable" }.use { output ->
+                            source.inputStream().use { it.copyTo(output) }
+                        }
+                    } catch (_: Exception) {
+                        throw RootlessRecoveryFailure("BACKUP_PUBLIC_MEDIASTORE_WRITE")
                     }
                     val receipt = PublicRecoveryFile(source.name, uri.toString(), digest(source), source.length())
-                    verifyPublicFile(receipt, relative, expectedPending = true)
+                    try {
+                        verifyPublicFile(receipt, relative, expectedPending = true)
+                    } catch (_: Exception) {
+                        throw RootlessRecoveryFailure("BACKUP_PUBLIC_MEDIASTORE_VERIFY")
+                    }
                     receipt
                 }
                 publicStage = "BACKUP_PUBLIC_PUBLISH"
@@ -308,7 +328,7 @@ restorable snapshot of Themes private data.
                     "Public backup publication failed"
                 }
                 publicStage = "BACKUP_PUBLIC_RECHECK"
-                val receipt = PublicBackupReceipt(relative, published, themesStatus, themeCount)
+                val receipt = PublicBackupReceipt(receiptPath, published, themesStatus, themeCount)
                 recheckPublic(receipt)
                 return receipt
             } catch (error: Exception) {
