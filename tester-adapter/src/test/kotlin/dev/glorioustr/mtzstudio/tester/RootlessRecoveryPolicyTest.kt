@@ -37,10 +37,14 @@ class RootlessRecoveryPolicyTest {
         var schemaVersion = 2
         var includeThemesBak = false
         var stages = 0
+        var backupFails = false
         val commands = mutableListOf<String>()
         override fun requireReady() { check(service) }
         override fun installed() = installed
-        override fun backup(baseline: RecoveryIdentity) = "/private/rollback" to listOf(RecoveryFile("/private/rollback/base.apk", "sha", "/data/app/base.apk"))
+        override fun backup(baseline: RecoveryIdentity): Pair<String, List<RecoveryFile>> {
+            if (backupFails) error("Local backup failed")
+            return "/private/rollback" to listOf(RecoveryFile("/private/rollback/base.apk", "sha", "/data/app/base.apk"))
+        }
         override fun publishPublic(backupPath: String, files: List<RecoveryFile>): PublicBackupReceipt {
             if (exportFails) error("MediaStore export failed")
             published++
@@ -92,6 +96,23 @@ class RootlessRecoveryPolicyTest {
         assertEquals(null, policy.snapshot().publicBackup)
         assertEquals("FAILED", policy.install(true).phase)
         assertTrue(gateway.commands.isEmpty())
+    }
+
+    @Test fun `ordinary preparation failures expose controlled stage reasons`() {
+        val cases = listOf<Pair<String, (FakeGateway) -> Unit>>(
+            "READY_CHECK" to { it.service = false },
+            "TARGET_CHECK" to { it.targetValid = false },
+            "BACKUP_LOCAL" to { it.backupFails = true },
+            "BACKUP_PUBLIC" to { it.exportFails = true },
+            "BACKUP_PUBLIC_VERIFY" to { it.publicReadable = false },
+            "BACKUP_RECHECK" to { it.backupsValid = false },
+        )
+        cases.forEach { (reason, fail) ->
+            val store = MemoryStore(); val gateway = FakeGateway().apply { fail(this) }
+            val prepared = RootlessRecoveryPolicy(store, gateway).prepare()
+            assertEquals("FAILED", prepared.phase, reason)
+            assertTrue(prepared.message.contains("Reason: $reason"), prepared.message)
+        }
     }
 
     @Test fun `public URI revalidation failure before install prevents uninstall`() {

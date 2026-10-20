@@ -82,13 +82,18 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
         if (old.phase == "PREPARED" && old.publicBackup?.isComplete() == true) return old
         if (old.phase !in setOf("IDLE", "FAILED", "RECOVERED", "INSTALLED", "PREPARED")) return old
         var exported: PublicBackupReceipt? = null
+        var stage = "READY_CHECK"
         return try {
             gateway.requireReady()
+            stage = "TARGET_CHECK"
             val baseline = requireNotNull(gateway.installed())
             val target = gateway.verifiedTarget(baseline)
+            stage = "BACKUP_LOCAL"
             val (path, files) = gateway.backup(baseline)
             check(path.isNotBlank() && files.isNotEmpty())
+            stage = "BACKUP_PUBLIC"
             exported = gateway.publishPublic(path, files)
+            stage = "BACKUP_PUBLIC_VERIFY"
             check(exported.isComplete()) { "Incomplete public export" }
             gateway.recheckPublic(exported)
             val prepared = RecoveryJournal(
@@ -96,12 +101,13 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
                 "Ready. Verified public Studio library and original APK set saved. Themes private data is NOT backed up and uninstall will erase it. ${gateway.factoryObservation()}",
                 path, baseline, target, files, exported,
             )
+            stage = "BACKUP_RECHECK"
             gateway.recheck(prepared)
             store.save(prepared)
             prepared
         } catch (error: Exception) {
             exported?.let { runCatching { gateway.cleanupPublic(it) } }
-            save(old.copy(phase = "FAILED", message = "Preparation failed; no package mutation was requested.${reason(error)}"))
+            save(old.copy(phase = "FAILED", message = "Preparation failed; no package mutation was requested.${reason(error, stage)}"))
         }
     }
 
@@ -160,6 +166,6 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
     }
 
     private fun save(journal: RecoveryJournal): RecoveryJournal { store.save(journal); return journal }
-    private fun reason(error: Exception): String = " Reason: " +
-        ((error as? RootlessRecoveryFailure)?.reason ?: "CHECK_FAILED")
+    private fun reason(error: Exception, stage: String? = null): String = " Reason: " +
+        ((error as? RootlessRecoveryFailure)?.reason ?: stage ?: "CHECK_FAILED")
 }
