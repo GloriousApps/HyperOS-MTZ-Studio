@@ -146,7 +146,7 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
                 else -> R.string.rootless_intro
             }
             Text(stringResource(summary), style = MaterialTheme.typography.bodySmall)
-            if (error != null || state?.phase == "FAILED") {
+            if (error != null || state?.phase == "FAILED" || state?.needsRecovery == true) {
                 reason?.let { Text(stringResource(R.string.rootless_reason, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             }
             state?.publicBackupPath?.takeIf(String::isNotBlank)?.let { path ->
@@ -193,7 +193,7 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
                         } else stringResource(themesStatus),
                     )
                 }
-                if (error != null) reason?.let { Text(stringResource(R.string.rootless_reason, it)) }
+                reason?.let { Text(stringResource(R.string.rootless_reason, it)) }
             }
         },
         confirmButton = { TextButton(onClick = { showInfo = false }) { Text(stringResource(R.string.rootless_close)) } },
