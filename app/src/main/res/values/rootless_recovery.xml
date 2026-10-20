@@ -1,24 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="rootless_title">Experimental rootless Themes recovery</string>
-    <string name="rootless_experimental">Experimental: bypassing the downgrade block is not guaranteed. Installation can fail even after removal.</string>
-    <string name="rootless_scope">Prepare downloads Themes 3.0.5.6 and saves the installed 3.4.1.23 base/split APKs and MTZ Studio library only. It does NOT fully back up Themes private data, themes, or settings. Export the Studio ZIP separately.</string>
-    <string name="rootless_target">Requires the supported Global baseline, Android user 0 and ADB Shizuku/Shevery. No package is removed during preparation.</string>
-    <string name="rootless_loading">Reading recovery journal…</string>
-    <string name="rootless_backup_path">App-private recovery directory: %1$s</string>
-    <string name="rootless_prepare">Prepare and verify backup</string>
-    <string name="rootless_export_studio">Export Studio library ZIP</string>
-    <string name="rootless_export_bundle">Export recovery ZIP (APK set + Studio library)</string>
-    <string name="rootless_export_unavailable">The Studio backup ZIP is unavailable in the app recovery directory.</string>
-    <string name="rootless_manual_backup">Open Android backup settings</string>
-    <string name="rootless_manual_backup_note">Manually back up Themes in HyperOS if your device supports it. This opens Android privacy settings, not a direct HyperOS backup page; check your device’s backup options yourself.</string>
-    <string name="rootless_settings_unavailable">Android backup settings could not be opened.</string>
+    <string name="rootless_title">Experimental Themes recovery</string>
+    <string name="rootless_loading">Reading recovery state…</string>
+    <string name="rootless_intro">Prepare and save verified backups before choosing installation.</string>
+    <string name="rootless_prepare">Prepare and back up</string>
+    <string name="rootless_prepared">Backups saved. Installation is ready for your confirmation.</string>
+    <string name="rootless_saved_path">Saved: %1$s</string>
+    <plurals name="rootless_themes_partial">
+        <item quantity="one">Themes: one aggregate themes.bak for %1$d theme (accessible external data only; partial, restoration not guaranteed).</item>
+        <item quantity="other">Themes: one aggregate themes.bak for %1$d themes (accessible external data only; partial, restoration not guaranteed).</item>
+    </plurals>
+    <string name="rootless_themes_empty">Themes content: no accessible content found.</string>
+    <string name="rootless_themes_unavailable">Themes content: unavailable; not backed up.</string>
+    <string name="rootless_themes_failed">Themes content: copy failed; not backed up.</string>
+    <string name="rootless_failed">Operation failed. Check the reason and try again if safe.</string>
+    <string name="rootless_reason">Reason: %1$s</string>
+    <string name="rootless_installed">Older Themes version installed. Saved backups remain available.</string>
+    <string name="rootless_recovered">Themes is available again. Deleted data was not restored.</string>
+    <string name="rootless_recovery_summary">Themes may be unavailable. Explicit recovery is available.</string>
+    <string name="rootless_install">Install older version</string>
     <string name="rootless_exact_warning">To install an older Themes version, the current version will be removed and your themes will be deleted.</string>
-    <string name="rootless_install_limitations">Themes app data and settings will be deleted. The Studio ZIP does not contain all Themes data. The older APK may still fail to install; install-existing does not restore your data or guarantee the factory version.</string>
-    <string name="rootless_install">Remove and install older version</string>
-    <string name="rootless_install_confirm">Remove the current Themes package and delete its themes, app data, and settings? The Studio ZIP is not a full Themes backup. Installing 3.0.5.6 may still fail. This action starts only if you confirm.</string>
-    <string name="rootless_recovery_note">An interrupted or failed operation may have left Themes unavailable. Recovery is manual and will not restore private data or guarantee the factory version.</string>
-    <string name="rootless_recover">Re-enable existing package</string>
-    <string name="rootless_recover_confirm">Try to re-enable the existing Themes package? This may fail and does not restore deleted data or guarantee the factory version. No recovery command runs until you confirm.</string>
-    <string name="rootless_working">Working… Keep the app running until the operation finishes.</string>
+    <string name="rootless_install_limitations">Your personal backups are saved in Downloads/MTZ Studio/Backups. Themes private data and settings are not fully backed up; partial Themes content cannot guarantee restoration. Installation may still fail after removal.</string>
+    <string name="rootless_risk_accept">I understand the data loss and installation risk.</string>
+    <string name="rootless_recover">Re-enable Themes</string>
+    <string name="rootless_recover_confirm">Try to re-enable the existing Themes package? This may fail. Deleted data cannot be restored, and the factory version is not guaranteed.</string>
+    <string name="rootless_working">Working… Keep the app open.</string>
+    <string name="rootless_info_title">About recovery</string>
+    <string name="rootless_info_detail">Requires the supported Global Themes version, Android user 0 and ADB Shizuku/Shevery. Preparation verifies the older APK and automatically saves the Studio ZIP and the original APK set to Downloads/MTZ Studio/Backups. When accessible, one aggregate themes.bak contains the readable external themes. Preparation does not remove Themes.</string>
+    <string name="rootless_info_limitations">themes.bak contains partial external data only, not Themes private data, accounts or settings. Restoring it after uninstall or across versions is not guaranteed. Installation can fail after removal; re-enabling Themes does not restore deleted data or guarantee the factory version.</string>
+    <string name="rootless_close">Close</string>
 </resources>

@@ -1,20 +1,19 @@
 package dev.glorioustr.mtzstudio
 
 import android.content.Context
-import android.content.Intent
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,20 +22,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import java.io.File
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,65 +82,26 @@ private object RootlessRecoveryWork {
     }
 }
 
-/** Only the backend's Studio ZIP inside its app-private recovery folder can be exported. */
-private fun studioZip(context: Context, backupPath: String?): File? {
-    if (backupPath == null) return null
-    val root = File(context.filesDir, "rootless-recovery").canonicalFile
-    val folder = File(backupPath).canonicalFile
-    if (folder.parentFile != root || !folder.isDirectory) return null
-    val zip = File(folder, "studio-library.zip")
-    return zip.takeIf { it.isFile && it.canonicalFile.parentFile == folder }
-}
-
 @Composable
 internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: () -> Unit = {}) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val scope = rememberCoroutineScope()
     val latestOnChanged by rememberUpdatedState(onChanged)
     var accepted by remember { mutableStateOf(false) }
     var confirmInstall by remember { mutableStateOf(false) }
     var confirmRecovery by remember { mutableStateOf(false) }
-    var exporting by remember { mutableStateOf(false) }
-    var exportBundle by remember { mutableStateOf(false) }
-    var localError by remember { mutableStateOf<String?>(null) }
+    var showInfo by remember { mutableStateOf(false) }
     val state = RootlessRecoveryWork.snapshot
     val busy = RootlessRecoveryWork.busy
-    val zip = remember(state?.backupPath) { studioZip(context, state?.backupPath) }
-    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) {
-            val source = studioZip(context, RootlessRecoveryWork.snapshot?.backupPath)
-            val includeApks = exportBundle
-            if (source == null) localError = context.getString(R.string.rootless_export_unavailable)
-            else {
-                exporting = true
-                scope.launch {
-                    try {
-                        withContext(Dispatchers.IO) {
-                            context.contentResolver.openOutputStream(uri, "w")?.use { output ->
-                                if (!includeApks) source.inputStream().use { it.copyTo(output) }
-                                else ZipOutputStream(output).use { archive ->
-                                    // Only this operation's generated files, not arbitrary app data.
-                                    val folder = source.parentFile!!.canonicalFile
-                                    val allowed = Regex("(?:base\\.apk|split-[0-9]+\\.apk|backup\\.properties|studio-library\\.zip)")
-                                    val files = folder.listFiles()?.filter { allowed.matches(it.name) }.orEmpty()
-                                    check(files.any { it.name == "base.apk" }) { "APK backup unavailable" }
-                                    files.sortedBy { it.name }.forEach { file ->
-                                        check(file.isFile && file.canonicalFile.parentFile == folder)
-                                        archive.putNextEntry(ZipEntry(file.name))
-                                        file.inputStream().use { it.copyTo(archive) }
-                                        archive.closeEntry()
-                                    }
-                                }
-                            } ?: error("Could not open export destination")
-                        }
-                        localError = null
-                    } catch (failure: Exception) {
-                        localError = failure.message ?: context.getString(R.string.rootless_export_unavailable)
-                    } finally { exporting = false }
-                }
-            }
-        }
+    val error = RootlessRecoveryWork.error
+    val action = recoveryAction(state?.phase, state?.canInstall == true, state?.needsRecovery == true)
+    val reason = controlledRecoveryReason(error) ?: controlledRecoveryReason(state?.message)
+    val themeCount = state?.themeCount ?: 0
+    val themesStatus = when (state?.themesBackupStatus) {
+        "PARTIAL" -> null
+        "EMPTY" -> R.string.rootless_themes_empty
+        "FAILED" -> R.string.rootless_themes_failed
+        else -> R.string.rootless_themes_unavailable
     }
 
     DisposableEffect(lifecycle) {
@@ -158,69 +117,109 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
             RootlessRecoveryWork.unsubscribe(listener)
         }
     }
-    LaunchedEffect(state?.phase, state?.backupPath, RootlessRecoveryWork.error) { accepted = false }
+    LaunchedEffect(state?.phase, state?.publicBackupPath, error) {
+        accepted = false
+        confirmInstall = false
+    }
 
     StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(R.string.rootless_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.rootless_experimental), color = MaterialTheme.colorScheme.error)
-            Text(stringResource(R.string.rootless_scope), style = MaterialTheme.typography.bodySmall)
-            Text(stringResource(R.string.rootless_target), style = MaterialTheme.typography.bodySmall)
-            Text(state?.message ?: stringResource(R.string.rootless_loading), style = MaterialTheme.typography.bodyMedium)
-            state?.backupPath?.let { Text(stringResource(R.string.rootless_backup_path, it), style = MaterialTheme.typography.bodySmall) }
-            RootlessRecoveryWork.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            localError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            OutlinedButton(onClick = {
-                accepted = false
-                RootlessRecoveryWork.prepare(context)
-            }, enabled = !busy && !exporting && state?.needsRecovery != true) {
-                Text(stringResource(R.string.rootless_prepare))
-            }
-            if (zip != null) {
-                OutlinedButton(onClick = { exportBundle = false; export.launch("mtzstudio-library.zip") }, enabled = !busy && !exporting) {
-                    Text(stringResource(R.string.rootless_export_studio))
-                }
-                OutlinedButton(onClick = { exportBundle = true; export.launch("mtzstudio-themes-recovery.zip") }, enabled = !busy && !exporting) {
-                    Text(stringResource(R.string.rootless_export_bundle))
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.rootless_title),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                IconButton(onClick = { showInfo = true }) {
+                    Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.rootless_info_title))
                 }
             }
-            OutlinedButton(onClick = {
-                runCatching { context.startActivity(Intent(Settings.ACTION_PRIVACY_SETTINGS)) }
-                    .onFailure { localError = it.message ?: context.getString(R.string.rootless_settings_unavailable) }
-            }) { Text(stringResource(R.string.rootless_manual_backup)) }
-            Text(stringResource(R.string.rootless_manual_backup_note), style = MaterialTheme.typography.bodySmall)
-
-            if (state?.canInstall == true && !state.needsRecovery) {
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Checkbox(checked = accepted, onCheckedChange = { accepted = it }, enabled = !busy && !exporting)
-                    Text(stringResource(R.string.rootless_exact_warning), style = MaterialTheme.typography.bodySmall)
+            val summary = when {
+                busy -> R.string.rootless_working
+                action == RecoveryAction.RECOVER -> R.string.rootless_recovery_summary
+                error != null || state?.phase == "FAILED" -> R.string.rootless_failed
+                state?.phase == "INSTALLED" -> R.string.rootless_installed
+                state?.phase == "RECOVERED" -> R.string.rootless_recovered
+                action == RecoveryAction.INSTALL -> R.string.rootless_prepared
+                state == null -> R.string.rootless_loading
+                else -> R.string.rootless_intro
+            }
+            Text(stringResource(summary), style = MaterialTheme.typography.bodySmall)
+            if (error != null || state?.phase == "FAILED") {
+                reason?.let { Text(stringResource(R.string.rootless_reason, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
+            state?.publicBackupPath?.takeIf(String::isNotBlank)?.let { path ->
+                Text(
+                    stringResource(R.string.rootless_saved_path, path),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (themesStatus == null) {
+                        pluralStringResource(R.plurals.rootless_themes_partial, themeCount, themeCount)
+                    } else stringResource(themesStatus),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            when (action) {
+                RecoveryAction.PREPARE -> Button(onClick = { RootlessRecoveryWork.prepare(context) }, enabled = !busy) {
+                    Text(stringResource(R.string.rootless_prepare))
                 }
-                Text(stringResource(R.string.rootless_install_limitations), style = MaterialTheme.typography.bodySmall)
-                Button(onClick = { confirmInstall = true }, enabled = accepted && !busy && !exporting) {
+                RecoveryAction.INSTALL -> Button(onClick = { accepted = false; confirmInstall = true }, enabled = !busy) {
                     Text(stringResource(R.string.rootless_install))
                 }
-            }
-            if (state?.needsRecovery == true) {
-                Text(stringResource(R.string.rootless_recovery_note), color = MaterialTheme.colorScheme.error)
-                OutlinedButton(onClick = { confirmRecovery = true }, enabled = !busy && !exporting) {
+                RecoveryAction.RECOVER -> Button(onClick = { confirmRecovery = true }, enabled = !busy) {
                     Text(stringResource(R.string.rootless_recover))
                 }
+                RecoveryAction.NONE -> Unit
             }
-            if (busy) Text(stringResource(R.string.rootless_working))
         }
     }
+
+    if (showInfo) AlertDialog(
+        onDismissRequest = { showInfo = false },
+        title = { Text(stringResource(R.string.rootless_info_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.rootless_info_detail))
+                Text(stringResource(R.string.rootless_info_limitations))
+                state?.publicBackupPath?.takeIf(String::isNotBlank)?.let {
+                    Text(stringResource(R.string.rootless_saved_path, it))
+                    Text(
+                        if (themesStatus == null) {
+                            pluralStringResource(R.plurals.rootless_themes_partial, themeCount, themeCount)
+                        } else stringResource(themesStatus),
+                    )
+                }
+                if (error != null) reason?.let { Text(stringResource(R.string.rootless_reason, it)) }
+            }
+        },
+        confirmButton = { TextButton(onClick = { showInfo = false }) { Text(stringResource(R.string.rootless_close)) } },
+    )
     if (confirmInstall) AlertDialog(
-        onDismissRequest = { confirmInstall = false },
+        onDismissRequest = { accepted = false; confirmInstall = false },
         title = { Text(stringResource(R.string.rootless_install)) },
-        text = { Text(stringResource(R.string.rootless_install_confirm)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.rootless_exact_warning))
+                Text(stringResource(R.string.rootless_install_limitations))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = accepted, onCheckedChange = { accepted = it })
+                    Text(stringResource(R.string.rootless_risk_accept), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
         confirmButton = { TextButton(onClick = {
             confirmInstall = false
-            if (accepted && !RootlessRecoveryWork.busy && RootlessRecoveryWork.snapshot?.canInstall == true) {
-                accepted = false
-                RootlessRecoveryWork.install(context)
-            }
-        }) { Text(stringResource(R.string.rootless_install)) } },
-        dismissButton = { TextButton(onClick = { confirmInstall = false }) { Text(stringResource(R.string.action_cancel)) } },
+            if (accepted && !RootlessRecoveryWork.busy &&
+                recoveryAction(RootlessRecoveryWork.snapshot?.phase, RootlessRecoveryWork.snapshot?.canInstall == true,
+                    RootlessRecoveryWork.snapshot?.needsRecovery == true) == RecoveryAction.INSTALL
+            ) RootlessRecoveryWork.install(context)
+            accepted = false
+        }, enabled = accepted && !busy) { Text(stringResource(R.string.rootless_install)) } },
+        dismissButton = { TextButton(onClick = { accepted = false; confirmInstall = false }) { Text(stringResource(R.string.action_cancel)) } },
     )
     if (confirmRecovery) AlertDialog(
         onDismissRequest = { confirmRecovery = false },
@@ -229,7 +228,7 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
         confirmButton = { TextButton(onClick = {
             confirmRecovery = false
             if (!RootlessRecoveryWork.busy && RootlessRecoveryWork.snapshot?.needsRecovery == true) RootlessRecoveryWork.recover(context)
-        }) { Text(stringResource(R.string.rootless_recover)) } },
+        }, enabled = !busy) { Text(stringResource(R.string.rootless_recover)) } },
         dismissButton = { TextButton(onClick = { confirmRecovery = false }) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

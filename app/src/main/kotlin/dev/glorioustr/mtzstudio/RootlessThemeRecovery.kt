@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.os.StatFs
@@ -14,6 +15,8 @@ import dev.glorioustr.mtzstudio.shevery.SheveryAuthorizationStatus
 import dev.glorioustr.mtzstudio.tester.RecoveryFile
 import dev.glorioustr.mtzstudio.tester.RecoveryIdentity
 import dev.glorioustr.mtzstudio.tester.RecoveryJournal
+import dev.glorioustr.mtzstudio.tester.PublicBackupReceipt
+import dev.glorioustr.mtzstudio.tester.PublicRecoveryFile
 import dev.glorioustr.mtzstudio.tester.RootlessRecoveryCommands
 import dev.glorioustr.mtzstudio.tester.RootlessRecoveryGateway
 import dev.glorioustr.mtzstudio.tester.RootlessRecoveryFailure
@@ -26,12 +29,15 @@ import org.json.JSONArray
 import org.json.JSONObject
 import rikka.shizuku.Shizuku
 import java.io.File
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.Properties
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 
 /** Blocking experimental user-0 ADB flow. UI must call from an IO dispatcher. */
 internal class RootlessThemeRecovery(context: Context) {
@@ -41,6 +47,9 @@ internal class RootlessThemeRecovery(context: Context) {
         val backupPath: String?,
         val canInstall: Boolean,
         val needsRecovery: Boolean,
+        val publicBackupPath: String? = null,
+        val themesBackupStatus: String = "UNAVAILABLE",
+        val themeCount: Int = 0,
     )
 
     private val app = context.applicationContext
@@ -63,8 +72,11 @@ internal class RootlessThemeRecovery(context: Context) {
 
     private fun RecoveryJournal.toSnapshot() = Snapshot(
         phase, message, backupPath,
-        canInstall = phase == "PREPARED",
+        canInstall = phase == "PREPARED" && publicBackup?.isComplete() == true,
         needsRecovery = phase in setOf("UNINSTALL_PENDING", "ABSENT", "INSTALL_PENDING", "RECOVERY_PENDING", "RECOVERY_NEEDED"),
+        publicBackupPath = publicBackup?.takeIf { it.isComplete() }?.path,
+        themesBackupStatus = publicBackup?.themesBackupStatus ?: "UNAVAILABLE",
+        themeCount = publicBackup?.themeCount ?: 0,
     )
 
     private class JournalStore(context: Context) : RootlessRecoveryStore {
@@ -87,6 +99,15 @@ internal class RootlessThemeRecovery(context: Context) {
                                 RecoveryFile(file.getString("path"), file.getString("sha"), file.getString("source"))
                             }
                         },
+                        json.optJSONObject("publicBackup")?.let { published ->
+                            PublicBackupReceipt(published.getString("path"),
+                                published.getJSONArray("files").let { entries -> (0 until entries.length()).map { i ->
+                                    entries.getJSONObject(i).let { file ->
+                                        PublicRecoveryFile(file.getString("name"), file.getString("uri"), file.getString("sha"), file.getLong("size"))
+                                    }
+                                } }, published.optString("themesBackupStatus", "UNAVAILABLE"),
+                                published.optInt("themeCount", 0), published.optInt("schemaVersion", 1))
+                        },
                     )
                 }
             } catch (_: Exception) {
@@ -104,6 +125,15 @@ internal class RootlessThemeRecovery(context: Context) {
                 .put("target", identity(journal.target)).put("files", JSONArray().apply {
                     journal.files.forEach { put(JSONObject().put("path", it.path).put("sha", it.sha256).put("source", it.sourcePath)) }
                 })
+            journal.publicBackup?.let { receipt ->
+                json.put("publicBackup", JSONObject().put("path", receipt.path)
+                    .put("themesBackupStatus", receipt.themesBackupStatus)
+                    .put("themeCount", receipt.themeCount).put("schemaVersion", receipt.schemaVersion)
+                    .put("files", JSONArray().apply { receipt.files.forEach { file ->
+                        put(JSONObject().put("name", file.name).put("uri", file.uri)
+                            .put("sha", file.sha256).put("size", file.size))
+                    } }))
+            }
             check(prefs.edit().putString("journal", json.toString()).commit()) { "Could not persist recovery journal" }
         }
 
@@ -182,16 +212,136 @@ internal class RootlessThemeRecovery(context: Context) {
                 RecoveryFile(copy.absolutePath, hash, source.absolutePath)
             }
             check(copies.size == sources.size)
+            // One archive for every readable external theme, not one BAK per theme. A denied
+            // shell read is reported as unavailable and is never replaced by a fake empty BAK.
+            val themes = RootlessThemesBakCapture(context).capture(File(folder, "themes.bak"))
             val manifest = Properties().apply {
                 setProperty("studioSha256", digest(library))
+                setProperty("studioLibraryFile", "studio-library.zip")
+                setProperty("originalApkArchive", "themes-apks.zip")
+                setProperty("originalApkCount", copies.size.toString())
                 setProperty("originalVersion", baseline.version)
                 setProperty("originalVersionCode", baseline.code.toString())
                 setProperty("targetVersion", "3.0.5.6-global")
                 setProperty("themesPrivateDataBackedUp", "false")
-                copies.forEachIndexed { i, copy -> setProperty("apk.$i.sha256", copy.sha256) }
+                setProperty("themesContentStatus", themes.status)
+                setProperty("themesContentCount", themes.themeCount.toString())
+                if (themes.status == "PARTIAL") {
+                    setProperty("themesContentFile", "themes.bak")
+                    setProperty("themesContentSha256", digest(File(folder, "themes.bak")))
+                }
+                copies.forEachIndexed { i, copy ->
+                    setProperty("apk.$i.name", File(copy.path).name)
+                    setProperty("apk.$i.sha256", copy.sha256)
+                    setProperty("apk.$i.size", File(copy.path).length().toString())
+                }
             }
             File(folder, "backup.properties").outputStream().use { manifest.store(it, "Experimental recovery backup; NOT Themes private data") }
             return folder.absolutePath to copies
+        }
+
+        override fun publishPublic(backupPath: String, files: List<RecoveryFile>): PublicBackupReceipt {
+            val folder = File(backupPath)
+            val archive = File(folder, "themes-apks.zip")
+            val readme = File(folder, "README.txt")
+            val resolver = context.contentResolver
+            val created = mutableListOf<Uri>()
+            val manifest = Properties().apply { File(folder, "backup.properties").inputStream().use(::load) }
+            val themesStatus = manifest.getProperty("themesContentStatus", "UNAVAILABLE")
+            val themeCount = manifest.getProperty("themesContentCount", "0").toInt()
+            // A fresh directory per operation, never a fixed filename that could replace an earlier backup.
+            val relative = "Download/MTZ Studio/Backups/${System.currentTimeMillis()}-${UUID.randomUUID()}/"
+            try {
+                ZipOutputStream(archive.outputStream().buffered()).use { zip ->
+                    (files.map { File(it.path) } + File(folder, "backup.properties")).forEach { source ->
+                        check(source.isFile && source.canRead()) { "Backup source missing" }
+                        zip.putNextEntry(ZipEntry(source.name))
+                        source.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+                verifyZip(archive)
+                readme.writeText("""HyperOS MTZ Studio experimental recovery backup
+studio-library.zip is the Studio library backup for StudioBackupManager restore.
+themes-apks.zip contains the original installed base APK and every installed split APK,
+plus backup.properties identifying hashes, sizes and original version.
+These APKs are retained for manual recovery, not automatic restoration of Themes data.
+Themes content capture status: $themesStatus. External theme records: $themeCount.
+If present, themes.bak contains ALL validated readable external theme records and
+their components in one MIUI Backup v2 archive, usable with the Studio BAK Converter.
+It is a PARTIAL external-content backup, not a full application or private-data backup.
+OS restore, cross-version restoration and restoration after uninstall are NOT verified.
+Uninstalling Themes can erase themes, accounts, settings, previews and other private data.
+Neither this archive nor the Studio library is a full Xiaomi Themes BAK or a
+restorable snapshot of Themes private data.
+""")
+                val sources = (listOf("studio-library.zip", "themes-apks.zip", "backup.properties", "README.txt") +
+                    if (themesStatus == "PARTIAL") listOf("themes.bak") else emptyList())
+                    .map { File(folder, it) }
+                val published = sources.map { source ->
+                    check(source.isFile && source.length() > 0) { "Public backup source empty" }
+                    val values = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, source.name)
+                        put(MediaStore.MediaColumns.MIME_TYPE, when (source.extension) {
+                            "zip" -> "application/zip"
+                            "bak" -> "application/octet-stream"
+                            "properties" -> "text/plain"
+                            else -> "text/plain"
+                        })
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, relative)
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                    val uri = requireNotNull(resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)) { "Public backup insert failed" }
+                    created += uri
+                    requireNotNull(resolver.openOutputStream(uri, "w")) { "Public backup output unavailable" }.use { output ->
+                        source.inputStream().use { it.copyTo(output) }
+                    }
+                    val receipt = PublicRecoveryFile(source.name, uri.toString(), digest(source), source.length())
+                    verifyPublicFile(receipt, relative, expectedPending = true)
+                    receipt
+                }
+                check(created.all { resolver.update(it, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1 }) {
+                    "Public backup publication failed"
+                }
+                val receipt = PublicBackupReceipt(relative, published, themesStatus, themeCount)
+                recheckPublic(receipt)
+                return receipt
+            } catch (error: Exception) {
+                created.forEach { runCatching { resolver.delete(it, null, null) } }
+                throw error
+            } finally {
+                archive.delete()
+                readme.delete()
+            }
+        }
+
+        override fun recheckPublic(receipt: PublicBackupReceipt) {
+            check(receipt.isComplete() && receipt.path.startsWith("Download/MTZ Studio/Backups/") &&
+                receipt.path.endsWith('/') && receipt.path.removeSuffix("/").removePrefix("Download/MTZ Studio/Backups/")
+                    .matches(Regex("[0-9]{10,}-[a-f0-9-]{36}"))) { "Public backup receipt incomplete" }
+            receipt.files.forEach { verifyPublicFile(it, receipt.path, expectedPending = false) }
+        }
+
+        override fun cleanupPublic(receipt: PublicBackupReceipt) {
+            receipt.files.forEach { file ->
+                runCatching { context.contentResolver.delete(Uri.parse(file.uri), null, null) }
+            }
+        }
+
+        private fun verifyPublicFile(file: PublicRecoveryFile, relative: String, expectedPending: Boolean) {
+            val uri = Uri.parse(file.uri)
+            check(uri.scheme == "content" && uri.authority == MediaStore.AUTHORITY &&
+                uri.path?.matches(Regex("/external(?:_primary)?/downloads/[0-9]+")) == true) { "Unexpected public backup URI" }
+            context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME,
+                MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.IS_PENDING), null, null, null).use { cursor ->
+                check(cursor != null && cursor.moveToFirst() && cursor.count == 1) { "Public backup row missing" }
+                check(cursor.getString(0) == file.name &&
+                    cursor.getString(1).trimEnd('/') == relative.trimEnd('/') &&
+                    cursor.getInt(2) == (if (expectedPending) 1 else 0)) { "Public backup destination changed" }
+            }
+            val stream = requireNotNull(context.contentResolver.openInputStream(uri)) { "Public backup unreadable" }
+            val (sha, size) = stream.use(::digestAndSize)
+            check(sha == file.sha256 && size == file.size && size > 0) { "Public backup checksum changed" }
         }
 
         override fun factoryObservation(): String = runCatching {
@@ -364,12 +514,14 @@ internal class RootlessThemeRecovery(context: Context) {
 
         private fun free(file: File): Long = StatFs(file.absolutePath).availableBytes
         private fun digest(file: File): String {
+            return file.inputStream().use { digestAndSize(it).first }
+        }
+        private fun digestAndSize(input: InputStream): Pair<String, Long> {
             val md = MessageDigest.getInstance("SHA-256")
-            file.inputStream().use { input ->
-                val buffer = ByteArray(8192)
-                while (true) { val n = input.read(buffer); if (n < 0) break; md.update(buffer, 0, n) }
-            }
-            return md.digest().hex()
+            var size = 0L
+            val buffer = ByteArray(8192)
+            while (true) { val n = input.read(buffer); if (n < 0) break; md.update(buffer, 0, n); size += n }
+            return md.digest().hex() to size
         }
         private fun ByteArray.hex(): String = joinToString("") { "%02x".format(it) }
     }

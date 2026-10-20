@@ -27,13 +27,38 @@ class RootlessRecoveryPolicyTest {
         var stageSucceeds = true
         var uninstallThrows = false
         var stillInstalledAfterUninstall = false
+        var exportFails = false
+        var publicReadable = true
+        var published = 0
+        var publicChecks = 0
+        var cleanups = 0
+        var backupStatus = "UNAVAILABLE"
+        var themeCount = 0
+        var schemaVersion = 2
+        var includeThemesBak = false
+        var stages = 0
         val commands = mutableListOf<String>()
         override fun requireReady() { check(service) }
         override fun installed() = installed
         override fun backup(baseline: RecoveryIdentity) = "/private/rollback" to listOf(RecoveryFile("/private/rollback/base.apk", "sha", "/data/app/base.apk"))
+        override fun publishPublic(backupPath: String, files: List<RecoveryFile>): PublicBackupReceipt {
+            if (exportFails) error("MediaStore export failed")
+            published++
+            val names = listOf("studio-library.zip", "themes-apks.zip", "backup.properties", "README.txt") +
+                (if (includeThemesBak) listOf("themes.bak") else emptyList())
+            return PublicBackupReceipt("Download/MTZ Studio/Backups/unique/",
+                names.mapIndexed { index, name ->
+                    PublicRecoveryFile(name, "content://media/external/downloads/$index", "a".repeat(64), 123)
+                }, backupStatus, themeCount, schemaVersion)
+        }
+        override fun recheckPublic(receipt: PublicBackupReceipt) {
+            publicChecks++
+            check(publicReadable && receipt.isComplete())
+        }
+        override fun cleanupPublic(receipt: PublicBackupReceipt) { cleanups++ }
         override fun verifiedTarget(baseline: RecoveryIdentity): RecoveryIdentity { check(targetValid); return target }
         override fun recheck(journal: RecoveryJournal) { check(backupsValid && installed == journal.baseline && journal.target == target) }
-        override fun stage(): String { check(stageSucceeds); return "/data/local/tmp/mtzstudio-rootless-aabb.apk" }
+        override fun stage(): String { stages++; check(stageSucceeds); return "/data/local/tmp/mtzstudio-rootless-aabb.apk" }
         override fun legacyResolvable() = legacy
         override fun command(command: String): Boolean {
             commands += command
@@ -54,9 +79,129 @@ class RootlessRecoveryPolicyTest {
         val store = MemoryStore(); val gateway = FakeGateway(); val policy = RootlessRecoveryPolicy(store, gateway)
         assertEquals("PREPARED", policy.prepare().phase)
         assertEquals("/private/rollback", policy.snapshot().backupPath)
+        assertEquals("UNAVAILABLE", policy.snapshot().publicBackup?.themesBackupStatus)
         policy.install(false)
         assertTrue(gateway.commands.isEmpty())
         assertEquals("PREPARED", policy.snapshot().phase)
+    }
+
+    @Test fun `mandatory public export failure blocks install without uninstall`() {
+        val store = MemoryStore(); val gateway = FakeGateway(); gateway.exportFails = true
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        assertEquals("FAILED", policy.prepare().phase)
+        assertEquals(null, policy.snapshot().publicBackup)
+        assertEquals("FAILED", policy.install(true).phase)
+        assertTrue(gateway.commands.isEmpty())
+    }
+
+    @Test fun `public URI revalidation failure before install prevents uninstall`() {
+        val store = MemoryStore(); val gateway = FakeGateway(); val policy = RootlessRecoveryPolicy(store, gateway)
+        assertEquals("PREPARED", policy.prepare().phase)
+        gateway.publicReadable = false
+        assertEquals("FAILED", policy.install(true).phase)
+        assertTrue(gateway.publicChecks >= 2)
+        assertTrue(gateway.commands.isEmpty())
+    }
+
+    @Test fun `publication verification failure cleans exported rows and fails preflight`() {
+        val store = MemoryStore(); val gateway = FakeGateway(); gateway.publicReadable = false
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        assertEquals("FAILED", policy.prepare().phase)
+        assertEquals(1, gateway.cleanups)
+        assertEquals(null, policy.snapshot().publicBackup)
+        assertTrue(gateway.commands.isEmpty())
+    }
+
+    @Test fun `old prepared journal without public receipt cannot install and prepare rebuilds`() {
+        val store = MemoryStore(); val gateway = FakeGateway(); val policy = RootlessRecoveryPolicy(store, gateway)
+        store.state = RecoveryJournal("PREPARED", "old journal", "/private/rollback", original, target,
+            listOf(RecoveryFile("/private/rollback/base.apk", "sha", "/data/app/base.apk")))
+        assertEquals(null, policy.snapshot().publicBackup)
+        assertEquals("PREPARED", policy.install(true).phase)
+        assertEquals(null, store.state.publicBackup)
+        assertEquals(0, gateway.stages)
+        assertTrue(gateway.commands.isEmpty())
+        assertEquals("PREPARED", policy.prepare().phase)
+        assertEquals(1, gateway.published)
+        assertTrue(policy.snapshot().publicBackup!!.isComplete())
+    }
+
+    @Test fun `complete aggregate partial receipt permits preparation and installation`() {
+        val store = MemoryStore(); val gateway = FakeGateway().apply {
+            backupStatus = "PARTIAL"; themeCount = 2; includeThemesBak = true
+        }
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        val prepared = policy.prepare()
+        assertEquals("PREPARED", prepared.phase)
+        assertEquals(2, prepared.publicBackup?.themeCount)
+        assertEquals(2, prepared.publicBackup?.schemaVersion)
+        assertTrue(prepared.publicBackup!!.isComplete())
+        assertEquals(1, prepared.publicBackup!!.files.count { it.name == "themes.bak" })
+        assertEquals("INSTALLED", policy.install(true).phase)
+        assertEquals(1, gateway.stages)
+        assertEquals(listOf(RootlessRecoveryCommands.UNINSTALL,
+            RootlessRecoveryCommands.install("/data/local/tmp/mtzstudio-rootless-aabb.apk")), gateway.commands)
+    }
+
+    @Test fun `partial archive count and schema must all be present before prepared`() {
+        val cases = listOf(
+            "missing archive" to { gateway: FakeGateway -> gateway.includeThemesBak = false },
+            "zero count" to { gateway: FakeGateway -> gateway.themeCount = 0 },
+            "legacy schema" to { gateway: FakeGateway -> gateway.schemaVersion = 1 },
+        )
+        cases.forEach { (name, invalidate) ->
+            val store = MemoryStore(); val gateway = FakeGateway().apply {
+                backupStatus = "PARTIAL"; themeCount = 2; includeThemesBak = true
+                invalidate(this)
+            }
+            val policy = RootlessRecoveryPolicy(store, gateway)
+            assertEquals("FAILED", policy.prepare().phase, name)
+            assertEquals(null, store.state.publicBackup, name)
+            assertEquals(1, gateway.cleanups, name)
+            assertEquals("FAILED", policy.install(true).phase, name)
+            assertEquals(0, gateway.stages, name)
+            assertTrue(gateway.commands.isEmpty(), name)
+        }
+    }
+
+    @Test fun `persisted incomplete partial receipts cannot install and prepare republishes`() {
+        val invalidReceipts = listOf<Pair<String, (PublicBackupReceipt) -> PublicBackupReceipt>>(
+            "missing archive" to { receipt -> receipt.copy(files = receipt.files.filterNot { it.name == "themes.bak" }) },
+            "zero count" to { receipt -> receipt.copy(themeCount = 0) },
+            "legacy schema" to { receipt -> receipt.copy(schemaVersion = 1) },
+        )
+        invalidReceipts.forEach { (name, invalidate) ->
+            val store = MemoryStore(); val gateway = FakeGateway().apply {
+                backupStatus = "PARTIAL"; themeCount = 2; includeThemesBak = true
+            }
+            val policy = RootlessRecoveryPolicy(store, gateway)
+            val prepared = policy.prepare()
+            assertEquals("PREPARED", prepared.phase, name)
+            store.state = prepared.copy(publicBackup = invalidate(prepared.publicBackup!!))
+            assertEquals("PREPARED", RootlessRecoveryPolicy(store, gateway).install(true).phase, name)
+            assertEquals(0, gateway.stages, name)
+            assertTrue(gateway.commands.isEmpty(), name)
+            assertEquals("PREPARED", policy.prepare().phase, name)
+            assertEquals(2, gateway.published, name)
+            assertTrue(store.state.publicBackup!!.isComplete(), name)
+        }
+    }
+
+    @Test fun `unsupported theme content status never claims partial backup`() {
+        val store = MemoryStore(); val gateway = FakeGateway(); val policy = RootlessRecoveryPolicy(store, gateway)
+        val prepared = policy.prepare()
+        assertEquals("UNAVAILABLE", prepared.publicBackup?.themesBackupStatus)
+        assertFalse(prepared.message.contains("Themes private data saved"))
+        assertTrue(prepared.message.contains("NOT backed up"))
+        assertFalse(prepared.publicBackup!!.copy(themesBackupStatus = "PARTIAL").isComplete())
+    }
+
+    @Test fun `journal write failure removes newly published public rows`() {
+        val store = MemoryStore(); val gateway = FakeGateway(); val policy = RootlessRecoveryPolicy(store, gateway)
+        store.rejectPhase = "PREPARED"
+        assertEquals("FAILED", policy.prepare().phase)
+        assertEquals(1, gateway.cleanups)
+        assertTrue(gateway.commands.isEmpty())
     }
 
     @Test fun `service loss and changed baseline or backups fail before uninstall`() {

@@ -17,6 +17,23 @@ data class RecoveryIdentity(val version: String, val code: Long, val certificate
 
 data class RecoveryFile(val path: String, val sha256: String, val sourcePath: String)
 
+data class PublicRecoveryFile(val name: String, val uri: String, val sha256: String, val size: Long)
+
+data class PublicBackupReceipt(
+    val path: String,
+    val files: List<PublicRecoveryFile>,
+    val themesBackupStatus: String = "UNAVAILABLE",
+    val themeCount: Int = 0,
+    val schemaVersion: Int = 2,
+) {
+    fun isComplete(): Boolean = schemaVersion == 2 && path.isNotBlank() &&
+        themesBackupStatus in setOf("PARTIAL", "EMPTY", "UNAVAILABLE", "FAILED") &&
+        files.map { it.name }.toSet().containsAll(setOf("studio-library.zip", "themes-apks.zip", "backup.properties", "README.txt")) &&
+        files.size == files.map { it.name }.distinct().size &&
+        files.all { it.uri.startsWith("content://media/") && it.sha256.matches(Regex("[a-f0-9]{64}")) && it.size > 0 } &&
+        (themesBackupStatus != "PARTIAL" || themeCount > 0 && files.any { it.name == "themes.bak" })
+}
+
 data class RecoveryJournal(
     val phase: String,
     val message: String,
@@ -24,6 +41,7 @@ data class RecoveryJournal(
     val baseline: RecoveryIdentity?,
     val target: RecoveryIdentity?,
     val files: List<RecoveryFile>,
+    val publicBackup: PublicBackupReceipt? = null,
 )
 
 /** Gateway operations either return verified facts or throw; command output is never propagated. */
@@ -31,6 +49,10 @@ interface RootlessRecoveryGateway {
     fun requireReady()
     fun installed(): RecoveryIdentity?
     fun backup(baseline: RecoveryIdentity): Pair<String, List<RecoveryFile>>
+    /** Publish and reopen every mandatory file; return only after publication and verification. */
+    fun publishPublic(backupPath: String, files: List<RecoveryFile>): PublicBackupReceipt
+    fun recheckPublic(receipt: PublicBackupReceipt)
+    fun cleanupPublic(receipt: PublicBackupReceipt) {}
     fun factoryObservation(): String = "Factory metadata unavailable; install-existing does not guarantee factory version."
     fun verifiedTarget(baseline: RecoveryIdentity): RecoveryIdentity
     fun recheck(journal: RecoveryJournal)
@@ -57,22 +79,28 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
 
     fun prepare(): RecoveryJournal {
         val old = store.load()
-        if (old.phase !in setOf("IDLE", "FAILED", "RECOVERED", "INSTALLED")) return old
+        if (old.phase == "PREPARED" && old.publicBackup?.isComplete() == true) return old
+        if (old.phase !in setOf("IDLE", "FAILED", "RECOVERED", "INSTALLED", "PREPARED")) return old
+        var exported: PublicBackupReceipt? = null
         return try {
             gateway.requireReady()
             val baseline = requireNotNull(gateway.installed())
             val target = gateway.verifiedTarget(baseline)
             val (path, files) = gateway.backup(baseline)
             check(path.isNotBlank() && files.isNotEmpty())
+            exported = gateway.publishPublic(path, files)
+            check(exported.isComplete()) { "Incomplete public export" }
+            gateway.recheckPublic(exported)
             val prepared = RecoveryJournal(
                 "PREPARED",
-                "Ready. Studio library and all installed APK splits saved. Themes private data is NOT backed up and uninstall will erase it. ${gateway.factoryObservation()}",
-                path, baseline, target, files,
+                "Ready. Verified public Studio library and original APK set saved. Themes private data is NOT backed up and uninstall will erase it. ${gateway.factoryObservation()}",
+                path, baseline, target, files, exported,
             )
             gateway.recheck(prepared)
             store.save(prepared)
             prepared
         } catch (error: Exception) {
+            exported?.let { runCatching { gateway.cleanupPublic(it) } }
             save(old.copy(phase = "FAILED", message = "Preparation failed; no package mutation was requested.${reason(error)}"))
         }
     }
@@ -80,14 +108,18 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
     fun install(dataLossAccepted: Boolean): RecoveryJournal {
         val old = store.load()
         if (old.phase != "PREPARED") return old
+        if (old.publicBackup?.isComplete() != true) return old.copy(
+            message = "Public backup receipt missing. Run Prepare again before installation.")
         if (!dataLossAccepted) return old.copy(message = "Confirm loss of Xiaomi Themes private data before installation.")
         var current = old
         return try {
             gateway.requireReady()
             gateway.recheck(old)
+            gateway.recheckPublic(requireNotNull(old.publicBackup))
             val staged = gateway.stage() // copy and validate BEFORE recording the uninstall intent
             gateway.requireReady()
             gateway.recheck(old)
+            gateway.recheckPublic(requireNotNull(old.publicBackup))
             current = save(old.copy(phase = "UNINSTALL_PENDING", message = "Uninstall requested; recovery is available."))
             check(gateway.command(RootlessRecoveryCommands.UNINSTALL))
             check(gateway.installed() == null) // do not proceed if removal was uncertain
