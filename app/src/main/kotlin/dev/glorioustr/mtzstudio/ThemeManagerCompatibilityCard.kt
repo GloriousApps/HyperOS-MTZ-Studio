@@ -129,6 +129,7 @@ internal fun ThemeManagerCompatibilityCard(
     val recommendedDownloadUrl =
         "https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/${recommendedApk.apkName}"
     val adoptedExternalRuntime = rootModuleState?.adoptedExternalRuntime == true
+    val experimentalRootlessRecovery = !allowRootDowngrade && BuildConfig.VERSION_NAME.contains("rootless-test")
 
     fun startShizukuDowngrade() {
         when (sheveryAccess.status()) {
@@ -159,30 +160,31 @@ internal fun ThemeManagerCompatibilityCard(
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                         .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, downloadName)
                     val downloadId = manager.enqueue(request)
-                    awaitDownload(manager, downloadId)
-                    val verified = try {
+                    try {
+                        awaitDownload(manager, downloadId)
                         val descriptor = manager.openDownloadedFile(downloadId)
-                        ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                        val verified = ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
                             updater.stageAndVerify(input, current, expectedVersion = recommendedVersion)
                         }
-                    } finally {
-                        manager.remove(downloadId)
-                    }
-                    stagedApk = verified
-                    check(verified.sha256.equals(recommendedApk.sha256, ignoreCase = true)) {
-                        "Downloaded Xiaomi Themes APK checksum does not match"
-                    }
-                    val shellRunner = PrivilegedCommandRunner { command, timeout ->
-                        sheveryAccess.executeShell(command, timeout)
-                    }
-                    updater.installVerifiedDowngradeFromDownload(
-                        apk = verified,
-                        shellReadablePath = "/sdcard/Download/$downloadName",
-                        installRunner = shellRunner,
-                    ).also { result ->
-                        check(result.success) {
-                            listOf(result.message, result.commandOutput).filter { it.isNotBlank() }.joinToString(" · ")
+                        stagedApk = verified
+                        check(verified.sha256.equals(recommendedApk.sha256, ignoreCase = true)) {
+                            "Downloaded Xiaomi Themes APK checksum does not match"
                         }
+                        val shellRunner = PrivilegedCommandRunner { command, timeout ->
+                            sheveryAccess.executeShell(command, timeout)
+                        }
+                        updater.installVerifiedDowngradeFromDownload(
+                            apk = verified,
+                            shellReadablePath = "/sdcard/Download/$downloadName",
+                            installRunner = shellRunner,
+                        ).also { result ->
+                            check(result.success) {
+                                listOf(result.message, result.commandOutput).filter { it.isNotBlank() }.joinToString(" · ")
+                            }
+                        }
+                    } finally {
+                        // The installer consumes this public path; removing it before install races pm.
+                        runCatching { manager.remove(downloadId) }
                     }
                 }
             }.onSuccess { result ->
@@ -254,15 +256,28 @@ internal fun ThemeManagerCompatibilityCard(
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                         .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, downloadName)
                     val downloadId = manager.enqueue(request)
-                    awaitDownload(manager, downloadId)
-                    val descriptor = manager.openDownloadedFile(downloadId)
-                    val verified = ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
-                        updater.stageAndVerify(input, current, expectedVersion = recommendedVersion)
+                    try {
+                        awaitDownload(manager, downloadId)
+                        val descriptor = manager.openDownloadedFile(downloadId)
+                        var staged: VerifiedThemeManagerApk? = null
+                        try {
+                            val verified = ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+                                updater.stageAndVerify(input, current, expectedVersion = recommendedVersion)
+                            }
+                            staged = verified
+                            check(verified.sha256.equals(recommendedApk.sha256, ignoreCase = true)) {
+                                "Downloaded Xiaomi Themes APK checksum does not match"
+                            }
+                            staged = null // ownership passes to the verifiedApk UI state
+                            verified
+                        } catch (failure: Exception) {
+                            staged?.let { runCatching { updater.discard(it) } }
+                            throw failure
+                        }
+                    } finally {
+                        // Only the private verified copy is needed after staging.
+                        runCatching { manager.remove(downloadId) }
                     }
-                    check(verified.sha256.equals(recommendedApk.sha256, ignoreCase = true)) {
-                        "Downloaded Xiaomi Themes APK checksum does not match"
-                    }
-                    verified
                 }
             }.onSuccess { apk ->
                 verifiedApk?.let { previous -> withContext(Dispatchers.IO) { updater.discard(previous) } }
@@ -414,7 +429,7 @@ internal fun ThemeManagerCompatibilityCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    if (!allowRootDowngrade) {
+                    if (!allowRootDowngrade && !experimentalRootlessRecovery) {
                         Text(
                             stringResource(R.string.tm_rootless_import_unavailable),
                             color = MaterialTheme.colorScheme.error,
@@ -545,7 +560,7 @@ internal fun ThemeManagerCompatibilityCard(
                 // Compatibility requires a runtime-resolvable Xiaomi route. Legacy Global builds
                 // use ApplyThemeForScreenshot; 10.8.7.6+ builds use the native local library.
                 // The modern version family alone is not enough if its component is missing.
-                if (applyActivityUnavailable && !allowRootDowngrade) {
+                if (applyActivityUnavailable && !allowRootDowngrade && !experimentalRootlessRecovery) {
                     Button(onClick = ::startShizukuDowngrade) {
                         Text(stringResource(R.string.tm_btn_shizuku_downgrade, ThemeManagerContract.RECOMMENDED_VERSION))
                     }
@@ -554,6 +569,10 @@ internal fun ThemeManagerCompatibilityCard(
              if ((runtimeProfile != null && !compatibleLocalMtzPath && !rootModuleMode) || downgradeFailed) {
                  Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
              }
+
+            if (experimentalRootlessRecovery) {
+                RootlessThemeRecoveryCard(neonStyle = neonStyle, onChanged = ::refresh)
+            }
 
             val current = installed
             if (shouldShowThemeManagerDowngradeButton(allowRootDowngrade, current, runtimeProfile, rootModuleMode)) {

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rootless_title">Deneysel rootsuz Temalar kurtarma</string>
+    <string name="rootless_experimental">Deneysel: sürüm düşürme engelinin aşılması garanti değildir. Kaldırma sonrasında da kurulum başarısız olabilir.</string>
+    <string name="rootless_scope">Hazırlık Temalar 3.0.5.6 sürümünü indirir; kurulu 3.4.1.23 ana ve bölünmüş APK’larını ve yalnızca MTZ Studio kitaplığını yedekler. Temalar’ın özel verileri, temaları ve ayarları tam olarak yedeklenmez. Studio ZIP dosyasını ayrıca dışa aktarın.</string>
+    <string name="rootless_target">Desteklenen Global sürüm, Android kullanıcı 0 ve ADB Shizuku/Shevery gerektirir. Hazırlık sırasında paket kaldırılmaz.</string>
+    <string name="rootless_loading">Kurtarma kaydı okunuyor…</string>
+    <string name="rootless_backup_path">Uygulamaya özel kurtarma dizini: %1$s</string>
+    <string name="rootless_prepare">Hazırla ve yedeği doğrula</string>
+    <string name="rootless_export_studio">Studio kitaplığı ZIP dosyasını dışa aktar</string>
+    <string name="rootless_export_bundle">Kurtarma ZIP dosyasını dışa aktar (APK’lar + Studio kitaplığı)</string>
+    <string name="rootless_export_unavailable">Studio yedek ZIP dosyası uygulamanın kurtarma dizininde bulunamadı.</string>
+    <string name="rootless_manual_backup">Android yedekleme ayarlarını aç</string>
+    <string name="rootless_manual_backup_note">Cihazınız destekliyorsa HyperOS üzerinden Temalar’ı elle yedekleyin. Bu düğme doğrudan HyperOS yedekleme sayfasını değil Android gizlilik ayarlarını açar; cihazınızın yedekleme seçeneklerini kendiniz kontrol edin.</string>
+    <string name="rootless_settings_unavailable">Android yedekleme ayarları açılamadı.</string>
+    <string name="rootless_exact_warning">Temalar sürümünün eski versiyonunu kurmak için mevcut sürüm kaldırılacak ve temalarınız silinecektir.</string>
+    <string name="rootless_install_limitations">Temalar uygulamasının verileri ve ayarları silinir. Studio ZIP dosyası tüm Temalar verilerini içermez. Eski APK yine de kurulamayabilir; install-existing verileri geri getirmez ve fabrika sürümünü garanti etmez.</string>
+    <string name="rootless_install">Kaldır ve eski sürümü kur</string>
+    <string name="rootless_install_confirm">Mevcut Temalar paketi kaldırılsın ve temaları, uygulama verileri ve ayarları silinsin mi? Studio ZIP dosyası tam bir Temalar yedeği değildir. 3.0.5.6 kurulumu yine de başarısız olabilir. İşlem yalnızca onayınızla başlayacak.</string>
+    <string name="rootless_recovery_note">Kesilen veya başarısız olan işlem Temalar’ı kullanılamaz bırakmış olabilir. Kurtarma elle başlatılır; özel verileri geri getirmez ve fabrika sürümünü garanti etmez.</string>
+    <string name="rootless_recover">Mevcut paketi yeniden etkinleştir</string>
+    <string name="rootless_recover_confirm">Mevcut Temalar paketini yeniden etkinleştirmeyi denemek istiyor musunuz? Başarısız olabilir; silinen verileri geri getirmez ve fabrika sürümünü garanti etmez. Onay vermeden kurtarma komutu çalışmaz.</string>
+    <string name="rootless_working">İşlem sürüyor… Tamamlanana kadar uygulamayı açık tutun.</string>
+</resources>

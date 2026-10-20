@@ -5,14 +5,14 @@ import dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
 import dev.glorioustr.mtzstudio.tester.ThemeManagerRuntimeProfile
 import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTarget
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import org.junit.Test
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 
 class ThemeManagerCompatibilityCardTest {
     @Test
-    fun `root module mode hides legacy downgrade for controlled 3.4.1.23`() {
+    fun `root module mode hides legacy downgrade for controlled Global runtime`() {
         assertFalse(
             shouldShowThemeManagerDowngradeButton(
                 allowRootDowngrade = true,

@@ -123,7 +123,7 @@ class ThemeManagerCompatibilityTest {
     }
 
     @Test
-    fun `controlled 3.4 profile exposes manual library handoff without automatic import`() {
+    fun `controlled Global profile exposes manual library handoff without automatic import`() {
         val profile = ThemeManagerRuntimeProfile(
             packageInstalled = true,
             versionName = "3.4.1.23-global",
