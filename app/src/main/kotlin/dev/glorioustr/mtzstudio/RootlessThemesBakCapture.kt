@@ -50,14 +50,17 @@ internal class RootlessThemesBakCapture(context: Context) {
         if (destination.exists() || parent?.isDirectory != true) return Result("FAILED")
         val id = UUID.randomUUID().toString()
         val filename = "mtzstudio-themes-$id.tar"
-        val relative = "Download/MTZ Studio/Backups/"
-        val shared = "/sdcard/$relative$filename"
+        // Keep RELATIVE_PATH slash-free. Several MIUI MediaProvider builds reject or
+        // normalize a trailing slash even though the public backup path is otherwise valid.
+        val relative = "Download/MTZ Studio/Backups"
+        val shared = "/sdcard/$relative/$filename"
         val raw = File(app.cacheDir, filename)
         val part = File(parent, "${destination.name}.$id.part")
         var row: Uri? = null
         var result = Result("FAILED")
         var published = false
         var cleaned = true
+        var stage = "MEDIASTORE_INSERT"
         try {
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
@@ -69,19 +72,24 @@ internal class RootlessThemesBakCapture(context: Context) {
             row = requireNotNull(app.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
             // Force the provider to materialize its own file; shell must only write this newly
             // created, unique row, never an existing user's Download.
-            requireNotNull(app.contentResolver.openOutputStream(requireNotNull(row), "w")).use { }
+            // The default provider mode is more compatible with OEM MediaProvider than an
+            // explicit "w" mode. The row is already unique and is only used as a shell bridge.
+            stage = "MEDIASTORE_MATERIALIZE"
+            requireNotNull(app.contentResolver.openOutputStream(requireNotNull(row))).use { }
             val subtrees = listOf("meta", "content", "preview").filterIndexed { index, _ -> names[index] == '1' }
                 .joinToString(" ") { ".data/$it" }
             // -f is measured in 512-byte blocks by Android's shell. No recursion into private
             // locations, no dereference of symlinks, and no binary data returned over Binder.
             val command = "[ \"\$(id -u)\" = 2000 ] && [ \"\$(am get-current-user)\" = 0 ] && " +
                 "ulimit -f 2097152 && /system/bin/tar -cf '$shared' -C '$THEME_ROOT' $subtrees && /system/bin/sha256sum '$shared'"
+            stage = "SHELL_ARCHIVE"
             val tar = shell.executeShell(command, 60)
             check(tar.exitCode == 0) { "Shell archive did not finish successfully" }
-            val shellHash = Regex("^([a-fA-F0-9]{64}) [ *]${Regex.escape(shared)}\\s*$")
-                .matchEntire(tar.output.trim())?.groupValues?.get(1)
+            stage = "SHELL_HASH"
+            val shellHash = parseThemesArchiveHash(tar.output, shared)
             check(shellHash != null) { "Shell archive checksum unavailable" }
 
+            stage = "READBACK"
             val digest = MessageDigest.getInstance("SHA-256")
             val deadline = SystemClock.elapsedRealtime() + COPY_DEADLINE_MS
             var bytes = 0L
@@ -105,13 +113,16 @@ internal class RootlessThemesBakCapture(context: Context) {
                 "Shell archive changed or was truncated"
             }
 
+            stage = "TAR_VALIDATE"
             val entries = AggregateThemesBak.inspect(raw)
             val rootEntries = entries.filter { it.path.startsWith(".data/meta/theme/") && it.path.endsWith(".mrm") }
             val roots = rootEntries.size
             if (roots == 0) {
                 result = Result("EMPTY")
             } else {
+                stage = "THEME_VALIDATE"
                 validateRoots(raw, rootEntries, entries)
+                stage = "BAK_WRITE"
                 val device = MtzToBakConverter.deviceInfo(app)
                 check(device.signatures.isNotEmpty()) { "Themes signing information unavailable" }
                 val summary = AggregateThemesBak.write(raw, part, device.versionCode, device.sdk,
@@ -119,11 +130,24 @@ internal class RootlessThemesBakCapture(context: Context) {
                 check(summary.themeCount == roots && summary.themeCount > 0 && part.isFile && part.length() > 0) {
                     "Aggregate BAK is incomplete"
                 }
+                stage = "BAK_PUBLISH"
                 check(!destination.exists() && part.renameTo(destination)) { "Could not publish aggregate BAK" }
                 published = true
                 result = Result("PARTIAL", summary.themeCount)
             }
-        } catch (_: Exception) {
+        } catch (failure: Exception) {
+            runCatching {
+                LiveDiagnosticsRecorder.get(app).record(
+                    "rootless_themes_capture_failed",
+                    "Rootsuz Temalar içeriği yakalanamadı",
+                    mapOf(
+                        "stage" to stage,
+                        "status" to "FAILED",
+                        "androidSdk" to Build.VERSION.SDK_INT,
+                    ),
+                    failure,
+                )
+            }
             result = Result("FAILED")
         } finally {
             // The URI is only the row inserted above. Never delete another Download or an old BAK.
@@ -191,4 +215,11 @@ internal class RootlessThemesBakCapture(context: Context) {
             printf '%s%s%s' "${'$'}{m:-0}" "${'$'}{c:-0}" "${'$'}{p:-0}"
         """.trimIndent()
     }
+}
+
+internal fun parseThemesArchiveHash(output: String, sharedPath: String): String? {
+    val pattern = Regex("^([a-fA-F0-9]{64})\\s+\\*?${Regex.escape(sharedPath)}\\s*$")
+    return output.lineSequence().mapNotNull { line ->
+        pattern.matchEntire(line.trim())?.groupValues?.get(1)
+    }.firstOrNull()
 }
