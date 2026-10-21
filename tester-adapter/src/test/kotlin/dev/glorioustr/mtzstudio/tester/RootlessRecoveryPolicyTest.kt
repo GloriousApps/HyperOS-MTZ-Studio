@@ -164,6 +164,25 @@ class RootlessRecoveryPolicyTest {
             RootlessRecoveryCommands.install("/data/local/tmp/mtzstudio-rootless-aabb.apk")), gateway.commands)
     }
 
+    @Test fun `failed Themes capture keeps prepared backup retryable`() {
+        val store = MemoryStore(); val gateway = FakeGateway().apply {
+            backupStatus = "FAILED"
+        }
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        val first = policy.prepare()
+        assertEquals("PREPARED", first.phase)
+        assertEquals("FAILED", first.publicBackup?.themesBackupStatus)
+        assertTrue(first.publicBackup!!.isComplete())
+        assertEquals(1, gateway.published)
+
+        val second = policy.prepare()
+        assertEquals("PREPARED", second.phase)
+        assertEquals(2, gateway.published)
+        assertEquals("FAILED", second.publicBackup?.themesBackupStatus)
+        assertEquals(0, gateway.stages)
+        assertTrue(gateway.commands.isEmpty())
+    }
+
     @Test fun `partial archive count and schema must all be present before prepared`() {
         val cases = listOf(
             "missing archive" to { gateway: FakeGateway -> gateway.includeThemesBak = false },

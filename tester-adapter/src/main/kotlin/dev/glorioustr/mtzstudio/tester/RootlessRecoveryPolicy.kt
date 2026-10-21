@@ -82,7 +82,8 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
 
     fun prepare(): RecoveryJournal {
         val old = store.load()
-        if (old.phase == "PREPARED" && old.publicBackup?.isComplete() == true) return old
+        if (old.phase == "PREPARED" && old.publicBackup?.isComplete() == true &&
+            old.publicBackup.themesBackupStatus != "FAILED") return old
         if (old.phase !in setOf("IDLE", "FAILED", "RECOVERED", "INSTALLED", "PREPARED")) return old
         var exported: PublicBackupReceipt? = null
         var stage = "READY_CHECK"

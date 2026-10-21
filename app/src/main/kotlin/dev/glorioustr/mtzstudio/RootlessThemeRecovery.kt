@@ -90,7 +90,11 @@ internal class RootlessThemeRecovery(context: Context) {
 
     private fun RecoveryJournal.toSnapshot() = Snapshot(
         phase, message, backupPath,
-        canInstall = phase == "PREPARED" && publicBackup?.isComplete() == true,
+        // A previous preparation may have saved the Studio/APK backup while the optional
+        // Themes archive failed. Keep that state retryable instead of presenting only the
+        // destructive install action.
+        canInstall = phase == "PREPARED" && publicBackup?.isComplete() == true &&
+            publicBackup.themesBackupStatus != "FAILED",
         needsRecovery = phase in setOf("UNINSTALL_PENDING", "ABSENT", "INSTALL_PENDING", "RECOVERY_PENDING", "RECOVERY_NEEDED"),
         publicBackupPath = publicBackup?.takeIf { it.isComplete() }?.path,
         themesBackupStatus = publicBackup?.themesBackupStatus ?: "UNAVAILABLE",
