@@ -88,18 +88,21 @@ internal class RootlessThemeRecovery(context: Context) {
     private fun controlledReason(message: String): String? =
         Regex("(?:^|\\b)Reason: ([A-Z][A-Z0-9_]{0,99})\\b").find(message)?.groupValues?.get(1)
 
-    private fun RecoveryJournal.toSnapshot() = Snapshot(
+    private fun RecoveryJournal.toSnapshot(): Snapshot {
+        val receipt = publicBackup
+        return Snapshot(
         phase, message, backupPath,
         // A previous preparation may have saved the Studio/APK backup while the optional
         // Themes archive failed. Keep that state retryable instead of presenting only the
         // destructive install action.
-        canInstall = phase == "PREPARED" && publicBackup?.isComplete() == true &&
-            publicBackup.themesBackupStatus != "FAILED",
+        canInstall = phase == "PREPARED" && receipt?.isComplete() == true &&
+            receipt.themesBackupStatus != "FAILED",
         needsRecovery = phase in setOf("UNINSTALL_PENDING", "ABSENT", "INSTALL_PENDING", "RECOVERY_PENDING", "RECOVERY_NEEDED"),
-        publicBackupPath = publicBackup?.takeIf { it.isComplete() }?.path,
-        themesBackupStatus = publicBackup?.themesBackupStatus ?: "UNAVAILABLE",
-        themeCount = publicBackup?.themeCount ?: 0,
-    )
+        publicBackupPath = receipt?.takeIf { it.isComplete() }?.path,
+        themesBackupStatus = receipt?.themesBackupStatus ?: "UNAVAILABLE",
+        themeCount = receipt?.themeCount ?: 0,
+        )
+    }
 
     private class JournalStore(context: Context) : RootlessRecoveryStore {
         private val prefs = context.getSharedPreferences("rootless-theme-recovery", Context.MODE_PRIVATE)
