@@ -173,7 +173,10 @@ internal class RootlessThemesBakCapture(context: Context) {
                 input.seek(entry.offset)
                 input.readFully(bytes)
                 val record = JSONObject(String(bytes, Charsets.UTF_8))
-                check(record.getString("localId") == stem && record.getString("resourceCode") == "theme") {
+                // Some Xiaomi Themes builds omit resourceCode on the root theme record;
+                // the metadata path already identifies it as the theme resource. Keep
+                // rejecting an explicitly conflicting code, but accept the omitted field.
+                check(rootThemeMetadataMatches(record, stem)) {
                     "Theme metadata identity does not match its path"
                 }
                 val children = record.getJSONArray("subResources")
@@ -223,3 +226,6 @@ internal fun parseThemesArchiveHash(output: String, sharedPath: String): String?
         pattern.matchEntire(line.trim())?.groupValues?.get(1)
     }.firstOrNull()
 }
+
+internal fun rootThemeMetadataMatches(record: JSONObject, stem: String): Boolean =
+    record.optString("localId") == stem && record.optString("resourceCode", "theme") == "theme"

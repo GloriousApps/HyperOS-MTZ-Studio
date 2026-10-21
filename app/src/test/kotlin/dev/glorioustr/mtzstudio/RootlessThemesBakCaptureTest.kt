@@ -1,8 +1,11 @@
 package dev.glorioustr.mtzstudio
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONObject
 
 class RootlessThemesBakCaptureTest {
     private val hash = "a".repeat(64)
@@ -18,5 +21,11 @@ class RootlessThemesBakCaptureTest {
 
     @Test fun `rejects a checksum for another path`() {
         assertNull(parseThemesArchiveHash("$hash  /sdcard/other.tar", path))
+    }
+
+    @Test fun `accepts Xiaomi root metadata without resourceCode`() {
+        assertTrue(rootThemeMetadataMatches(JSONObject("{\"localId\":\"theme-1\"}"), "theme-1"))
+        assertTrue(rootThemeMetadataMatches(JSONObject("{\"localId\":\"theme-1\",\"resourceCode\":\"theme\"}"), "theme-1"))
+        assertFalse(rootThemeMetadataMatches(JSONObject("{\"localId\":\"theme-1\",\"resourceCode\":\"icons\"}"), "theme-1"))
     }
 }
