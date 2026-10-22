@@ -28,4 +28,12 @@ class RootlessThemesBakCaptureTest {
         assertTrue(rootThemeMetadataMatches(JSONObject("{\"localId\":\"theme-1\",\"resourceCode\":\"theme\"}"), "theme-1"))
         assertFalse(rootThemeMetadataMatches(JSONObject("{\"localId\":\"theme-1\",\"resourceCode\":\"icons\"}"), "theme-1"))
     }
+
+    @Test fun `accepts Xiaomi unicode resource codes but rejects path separators`() {
+        assertTrue(safeThemeResourceCode("android小白条沉浸"))
+        assertTrue(safeThemeResourceCode("framework-res小白条沉浸"))
+        assertFalse(safeThemeResourceCode("../icons"))
+        assertFalse(safeThemeResourceCode("icons/component"))
+        assertFalse(safeThemeResourceCode("icons\\component"))
+    }
 }

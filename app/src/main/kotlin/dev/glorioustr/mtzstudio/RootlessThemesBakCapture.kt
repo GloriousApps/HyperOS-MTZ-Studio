@@ -186,7 +186,7 @@ internal class RootlessThemesBakCapture(context: Context) {
                     val id = child.getString("localId")
                     val code = child.getString("resourceCode")
                     check(SAFE_NAME.matches(id) && id != "." && id != ".." &&
-                        SAFE_NAME.matches(code) && code != "." && code != "..") { "Unsafe theme component" }
+                        safeThemeResourceCode(code)) { "Unsafe theme component" }
                     check(content[".data/content/$code/$id.mrc"]?.size?.let { it > 0 } == true) {
                         "Referenced theme content is missing or empty"
                     }
@@ -219,6 +219,10 @@ internal class RootlessThemesBakCapture(context: Context) {
         """.trimIndent()
     }
 }
+
+internal fun safeThemeResourceCode(value: String): Boolean =
+    value.isNotEmpty() && value.length <= 128 && value != "." && value != ".." &&
+        value.none { it == '/' || it == '\\' || it.code < 32 || it.code == 127 }
 
 internal fun parseThemesArchiveHash(output: String, sharedPath: String): String? {
     val pattern = Regex("^([a-fA-F0-9]{64})\\s+\\*?${Regex.escape(sharedPath)}\\s*$")
