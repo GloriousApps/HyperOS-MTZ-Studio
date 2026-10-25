@@ -6,7 +6,7 @@
     <string name="rootless_prepare">Yedekle ve Hazırla</string>
     <string name="rootless_install_without_backup">Yedeksiz Eski Sürüme Geç</string>
     <string name="rootless_prepare_info_title">Sürüm düşürmeden önce</string>
-    <string name="rootless_prepare_info_text">Studio kitaplığı ve orijinal APK’lar yedeklenir; erişilebilen temalar tek bir themes.bak dosyasına alınır. Hazırlık bitince eski sürümün kurulumu ayrıca onayınızı ister. Eski sürüm kurulduktan sonra Yedekleme → Temalar içerik yedeğini geri yükle adımını kullanın. Bu işlem yalnızca harici dosyaları geri getirir; hesapları ve ayarları geri getirmez. Temalar uygulamasının bu kayıtları tanıması ve sürümler arası uyumluluk garanti değildir. Önce yedeğinizi koruyun.</string>
+    <string name="rootless_prepare_info_text">Studio kitaplığı ve orijinal APK’lar yedeklenir; erişilebilen temalar tek bir themes.bak dosyasına alınır. Hazırlık bitince eski sürümün kurulumu ayrıca onayınızı ister. Eski sürüm kurulduktan sonra Yedekleme → Geri Yükle alt ekranına gidip Temalar içerik yedeğini geri yükle bölümündeki Geri Yükle düğmesini kullanın. Bu işlem yalnızca harici dosyaları geri getirir; hesapları ve ayarları geri getirmez. Temalar uygulamasının bu kayıtları tanıması ve sürümler arası uyumluluk garanti değildir. Önce yedeğinizi koruyun.</string>
     <string name="rootless_ok_continue">Tamam</string>
     <string name="rootless_no_backup_warning">Mevcut Xiaomi Temalar paketi kaldırılacak ve hiçbir yedek oluşturulmayacak. Temalar özel verileri kalıcı olarak kaybolabilir.</string>
     <string name="rootless_no_backup_limitations">Bu seçenek yalnızca eski Temalar sürümünü doğrular ve kurar; yeni yedek oluşturmaz. Önceden doğrulanmış bir themes.bak varsa kullanılabilir olarak korunur.</string>

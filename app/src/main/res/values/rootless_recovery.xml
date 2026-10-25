@@ -6,7 +6,7 @@
     <string name="rootless_prepare">Prepare and back up</string>
     <string name="rootless_install_without_backup">Downgrade without backup</string>
     <string name="rootless_prepare_info_title">Before preparing the downgrade</string>
-    <string name="rootless_prepare_info_text">The Studio library and original APKs are backed up; accessible themes are saved in one themes.bak. Installation of the older version requires separate confirmation after preparation. After installation, use Backup → Restore Themes content backup. Only external files are copied back, not accounts or settings. Gallery recognition and cross-version compatibility are not guaranteed. Keep your backup safe.</string>
+    <string name="rootless_prepare_info_text">The Studio library and original APKs are backed up; accessible themes are saved in one themes.bak. Installation of the older version requires separate confirmation after preparation. After installation, open Backup → Restore and use the Restore button in Restore Themes content backup. Only external files are copied back, not accounts or settings. Gallery recognition and cross-version compatibility are not guaranteed. Keep your backup safe.</string>
     <string name="rootless_ok_continue">OK</string>
     <string name="rootless_no_backup_warning">The current Xiaomi Themes package will be removed and no backup will be created. Themes private data may be lost permanently.</string>
     <string name="rootless_no_backup_limitations">This option only verifies and installs the older Themes version. It creates no new backup; an earlier verified themes.bak remains available if one already exists.</string>

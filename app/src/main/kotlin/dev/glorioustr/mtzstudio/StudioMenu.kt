@@ -2603,10 +2603,6 @@ internal fun BackupRestoreScreen(
 
         if (selectedTab == 0) {
             // ==================== YEDEKLEME ====================
-            if (showRootlessThemeRestore) {
-                item { RootlessThemeRecoveryCard() }
-                item { RootlessThemeRecoveryBackupCard() }
-            }
             item {
                 StudioCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

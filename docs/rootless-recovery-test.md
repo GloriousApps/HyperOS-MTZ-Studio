@@ -1,6 +1,6 @@
 # Rootsuz Temalar yeniden kurulum testi
 
-Bu deneysel APK: **5.6.3-rootless-test.15**, sürüm kodu **94**; kaynak dal **main**.
+Bu deneysel APK: **5.6.3-rootless-test.16**, sürüm kodu **95**; kaynak dal **main**.
 
 ## Kapsam ve risk
 
@@ -36,7 +36,7 @@ Bu deneysel APK: **5.6.3-rootless-test.15**, sürüm kodu **94**; kaynak dal **m
 - `backup.properties` ve `README.txt`: Dosya kimlikleri, hash'ler ve gerçek tema-yedek durumu.
 - `themes.bak`: Yalnızca **PARTIAL** durumunda bulunur; bütün doğrulanmış erişilebilir harici tema kayıtları, bileşenleri ve önizlemeleri tek MIUI Backup v2 arşivindedir. Studio BAK dönüştürücü formatındadır; gerçek cihazda dönüşüm ve geri yükleme ayrıca denenmelidir.
 - **PARTIAL** tam uygulama yedeği demek değildir; özel veriler, hesaplar ve ayarlar yedeklenmez. OS veya sürümler arası restore doğrulanmadı.
-- Eski sürüm doğrulanıp kurulduktan sonra **Yedekleme → Temalar içerik yedeğini geri yükle** adımı, yalnızca eksik harici dosyaları geri kopyalar. Aynı yoldaki farklı dosyaların üzerine yazmaz; çakışmada durur. Yedek SHA-256 ile kontrol edilir, tar yolları ve dosya sayısı tekrar doğrulanır. Kesintide bazı yeni dosyalar eklenmiş olabilir; yedek silinmez.
+- Eski sürüm doğrulanıp kurulduktan sonra **Yedekleme → Geri Yükle** alt ekranındaki **Temalar içerik yedeğini geri yükle** bölümü, yalnızca eksik harici dosyaları geri kopyalar. Aynı yoldaki farklı dosyaların üzerine yazmaz; çakışmada durur. Yedek SHA-256 ile kontrol edilir, tar yolları ve dosya sayısı tekrar doğrulanır. Kesintide bazı yeni dosyalar eklenmiş olabilir; yedek silinmez.
 - Geri yükleme başarılı olsa bile Xiaomi Temalar galerisinin kayıtları tanıması, önizlemeleri göstermesi veya temayı uygulaması garanti değildir. Özel veriler, hesaplar ve ayarlar geri yüklenmez.
 - **UNAVAILABLE**: ADB erişimi yok; **EMPTY**: erişilebilir kökte tema kaydı yok; **FAILED**: kopya/doğrulama başarısız. Bu durumlarda sahte/boş BAK yayımlanmaz. Kitaplık ve APK yedeği doğrulanırsa kullanıcı açık veri kaybı onayıyla kuruluma devam edebilir; tema yedeği alınmış sayılmaz.
 - Arşiv sınırları: yaklaşık 1 GiB; girdi başına 512 MiB; Studio BAK okuyucusuyla uyumlu dosya sayısı. Bağlantı, izin veya sınır hatasında tam yedek iddiasında bulunulmaz.
