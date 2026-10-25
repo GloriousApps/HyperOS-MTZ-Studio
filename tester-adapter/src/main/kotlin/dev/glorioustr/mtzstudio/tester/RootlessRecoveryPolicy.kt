@@ -56,6 +56,9 @@ interface RootlessRecoveryGateway {
     fun publishPublic(backupPath: String, files: List<RecoveryFile>): PublicBackupReceipt
     fun recheckPublic(receipt: PublicBackupReceipt)
     fun cleanupPublic(receipt: PublicBackupReceipt) {}
+    fun restoreThemesBackup(receipt: PublicBackupReceipt) {
+        throw RootlessRecoveryFailure("THEMES_BAK_RESTORE_UNSUPPORTED")
+    }
     fun factoryObservation(): String = "Factory metadata unavailable; install-existing does not guarantee factory version."
     fun verifiedTarget(baseline: RecoveryIdentity): RecoveryIdentity
     fun recheck(journal: RecoveryJournal)
@@ -147,6 +150,64 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
                 message = (if (uncertain) "Package operation interrupted or failed. Inspect Themes and use explicit recovery; do not retry uninstall. Private data cannot be restored."
                 else "Preflight failed; no uninstall was requested. Verify service, files and installed version, then prepare again.") + reason(error),
             ))
+        }
+    }
+
+    fun installWithoutBackup(dataLossAccepted: Boolean): RecoveryJournal {
+        val old = store.load()
+        if (old.phase !in setOf("IDLE", "FAILED", "RECOVERED", "INSTALLED")) return old
+        if (!dataLossAccepted) return old.copy(message = "Confirm loss of Xiaomi Themes private data before installation.")
+        var current = old
+        return try {
+            gateway.requireReady()
+            val baseline = requireNotNull(gateway.installed())
+            val target = gateway.verifiedTarget(baseline)
+            val staged = gateway.stage()
+            current = save(RecoveryJournal(
+                "UNINSTALL_PENDING",
+                "No-backup downgrade requested; recovery is available.",
+                null,
+                baseline,
+                target,
+                emptyList(),
+                null,
+            ))
+            gateway.requireReady()
+            check(gateway.command(RootlessRecoveryCommands.UNINSTALL))
+            check(gateway.installed() == null)
+            current = save(current.copy(phase = "ABSENT", message = "Themes removed for user 0; recovery is available."))
+            current = save(current.copy(phase = "INSTALL_PENDING", message = "Target install requested; recovery is available."))
+            check(gateway.command(RootlessRecoveryCommands.install(staged)))
+            check(gateway.installed() == target && gateway.legacyResolvable())
+            val done = save(current.copy(
+                phase = "INSTALLED",
+                message = "Verified legacy Themes after a no-backup downgrade. No backup was created.",
+            ))
+            runCatching { gateway.cleanupStaged(staged) }
+            done
+        } catch (error: Exception) {
+            val uncertain = current.phase in setOf("UNINSTALL_PENDING", "ABSENT", "INSTALL_PENDING")
+            save(current.copy(
+                phase = if (uncertain) "RECOVERY_NEEDED" else "FAILED",
+                message = (if (uncertain) "Package operation interrupted or failed. Inspect Themes and use explicit recovery; no backup is available."
+                else "Preflight failed; no uninstall was requested. Verify service and installed version, then try again.") + reason(error),
+            ))
+        }
+    }
+
+    fun restoreThemesBackup(): RecoveryJournal {
+        val old = store.load()
+        val receipt = old.publicBackup
+        if (old.phase !in setOf("INSTALLED", "RECOVERED") || receipt?.isComplete() != true ||
+            receipt.themesBackupStatus != "PARTIAL") return old
+        return try {
+            gateway.requireReady()
+            check(gateway.installed() == old.target) { "Installed Themes version does not match the verified target" }
+            gateway.recheckPublic(receipt)
+            gateway.restoreThemesBackup(receipt)
+            save(old.copy(phase = "THEMES_RESTORED", message = "The aggregate Themes content backup was restored. Private Themes data, accounts and settings were not restored."))
+        } catch (error: Exception) {
+            save(old.copy(message = "Themes content restore failed; the saved backup was not deleted.${reason(error)}"))
         }
     }
 

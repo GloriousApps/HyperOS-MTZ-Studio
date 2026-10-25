@@ -12,6 +12,7 @@ import android.provider.MediaStore
 import dev.glorioustr.mtzstudio.library.StudioBackupManager
 import dev.glorioustr.mtzstudio.shevery.SheveryAccess
 import dev.glorioustr.mtzstudio.shevery.SheveryAuthorizationStatus
+import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
 import dev.glorioustr.mtzstudio.tester.RecoveryFile
 import dev.glorioustr.mtzstudio.tester.RecoveryIdentity
 import dev.glorioustr.mtzstudio.tester.RecoveryJournal
@@ -47,6 +48,7 @@ internal class RootlessThemeRecovery(context: Context) {
         val backupPath: String?,
         val canInstall: Boolean,
         val needsRecovery: Boolean,
+        val canRestoreThemes: Boolean,
         val publicBackupPath: String? = null,
         val themesBackupStatus: String = "UNAVAILABLE",
         val themeCount: Int = 0,
@@ -60,6 +62,8 @@ internal class RootlessThemeRecovery(context: Context) {
     fun prepare(): Snapshot = synchronized(lock) { record(policy.prepare()) }
     fun install(dataLossAccepted: Boolean): Snapshot = synchronized(lock) { record(policy.install(dataLossAccepted)) }
     fun recoverExisting(): Snapshot = synchronized(lock) { record(policy.recoverExisting()) }
+    fun installWithoutBackup(): Snapshot = synchronized(lock) { record(policy.installWithoutBackup(true)) }
+    fun restoreThemesBackup(): Snapshot = synchronized(lock) { record(policy.restoreThemesBackup()) }
 
     private fun record(journal: RecoveryJournal): Snapshot {
         // Only controlled status text and version metadata; never private backup content or dumps.
@@ -95,10 +99,13 @@ internal class RootlessThemeRecovery(context: Context) {
         // A previous preparation may have saved the Studio/APK backup while the optional
         // Themes archive failed. Keep that state retryable instead of presenting only the
         // destructive install action.
-        canInstall = phase == "PREPARED" && receipt?.isComplete() == true &&
+            canInstall = phase == "PREPARED" && receipt?.isComplete() == true &&
             receipt.themesBackupStatus != "FAILED",
-        needsRecovery = phase in setOf("UNINSTALL_PENDING", "ABSENT", "INSTALL_PENDING", "RECOVERY_PENDING", "RECOVERY_NEEDED"),
-        publicBackupPath = receipt?.takeIf { it.isComplete() }?.path,
+            needsRecovery = phase in setOf("UNINSTALL_PENDING", "ABSENT", "INSTALL_PENDING", "RECOVERY_PENDING", "RECOVERY_NEEDED"),
+            canRestoreThemes = phase in setOf("INSTALLED", "RECOVERED") &&
+                receipt?.isComplete() == true && receipt.themesBackupStatus == "PARTIAL" &&
+                receipt.files.any { it.name == "themes.bak" || it.name.endsWith("-themes.bak") },
+            publicBackupPath = receipt?.takeIf { it.isComplete() }?.path,
         themesBackupStatus = receipt?.themesBackupStatus ?: "UNAVAILABLE",
         themeCount = receipt?.themeCount ?: 0,
         )
@@ -374,6 +381,67 @@ restorable snapshot of Themes private data.
                 .matches(Regex("[0-9]{10,}-[a-f0-9-]{36}"))
             check(receipt.isComplete() && (normalizedPath == base || legacyNested)) { "Public backup receipt incomplete" }
             receipt.files.forEach { verifyPublicFile(it, receipt.path, expectedPending = false) }
+        }
+
+        override fun restoreThemesBackup(receipt: PublicBackupReceipt) {
+            val backup = receipt.files.firstOrNull { it.name == "themes.bak" || it.name.endsWith("-themes.bak") }
+                ?: throw RootlessRecoveryFailure("THEMES_BAK_MISSING")
+            verifyPublicFile(backup, receipt.path, expectedPending = false)
+            val importer = ThemeManagerBakImporter(context, PreferredPrivilegedCommandRunner(context))
+            val staged = context.contentResolver.openInputStream(Uri.parse(backup.uri))?.use { input ->
+                importer.stageAndInspect(input, "themes.bak")
+            } ?: throw RootlessRecoveryFailure("THEMES_BAK_READ_FAILED")
+            val publicName = "mtzstudio-themes-restore-${UUID.randomUUID()}.bak"
+            val relative = "Download/MTZStudioRootless"
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, publicName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relative)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val resolver = context.contentResolver
+            var uri: Uri? = null
+            try {
+                uri = requireNotNull(resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
+                requireNotNull(resolver.openOutputStream(uri)).use { output ->
+                    staged.source.inputStream().use { input -> input.copyTo(output) }
+                }
+                resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+                val shared = "/sdcard/$relative/$publicName"
+                val root = "/sdcard/Android/data/${RootlessRecoveryCommands.PACKAGE}/files/MIUI/theme"
+                val work = "/data/local/tmp/mtzstudio-themes-restore-${UUID.randomUUID()}"
+                val script = """
+                    set -eu
+                    stage=preflight
+                    root='$root'
+                    work='$work'
+                    shared='$shared'
+                    mkdir -p "$work/payload" "$work/rollback"
+                    trap 'rc=${'$'}?; if [ "${'$'}rc" -ne 0 ] && [ -f "$work/rollback/ready" ]; then rm -rf "$root/.data"; if [ -f "$work/rollback/existed" ]; then tar -xpf "$work/rollback/data.tar" -C "$root"; fi; fi; rm -rf "$work"; exit "${'$'}rc"' EXIT
+                    test "$(id -u)" = 2000
+                    test "$(am get-current-user)" = 0
+                    test -f "$shared"
+                    mkdir -p "$root"
+                    if [ -d "$root/.data" ]; then tar -cpf "$work/rollback/data.tar" -C "$root" .data; touch "$work/rollback/existed"; else touch "$work/rollback/missing"; fi
+                    touch "$work/rollback/ready"
+                    stage=extract
+                    dd if="$shared" ibs=${staged.tarOffset} skip=1 2>/dev/null | tar -xpf - -C "$work/payload"
+                    payload="$work/payload/apps/${RootlessRecoveryCommands.PACKAGE}/ef/MIUI/theme"
+                    test -d "${'$'}payload/.data"
+                    stage=restore
+                    rm -rf "$root/.data"
+                    cp -a "${'$'}payload/.data" "$root/.data"
+                    stage=verify
+                    test -d "$root/.data/meta"
+                    test -d "$root/.data/content"
+                    rm -f "$shared"
+                """.trimIndent().replace("\n", " ; ")
+                val result = shell.executeShell(script, 300)
+                if (result.exitCode != 0) throw RootlessRecoveryFailure("THEMES_BAK_RESTORE_FAILED")
+            } finally {
+                uri?.let { runCatching { resolver.delete(it, null, null) } }
+                staged.discardStagedCopy()
+            }
         }
 
         override fun cleanupPublic(receipt: PublicBackupReceipt) {

@@ -2570,6 +2570,7 @@ internal fun BackupRestoreScreen(
     onBackupLocal: () -> Unit,
     onRestoreLocal: () -> Unit,
     cloudTransferRunning: Boolean = false,
+    showRootlessThemeRestore: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -2710,6 +2711,9 @@ internal fun BackupRestoreScreen(
             }
         } else {
             // ==================== GERİ YÜKLEME ====================
+            if (showRootlessThemeRestore) {
+                item { RootlessThemeRecoveryBackupCard() }
+            }
             item {
                 StudioCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -2188,6 +2188,7 @@ private fun StudioScreen(
                     restoreLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
                 },
                 modifier = contentModifier,
+                showRootlessThemeRestore = BuildConfig.VERSION_NAME.contains("rootless-test"),
             )
             destination == StudioDestination.APPEARANCE -> AppearanceScreen(
                 selected = appearance,

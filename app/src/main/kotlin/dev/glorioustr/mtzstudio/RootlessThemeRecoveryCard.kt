@@ -14,6 +14,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,7 +59,9 @@ private object RootlessRecoveryWork {
     fun refresh(context: Context) = run(context, notify = false) { snapshot() }
     fun prepare(context: Context) = run(context) { prepare() }
     fun install(context: Context) = run(context) { install(true) }
+    fun installWithoutBackup(context: Context) = run(context) { installWithoutBackup() }
     fun recover(context: Context) = run(context) { recoverExisting() }
+    fun restoreThemes(context: Context) = run(context) { restoreThemesBackup() }
 
     private fun run(context: Context, notify: Boolean = true, action: RootlessThemeRecovery.() -> RootlessThemeRecovery.Snapshot) {
         if (busy) return
@@ -89,7 +92,9 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
     val latestOnChanged by rememberUpdatedState(onChanged)
     var accepted by remember { mutableStateOf(false) }
     var confirmInstall by remember { mutableStateOf(false) }
+    var confirmNoBackup by remember { mutableStateOf(false) }
     var confirmRecovery by remember { mutableStateOf(false) }
+    var showPrepareInfo by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     val state = RootlessRecoveryWork.snapshot
     val busy = RootlessRecoveryWork.busy
@@ -120,6 +125,7 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
     LaunchedEffect(state?.phase, state?.publicBackupPath, error) {
         accepted = false
         confirmInstall = false
+        confirmNoBackup = false
     }
 
     StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
@@ -139,6 +145,7 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
                 busy -> R.string.rootless_working
                 action == RecoveryAction.RECOVER -> R.string.rootless_recovery_summary
                 error != null || state?.phase == "FAILED" -> R.string.rootless_failed
+                state?.phase == "THEMES_RESTORED" -> R.string.rootless_themes_restored
                 state?.phase == "INSTALLED" -> R.string.rootless_installed
                 state?.phase == "RECOVERED" -> R.string.rootless_recovered
                 action == RecoveryAction.INSTALL -> R.string.rootless_prepared
@@ -164,8 +171,13 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
                 )
             }
             when (action) {
-                RecoveryAction.PREPARE -> Button(onClick = { RootlessRecoveryWork.prepare(context) }, enabled = !busy) {
-                    Text(stringResource(R.string.rootless_prepare))
+                RecoveryAction.PREPARE -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { showPrepareInfo = true }, enabled = !busy) {
+                        Text(stringResource(R.string.rootless_prepare))
+                    }
+                    OutlinedButton(onClick = { confirmNoBackup = true }, enabled = !busy) {
+                        Text(stringResource(R.string.rootless_install_without_backup))
+                    }
                 }
                 RecoveryAction.INSTALL -> Button(onClick = { accepted = false; confirmInstall = true }, enabled = !busy) {
                     Text(stringResource(R.string.rootless_install))
@@ -177,6 +189,19 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
             }
         }
     }
+
+    if (showPrepareInfo) AlertDialog(
+        onDismissRequest = { showPrepareInfo = false },
+        title = { Text(stringResource(R.string.rootless_prepare_info_title)) },
+        text = { Text(stringResource(R.string.rootless_prepare_info_text)) },
+        confirmButton = {
+            TextButton(onClick = {
+                showPrepareInfo = false
+                if (!busy) RootlessRecoveryWork.prepare(context)
+            }) { Text(stringResource(R.string.rootless_ok_continue)) }
+        },
+        dismissButton = { TextButton(onClick = { showPrepareInfo = false }) { Text(stringResource(R.string.action_cancel)) } },
+    )
 
     if (showInfo) AlertDialog(
         onDismissRequest = { showInfo = false },
@@ -221,6 +246,26 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
         }, enabled = accepted && !busy) { Text(stringResource(R.string.rootless_install)) } },
         dismissButton = { TextButton(onClick = { accepted = false; confirmInstall = false }) { Text(stringResource(R.string.action_cancel)) } },
     )
+    if (confirmNoBackup) AlertDialog(
+        onDismissRequest = { accepted = false; confirmNoBackup = false },
+        title = { Text(stringResource(R.string.rootless_install_without_backup)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.rootless_no_backup_warning))
+                Text(stringResource(R.string.rootless_no_backup_limitations))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = accepted, onCheckedChange = { accepted = it })
+                    Text(stringResource(R.string.rootless_risk_accept), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = {
+            confirmNoBackup = false
+            if (accepted && !busy) RootlessRecoveryWork.installWithoutBackup(context)
+            accepted = false
+        }, enabled = accepted && !busy) { Text(stringResource(R.string.rootless_install_without_backup)) } },
+        dismissButton = { TextButton(onClick = { accepted = false; confirmNoBackup = false }) { Text(stringResource(R.string.action_cancel)) } },
+    )
     if (confirmRecovery) AlertDialog(
         onDismissRequest = { confirmRecovery = false },
         title = { Text(stringResource(R.string.rootless_recover)) },
@@ -231,4 +276,39 @@ internal fun RootlessThemeRecoveryCard(neonStyle: Boolean = false, onChanged: ()
         }, enabled = !busy) { Text(stringResource(R.string.rootless_recover)) } },
         dismissButton = { TextButton(onClick = { confirmRecovery = false }) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+@Composable
+internal fun RootlessThemeRecoveryBackupCard(neonStyle: Boolean = false) {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val state = RootlessRecoveryWork.snapshot
+    val busy = RootlessRecoveryWork.busy
+    val error = RootlessRecoveryWork.error
+
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) RootlessRecoveryWork.refresh(context)
+        }
+        lifecycle.addObserver(observer)
+        RootlessRecoveryWork.refresh(context)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
+    StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.rootless_restore_backup_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.rootless_restore_backup_desc), style = MaterialTheme.typography.bodySmall)
+            when {
+                state?.phase == "THEMES_RESTORED" -> Text(stringResource(R.string.rootless_restore_backup_done), color = MaterialTheme.colorScheme.primary)
+                state?.canRestoreThemes == true -> Button(onClick = { RootlessRecoveryWork.restoreThemes(context) }, enabled = !busy) {
+                    Text(stringResource(R.string.rootless_restore_backup_button))
+                }
+                state?.phase in setOf("INSTALLED", "RECOVERED") && state?.themesBackupStatus != "PARTIAL" ->
+                    Text(stringResource(R.string.rootless_restore_backup_unavailable), style = MaterialTheme.typography.bodySmall)
+                error != null -> Text(stringResource(R.string.rootless_restore_backup_failed, error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                else -> Text(stringResource(R.string.rootless_restore_backup_waiting), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
 }

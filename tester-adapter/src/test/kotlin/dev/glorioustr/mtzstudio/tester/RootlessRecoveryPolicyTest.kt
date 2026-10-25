@@ -38,6 +38,7 @@ class RootlessRecoveryPolicyTest {
         var includeThemesBak = false
         var stages = 0
         var backupFails = false
+        var restoredThemes = 0
         val commands = mutableListOf<String>()
         override fun requireReady() { check(service) }
         override fun installed() = installed
@@ -58,6 +59,10 @@ class RootlessRecoveryPolicyTest {
         override fun recheckPublic(receipt: PublicBackupReceipt) {
             publicChecks++
             check(publicReadable && receipt.isComplete())
+        }
+        override fun restoreThemesBackup(receipt: PublicBackupReceipt) {
+            check(receipt.themesBackupStatus == "PARTIAL")
+            restoredThemes++
         }
         override fun cleanupPublic(receipt: PublicBackupReceipt) { cleanups++ }
         override fun verifiedTarget(baseline: RecoveryIdentity): RecoveryIdentity { check(targetValid); return target }
@@ -181,6 +186,26 @@ class RootlessRecoveryPolicyTest {
         assertEquals("FAILED", second.publicBackup?.themesBackupStatus)
         assertEquals(0, gateway.stages)
         assertTrue(gateway.commands.isEmpty())
+    }
+
+    @Test fun `no-backup downgrade does not create a prepared receipt`() {
+        val store = MemoryStore(); val gateway = FakeGateway(); val policy = RootlessRecoveryPolicy(store, gateway)
+        assertEquals("INSTALLED", policy.installWithoutBackup(true).phase)
+        assertEquals(null, policy.snapshot().publicBackup)
+        assertEquals(1, gateway.stages)
+        assertTrue(gateway.commands.isNotEmpty())
+    }
+
+    @Test fun `partial themes backup can be restored after verified target install`() {
+        val store = MemoryStore(); val gateway = FakeGateway().apply {
+            backupStatus = "PARTIAL"; themeCount = 2; includeThemesBak = true
+        }
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        policy.prepare()
+        policy.install(true)
+        assertEquals("THEMES_RESTORED", policy.restoreThemesBackup().phase)
+        assertEquals(1, gateway.restoredThemes)
+        assertEquals("THEMES_RESTORED", policy.snapshot().phase)
     }
 
     @Test fun `partial archive count and schema must all be present before prepared`() {
