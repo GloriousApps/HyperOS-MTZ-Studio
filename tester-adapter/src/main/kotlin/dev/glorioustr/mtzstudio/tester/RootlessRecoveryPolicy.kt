@@ -1,6 +1,6 @@
 package dev.glorioustr.mtzstudio.tester
 
-/** Deliberately narrow command policy. No root, global uninstall, reset, or downgrade options. */
+/** Deliberately narrow ADB-only package policy with explicit, persisted downgrade states. */
 object RootlessRecoveryCommands {
     const val PACKAGE = "com.android.thememanager"
     const val UNINSTALL = "/system/bin/pm uninstall --user 0 com.android.thememanager"
@@ -121,7 +121,7 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
     fun install(dataLossAccepted: Boolean): RecoveryJournal {
         val old = store.load()
         if (old.phase != "PREPARED") return old
-        if (old.publicBackup?.isComplete() != true) return old.copy(
+        if (old.publicBackup?.isComplete() != true || old.publicBackup.themesBackupStatus == "FAILED") return old.copy(
             message = "Public backup receipt missing. Run Prepare again before installation.")
         if (!dataLossAccepted) return old.copy(message = "Confirm loss of Xiaomi Themes private data before installation.")
         var current = old
@@ -155,7 +155,7 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
 
     fun installWithoutBackup(dataLossAccepted: Boolean): RecoveryJournal {
         val old = store.load()
-        if (old.phase !in setOf("IDLE", "FAILED", "RECOVERED", "INSTALLED")) return old
+        if (old.phase !in setOf("IDLE", "FAILED", "RECOVERED", "PREPARED")) return old
         if (!dataLossAccepted) return old.copy(message = "Confirm loss of Xiaomi Themes private data before installation.")
         var current = old
         return try {
@@ -163,16 +163,19 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
             val baseline = requireNotNull(gateway.installed())
             val target = gateway.verifiedTarget(baseline)
             val staged = gateway.stage()
+            // Staging can take time. Recheck identity and the verified APK before persisting
+            // a destructive intent; no backup checks are silently substituted here.
+            gateway.requireReady()
+            check(gateway.installed() == baseline)
             current = save(RecoveryJournal(
                 "UNINSTALL_PENDING",
                 "No-backup downgrade requested; recovery is available.",
-                null,
+                old.backupPath,
                 baseline,
                 target,
-                emptyList(),
-                null,
+                old.files,
+                old.publicBackup,
             ))
-            gateway.requireReady()
             check(gateway.command(RootlessRecoveryCommands.UNINSTALL))
             check(gateway.installed() == null)
             current = save(current.copy(phase = "ABSENT", message = "Themes removed for user 0; recovery is available."))
@@ -189,7 +192,7 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
             val uncertain = current.phase in setOf("UNINSTALL_PENDING", "ABSENT", "INSTALL_PENDING")
             save(current.copy(
                 phase = if (uncertain) "RECOVERY_NEEDED" else "FAILED",
-                message = (if (uncertain) "Package operation interrupted or failed. Inspect Themes and use explicit recovery; no backup is available."
+                message = (if (uncertain) "Package operation interrupted or failed. Inspect Themes and use explicit recovery; no new backup was created."
                 else "Preflight failed; no uninstall was requested. Verify service and installed version, then try again.") + reason(error),
             ))
         }
@@ -198,16 +201,21 @@ class RootlessRecoveryPolicy(private val store: RootlessRecoveryStore, private v
     fun restoreThemesBackup(): RecoveryJournal {
         val old = store.load()
         val receipt = old.publicBackup
-        if (old.phase !in setOf("INSTALLED", "RECOVERED") || receipt?.isComplete() != true ||
+        if (old.phase !in setOf("INSTALLED", "RECOVERED", "THEMES_RESTORE_PENDING", "THEMES_RESTORE_FAILED") || receipt?.isComplete() != true ||
             receipt.themesBackupStatus != "PARTIAL") return old
         return try {
             gateway.requireReady()
-            check(gateway.installed() == old.target) { "Installed Themes version does not match the verified target" }
+            check(old.target != null && gateway.installed() == old.target && gateway.legacyResolvable()) {
+                "Installed Themes version does not match the verified target"
+            }
             gateway.recheckPublic(receipt)
+            // The gateway is an additive, no-overwrite restore. An interrupted operation may
+            // be explicitly retried, but loading the journal must never start work itself.
+            save(old.copy(phase = "THEMES_RESTORE_PENDING", message = "External theme content restore in progress; completion has not been verified."))
             gateway.restoreThemesBackup(receipt)
-            save(old.copy(phase = "THEMES_RESTORED", message = "The aggregate Themes content backup was restored. Private Themes data, accounts and settings were not restored."))
+            save(old.copy(phase = "THEMES_RESTORED", message = "External theme files verified. Themes gallery recognition and application are not verified; private data was not restored."))
         } catch (error: Exception) {
-            save(old.copy(message = "Themes content restore failed; the saved backup was not deleted.${reason(error)}"))
+            save(old.copy(phase = "THEMES_RESTORE_FAILED", message = "Themes content restore is incomplete; backup and existing files retained. Some new files may have been added.${reason(error)}"))
         }
     }
 

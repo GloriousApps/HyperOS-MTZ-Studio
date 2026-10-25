@@ -39,6 +39,8 @@ class RootlessRecoveryPolicyTest {
         var stages = 0
         var backupFails = false
         var restoredThemes = 0
+        var restoreFails = false
+        var changeDuringStage = false
         val commands = mutableListOf<String>()
         override fun requireReady() { check(service) }
         override fun installed() = installed
@@ -63,11 +65,16 @@ class RootlessRecoveryPolicyTest {
         override fun restoreThemesBackup(receipt: PublicBackupReceipt) {
             check(receipt.themesBackupStatus == "PARTIAL")
             restoredThemes++
+            check(!restoreFails)
         }
         override fun cleanupPublic(receipt: PublicBackupReceipt) { cleanups++ }
         override fun verifiedTarget(baseline: RecoveryIdentity): RecoveryIdentity { check(targetValid); return target }
         override fun recheck(journal: RecoveryJournal) { check(backupsValid && installed == journal.baseline && journal.target == target) }
-        override fun stage(): String { stages++; check(stageSucceeds); return "/data/local/tmp/mtzstudio-rootless-aabb.apk" }
+        override fun stage(): String {
+            stages++; check(stageSucceeds)
+            if (changeDuringStage) installed = target
+            return "/data/local/tmp/mtzstudio-rootless-aabb.apk"
+        }
         override fun legacyResolvable() = legacy
         override fun command(command: String): Boolean {
             commands += command
@@ -196,6 +203,17 @@ class RootlessRecoveryPolicyTest {
         assertTrue(gateway.commands.isNotEmpty())
     }
 
+    @Test fun `no-backup downgrade preserves an earlier verified public backup`() {
+        val store = MemoryStore(); val gateway = FakeGateway().apply {
+            backupStatus = "PARTIAL"; themeCount = 2; includeThemesBak = true
+        }
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        policy.prepare()
+        val previous = policy.snapshot().publicBackup
+        assertEquals("INSTALLED", policy.installWithoutBackup(true).phase)
+        assertEquals(previous, policy.snapshot().publicBackup)
+    }
+
     @Test fun `partial themes backup can be restored after verified target install`() {
         val store = MemoryStore(); val gateway = FakeGateway().apply {
             backupStatus = "PARTIAL"; themeCount = 2; includeThemesBak = true
@@ -206,6 +224,63 @@ class RootlessRecoveryPolicyTest {
         assertEquals("THEMES_RESTORED", policy.restoreThemesBackup().phase)
         assertEquals(1, gateway.restoredThemes)
         assertEquals("THEMES_RESTORED", policy.snapshot().phase)
+        policy.restoreThemesBackup()
+        assertEquals(1, gateway.restoredThemes)
+    }
+
+    @Test fun `no-backup requires explicit consent and stable identity before mutation`() {
+        val store = MemoryStore(); val gateway = FakeGateway(); val policy = RootlessRecoveryPolicy(store, gateway)
+        policy.installWithoutBackup(false)
+        assertEquals(0, gateway.stages)
+        assertTrue(gateway.commands.isEmpty())
+        gateway.changeDuringStage = true
+        assertEquals("FAILED", policy.installWithoutBackup(true).phase)
+        assertTrue(gateway.commands.isEmpty())
+    }
+
+    @Test fun `no-backup interruption cannot uninstall twice after restart`() {
+        val store = MemoryStore(); val gateway = FakeGateway().apply { uninstallThrows = true }
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        assertEquals("RECOVERY_NEEDED", policy.installWithoutBackup(true).phase)
+        RootlessRecoveryPolicy(store, gateway).installWithoutBackup(true)
+        assertEquals(1, gateway.commands.size)
+    }
+
+    @Test fun `restore failure preserves receipt and requires explicit retry`() {
+        val store = MemoryStore(); val gateway = FakeGateway().apply {
+            backupStatus = "PARTIAL"; themeCount = 2; includeThemesBak = true
+        }
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        policy.prepare(); policy.install(true)
+        val backup = store.state.publicBackup
+        gateway.restoreFails = true
+        assertEquals("THEMES_RESTORE_FAILED", policy.restoreThemesBackup().phase)
+        assertEquals(backup, store.state.publicBackup)
+        val restarted = RootlessRecoveryPolicy(store, gateway)
+        restarted.snapshot()
+        assertEquals(1, gateway.restoredThemes)
+        gateway.restoreFails = false
+        assertEquals("THEMES_RESTORED", restarted.restoreThemesBackup().phase)
+        assertEquals(2, gateway.restoredThemes)
+    }
+
+    @Test fun `wrong target missing receipt and failed intent persistence cannot restore`() {
+        val store = MemoryStore(); val gateway = FakeGateway().apply {
+            backupStatus = "PARTIAL"; themeCount = 2; includeThemesBak = true
+        }
+        val policy = RootlessRecoveryPolicy(store, gateway)
+        policy.prepare(); policy.install(true)
+        gateway.installed = original
+        assertEquals("THEMES_RESTORE_FAILED", policy.restoreThemesBackup().phase)
+        assertEquals(0, gateway.restoredThemes)
+        gateway.installed = target
+        store.rejectPhase = "THEMES_RESTORE_PENDING"
+        policy.restoreThemesBackup()
+        assertEquals(0, gateway.restoredThemes)
+        store.rejectPhase = null
+        store.state = store.state.copy(publicBackup = null)
+        policy.restoreThemesBackup()
+        assertEquals(0, gateway.restoredThemes)
     }
 
     @Test fun `partial archive count and schema must all be present before prepared`() {

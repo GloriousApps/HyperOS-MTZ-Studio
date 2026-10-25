@@ -14,8 +14,8 @@ android {
         applicationId = "dev.glorioustr.mtzstudio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 93
-        versionName = "5.6.3-rootless-test.14"
+        versionCode = 94
+        versionName = "5.6.3-rootless-test.15"
     }
 
     signingConfigs {
@@ -90,4 +90,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:22.0.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    // JVM tests need a working JSON parser, not Android's throwing JSONObject stubs.
+    testImplementation("org.json:json:20231013")
 }

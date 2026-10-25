@@ -26,14 +26,34 @@ object AggregateThemesBak {
     private const val TARGET = "apps/$PACKAGE/ef/MIUI/theme/"
     private val allowed = listOf(".data/meta/", ".data/content/", ".data/preview/")
     private val zeroBlock = ByteArray(BLOCK)
+    private val preamble = "MIUI BACKUP\n2\n$PACKAGE Themes\n-1\n0\nANDROID BACKUP\n5\n0\nnone\n".toByteArray(StandardCharsets.UTF_8)
+
+    data class RestoreArchive(val tarOffset: Long, val files: List<Entry>)
+
+    /** Only our aggregate external-data format, never arbitrary private-data BAK archives. */
+    fun inspectBackup(backup: File): RestoreArchive {
+        require(backup.length() <= MAX_CONTENT) { "BAK exceeds capture limit" }
+        val entries = inspect(backup, aggregateBackup = true)
+        require(entries.any { it.path.startsWith(".data/meta/theme/") && it.path.endsWith(".mrm") }) {
+            "Root theme metadata missing"
+        }
+        return RestoreArchive(preamble.size.toLong(), entries)
+    }
 
     /** Validates a shell USTAR snapshot without extracting it. Offsets address raw file content. */
-    fun inspect(snapshot: File): List<Entry> {
+    fun inspect(snapshot: File): List<Entry> = inspect(snapshot, aggregateBackup = false)
+
+    private fun inspect(snapshot: File, aggregateBackup: Boolean): List<Entry> {
         val entries = ArrayList<Entry>()
         val seen = HashSet<String>()
         var total = 0L
         RandomAccessFile(snapshot, "r").use { input ->
             val length = input.length()
+            if (aggregateBackup) {
+                val actualPreamble = ByteArray(preamble.size)
+                input.readFully(actualPreamble)
+                require(actualPreamble.contentEquals(preamble)) { "Not a Studio aggregate BAK" }
+            }
             var terminated = false
             while (input.filePointer < length) {
                 val header = ByteArray(BLOCK)
@@ -65,7 +85,13 @@ object AggregateThemesBak {
                 val type = header[156].toInt()
                 require(type == 0 || type == '0'.code || type == '5'.code) { "Tar links and special nodes are forbidden" }
                 val directory = type == '5'.code
-                val path = normalize(raw, directory)
+                val archivePath = normalize(raw, directory)
+                val manifest = aggregateBackup && archivePath == "apps/$PACKAGE/_manifest"
+                if (aggregateBackup) {
+                    require(!directory && (manifest || archivePath.startsWith(TARGET))) { "Not external Themes content" }
+                    require(seen.isNotEmpty() || manifest) { "Manifest must be first" }
+                }
+                val path = if (aggregateBackup && !manifest) archivePath.removePrefix(TARGET) else archivePath
                 require(seen.add(path)) { "Duplicate tar path: $path" }
                 require(seen.size <= MAX_NODES) { "Too many tar nodes" }
                 val size = header.octal(124, 12)
@@ -73,7 +99,14 @@ object AggregateThemesBak {
                 val dataOffset = input.filePointer
                 val padded = (size + BLOCK - 1) / BLOCK * BLOCK
                 require(padded <= length - dataOffset) { "Truncated tar content: $path" }
-                if (!directory) {
+                if (manifest) {
+                    require(size in 1..16_384) { "Invalid manifest size" }
+                    val bytes = ByteArray(size.toInt())
+                    input.readFully(bytes)
+                    val lines = String(bytes, StandardCharsets.UTF_8).lines()
+                    require(lines.getOrNull(0) == "1" && lines.getOrNull(1) == PACKAGE &&
+                        (lines.getOrNull(2)?.toLongOrNull() ?: 0) > 0) { "Invalid package manifest" }
+                } else if (!directory) {
                     require(allowed.any { path.startsWith(it) && path.length > it.length }) { "Unexpected snapshot path: $path" }
                     require(entries.size < MAX_FILES) { "Too many tar files" }
                     require(size <= MAX_CONTENT - total) { "Snapshot content exceeds limit" }
@@ -87,6 +120,15 @@ object AggregateThemesBak {
                 input.seek(dataOffset + padded)
             }
             require(terminated) { "Missing tar zero terminators" }
+        }
+        // A regular-file ancestor cannot also be a directory during extraction.
+        val paths = entries.mapTo(HashSet()) { it.path }
+        entries.forEach { entry ->
+            var parent = entry.path.substringBeforeLast('/', "")
+            while (parent.isNotEmpty()) {
+                require(parent !in paths) { "File is also a parent directory" }
+                parent = parent.substringBeforeLast('/', "")
+            }
         }
         return entries
     }

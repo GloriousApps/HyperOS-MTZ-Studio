@@ -30,6 +30,10 @@ class AggregateThemesBakTest {
         assertEquals("{\"localId\":\"first\"}", snapshot.readBytes().copyOfRange(files[0].offset.toInt(), (files[0].offset + files[0].size).toInt()).toString(StandardCharsets.UTF_8))
         val output = File(dir, "themes.bak")
         val result = AggregateThemesBak.write(snapshot, output, 123L, 35, "installer", listOf("sig-one", "sig-two"))
+        val restored = AggregateThemesBak.inspectBackup(output)
+        assertEquals(files.map { it.path }, restored.files.map { it.path })
+        assertEquals(preamble.length.toLong(), restored.tarOffset)
+        assertEquals(4, ThemesContentRestore.checksums(output, restored).lines().count { it.isNotEmpty() })
         assertEquals(AggregateThemesBak.Summary(2, 4, 19L + 2 + content.size + 3), result)
         val bytes = output.readBytes()
         assertTrue(bytes.copyOfRange(0, preamble.length).toString(StandardCharsets.UTF_8) == preamble)
@@ -153,6 +157,39 @@ class AggregateThemesBakTest {
         val output = File(dir, "huge.bak")
         fails { AggregateThemesBak.write(file, output, 1, 34, "", listOf("sig")) }
         assertFalse(output.exists())
+    }
+
+    @Test fun restoreRejectsPrivateDomainsLinksAndTruncatedPayloads() = withTemp { dir ->
+        val file = File(dir, "bad.bak")
+        for ((path, type) in listOf(
+            "apps/$pkg/f/private" to '0',
+            "apps/$pkg/ef/MIUI/theme/.data/content/icons/link" to '2',
+            "apps/$pkg/ef/MIUI/theme/.data/../outside" to '0',
+        )) {
+            file.outputStream().use { out ->
+                out.write(preamble.toByteArray())
+                entry(out, "apps/$pkg/_manifest", "1\n$pkg\n123\n".toByteArray())
+                entry(out, path, type = type)
+                finish(out)
+            }
+            fails { AggregateThemesBak.inspectBackup(file) }
+        }
+        file.outputStream().use { out ->
+            out.write(preamble.toByteArray())
+            entry(out, "apps/$pkg/_manifest", "1\n$pkg\n123\n".toByteArray())
+            entry(out, "apps/$pkg/ef/MIUI/theme/.data/meta/theme/id.mrm", declaredSize = 5000)
+        }
+        fails { AggregateThemesBak.inspectBackup(file) }
+    }
+
+    @Test fun restoreRejectsFileDirectoryCollisions() = withTemp { dir ->
+        val file = File(dir, "collision.tar")
+        file.outputStream().use { out ->
+            entry(out, ".data/meta/theme", byteArrayOf(1))
+            entry(out, ".data/meta/theme/id.mrm", byteArrayOf(2))
+            finish(out)
+        }
+        fails { AggregateThemesBak.inspect(file) }
     }
 
     private fun readTar(file: File): List<Pair<String, ByteArray>> {

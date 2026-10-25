@@ -12,7 +12,8 @@ import android.provider.MediaStore
 import dev.glorioustr.mtzstudio.library.StudioBackupManager
 import dev.glorioustr.mtzstudio.shevery.SheveryAccess
 import dev.glorioustr.mtzstudio.shevery.SheveryAuthorizationStatus
-import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
+import dev.glorioustr.mtzstudio.tester.AggregateThemesBak
+import dev.glorioustr.mtzstudio.tester.ThemesContentRestore
 import dev.glorioustr.mtzstudio.tester.RecoveryFile
 import dev.glorioustr.mtzstudio.tester.RecoveryIdentity
 import dev.glorioustr.mtzstudio.tester.RecoveryJournal
@@ -102,9 +103,10 @@ internal class RootlessThemeRecovery(context: Context) {
             canInstall = phase == "PREPARED" && receipt?.isComplete() == true &&
             receipt.themesBackupStatus != "FAILED",
             needsRecovery = phase in setOf("UNINSTALL_PENDING", "ABSENT", "INSTALL_PENDING", "RECOVERY_PENDING", "RECOVERY_NEEDED"),
-            canRestoreThemes = phase in setOf("INSTALLED", "RECOVERED") &&
+            canRestoreThemes = phase in setOf("INSTALLED", "RECOVERED", "THEMES_RESTORE_PENDING", "THEMES_RESTORE_FAILED") &&
                 receipt?.isComplete() == true && receipt.themesBackupStatus == "PARTIAL" &&
-                receipt.files.any { it.name == "themes.bak" || it.name.endsWith("-themes.bak") },
+                receipt.files.any { it.name == "themes.bak" || it.name.endsWith("-themes.bak") } &&
+                target != null && runCatching { DeviceGateway(app).installed() == target }.getOrDefault(false),
             publicBackupPath = receipt?.takeIf { it.isComplete() }?.path,
         themesBackupStatus = receipt?.themesBackupStatus ?: "UNAVAILABLE",
         themeCount = receipt?.themeCount ?: 0,
@@ -387,60 +389,51 @@ restorable snapshot of Themes private data.
             val backup = receipt.files.firstOrNull { it.name == "themes.bak" || it.name.endsWith("-themes.bak") }
                 ?: throw RootlessRecoveryFailure("THEMES_BAK_MISSING")
             verifyPublicFile(backup, receipt.path, expectedPending = false)
-            val importer = ThemeManagerBakImporter(context, PreferredPrivilegedCommandRunner(context))
-            val staged = context.contentResolver.openInputStream(Uri.parse(backup.uri))?.use { input ->
-                importer.stageAndInspect(input, "themes.bak")
-            } ?: throw RootlessRecoveryFailure("THEMES_BAK_READ_FAILED")
-            val publicName = "mtzstudio-themes-restore-${UUID.randomUUID()}.bak"
-            val relative = "Download/MTZStudioRootless"
-            val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, publicName)
-                put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
-                put(MediaStore.MediaColumns.RELATIVE_PATH, relative)
-                put(MediaStore.MediaColumns.IS_PENDING, 1)
-            }
+            val id = UUID.randomUUID().toString()
+            val staged = File(context.cacheDir, "themes-restore-$id.bak")
+            val checksFile = File(context.cacheDir, "themes-restore-$id.txt")
             val resolver = context.contentResolver
-            var uri: Uri? = null
+            val rows = mutableListOf<Uri>()
             try {
-                uri = requireNotNull(resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
-                requireNotNull(resolver.openOutputStream(uri)).use { output ->
-                    staged.source.inputStream().use { input -> input.copyTo(output) }
+                requireNotNull(resolver.openInputStream(Uri.parse(backup.uri))).use { input ->
+                    staged.outputStream().use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        var size = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            size += count
+                            check(size <= backup.size && size <= 1024L * 1024 * 1024)
+                            output.write(buffer, 0, count)
+                        }
+                    }
                 }
-                resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
-                val shared = "/sdcard/$relative/$publicName"
-                val root = "/sdcard/Android/data/${RootlessRecoveryCommands.PACKAGE}/files/MIUI/theme"
-                val work = "/data/local/tmp/mtzstudio-themes-restore-${UUID.randomUUID()}"
-                val script = """
-                    set -eu
-                    stage=preflight
-                    root='$root'
-                    work='$work'
-                    shared='$shared'
-                    mkdir -p "$work/payload" "$work/rollback"
-                    trap 'rc=${'$'}?; if [ "${'$'}rc" -ne 0 ] && [ -f "$work/rollback/ready" ]; then rm -rf "$root/.data"; if [ -f "$work/rollback/existed" ]; then tar -xpf "$work/rollback/data.tar" -C "$root"; fi; fi; rm -rf "$work"; exit "${'$'}rc"' EXIT
-                    test "$(id -u)" = 2000
-                    test "$(am get-current-user)" = 0
-                    test -f "$shared"
-                    mkdir -p "$root"
-                    if [ -d "$root/.data" ]; then tar -cpf "$work/rollback/data.tar" -C "$root" .data; touch "$work/rollback/existed"; else touch "$work/rollback/missing"; fi
-                    touch "$work/rollback/ready"
-                    stage=extract
-                    dd if="$shared" ibs=${staged.tarOffset} skip=1 2>/dev/null | tar -xpf - -C "$work/payload"
-                    payload="$work/payload/apps/${RootlessRecoveryCommands.PACKAGE}/ef/MIUI/theme"
-                    test -d "${'$'}payload/.data"
-                    stage=restore
-                    rm -rf "$root/.data"
-                    cp -a "${'$'}payload/.data" "$root/.data"
-                    stage=verify
-                    test -d "$root/.data/meta"
-                    test -d "$root/.data/content"
-                    rm -f "$shared"
-                """.trimIndent().replace("\n", " ; ")
-                val result = shell.executeShell(script, 300)
-                if (result.exitCode != 0) throw RootlessRecoveryFailure("THEMES_BAK_RESTORE_FAILED")
+                need(staged.length() == backup.size && digest(staged) == backup.sha256, "THEMES_BAK_HASH_CHANGED")
+                val archive = AggregateThemesBak.inspectBackup(staged)
+                need(archive.files.count { it.path.startsWith(".data/meta/theme/") && it.path.endsWith(".mrm") } == receipt.themeCount,
+                    "THEMES_BAK_COUNT_CHANGED")
+                checksFile.writeText(ThemesContentRestore.checksums(staged, archive), Charsets.UTF_8)
+                for (file in listOf(staged, checksFile)) {
+                    val values = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, "mtzstudio-restore-$id.${file.extension}")
+                        put(MediaStore.MediaColumns.MIME_TYPE, if (file == checksFile) "text/plain" else "application/octet-stream")
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/MTZStudioRootless")
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                    val uri = requireNotNull(resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
+                    rows += uri
+                    requireNotNull(resolver.openOutputStream(uri)).use { output -> file.inputStream().use { it.copyTo(output) } }
+                    check(resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1)
+                }
+                val result = shell.executeShell(ThemesContentRestore.command(id, archive.tarOffset, backup.sha256, digest(checksFile)), 300)
+                if (result.exitCode != 0 || !result.output.lineSequence().any { it.trim() == "MTZ_RESTORE_FILES_VERIFIED" }) {
+                    throw RootlessRecoveryFailure(if (result.output.contains("stage=conflict_check"))
+                        "THEMES_BAK_RESTORE_CONFLICT" else "THEMES_BAK_RESTORE_INCOMPLETE")
+                }
             } finally {
-                uri?.let { runCatching { resolver.delete(it, null, null) } }
-                staged.discardStagedCopy()
+                rows.forEach { runCatching { resolver.delete(it, null, null) } }
+                staged.delete()
+                checksFile.delete()
             }
         }
 

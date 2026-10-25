@@ -1,6 +1,6 @@
 # Rootsuz Temalar yeniden kurulum testi
 
-Bu deneysel APK: **5.6.3-rootless-test.9**, sürüm kodu **88**; kaynak dal **main**.
+Bu deneysel APK: **5.6.3-rootless-test.15**, sürüm kodu **94**; kaynak dal **main**.
 
 ## Kapsam ve risk
 
@@ -20,13 +20,14 @@ Bu deneysel APK: **5.6.3-rootless-test.9**, sürüm kodu **88**; kaynak dal **ma
 
 ## Uygulama içi test
 
-1. **Panel → Temalar uyumluluğu → Deneysel Temalar kurtarma** kartını bulun. Ayrıntılar bilgi simgesindedir.
-2. Tek ana düğme **Hazırla ve Yedekle**'ye basın. Bu adım paket kaldırmaz.
+1. **Panel → Temalar uyumluluğu → Deneysel Temalar kurtarma** kartını bulun. Aynı akış Yedekleme menüsünde de görünür. Ayrıntılar bilgi simgesindedir.
+2. **Yedekle ve Hazırla** düğmesine basın. Bu adım paket kaldırmaz; önce bilgi ekranında **Tamam** ile devam edilir.
 3. Hazırlık hedef APK'yı doğrular, mevcut base ve bütün split APK'ları ve Studio kitaplığını yedekler. ADB izin veriyorsa erişilebilir harici temaların tamamını **tek `themes.bak`** dosyasına alır; tema başına ayrı BAK oluşturmaz.
-4. Dosyalar otomatik **Downloads/MTZ Studio/Backups/<zaman-kimlik>/** altına kaydedilir. Her public dosya URI üzerinden tekrar açılarak ad, konum, boyut ve SHA-256 denetlenir; sonuç günlüğe kaydedilmeden kurulum açılmaz. Manuel dışa aktarma düğmesi yoktur. Dosya yöneticisinde klasörü kontrol edin; özel yedekleri GitHub'a yüklemeyin.
-5. Düğme **Eski sürümü kur** olur. Önce onay penceresindeki **İptal**'i deneyin: Temalar değişmemelidir; pencere tekrar açıldığında risk kutusu boş olmalıdır.
-6. Devam etmeyi seçerseniz açık veri kaybı uyarısını okuyup kutuyu işaretleyin ve kurulumu onaylayın. Kurulumdan hemen önce public dosyalar yeniden doğrulanır; silinmiş/değişmiş yedek kaldırmayı engeller.
-7. Uygulamayı açık tutun. Günlük, kaldırma ve kurulumdan **önce** kalıcı olarak kaydedilir. Bağlantı koparsa kaldırma otomatik tekrarlanmaz.
+4. Yedek oluşturmadan ilerlemek isterseniz **Yedeksiz Eski Sürüme Geç** seçeneği ayrı onay ister. Yeni backup oluşturmaz; daha önce doğrulanmış bir yedeği silmez. Bu seçenek veri kaybı riskini azaltmaz.
+5. Dosyalar otomatik **Downloads/MTZ Studio/Backups/<zaman-kimlik>/** altına kaydedilir. Her public dosya URI üzerinden tekrar açılarak ad, konum, boyut ve SHA-256 denetlenir; sonuç günlüğe kaydedilmeden kurulum açılmaz. Manuel dışa aktarma düğmesi yoktur. Dosya yöneticisinde klasörü kontrol edin; özel yedekleri GitHub'a yüklemeyin.
+6. Düğme **Eski sürümü kur** olur. Önce onay penceresindeki **İptal**'i deneyin: Temalar değişmemelidir; pencere tekrar açıldığında risk kutusu boş olmalıdır.
+7. Devam etmeyi seçerseniz açık veri kaybı uyarısını okuyup kutuyu işaretleyin ve kurulumu onaylayın. Kurulumdan hemen önce public dosyalar yeniden doğrulanır; silinmiş/değişmiş yedek kaldırmayı engeller.
+8. Uygulamayı açık tutun. Günlük, kaldırma ve kurulumdan **önce** kalıcı olarak kaydedilir. Bağlantı koparsa kaldırma otomatik tekrarlanmaz.
 
 ## Yedek klasörü ve sınırlar
 
@@ -35,6 +36,8 @@ Bu deneysel APK: **5.6.3-rootless-test.9**, sürüm kodu **88**; kaynak dal **ma
 - `backup.properties` ve `README.txt`: Dosya kimlikleri, hash'ler ve gerçek tema-yedek durumu.
 - `themes.bak`: Yalnızca **PARTIAL** durumunda bulunur; bütün doğrulanmış erişilebilir harici tema kayıtları, bileşenleri ve önizlemeleri tek MIUI Backup v2 arşivindedir. Studio BAK dönüştürücü formatındadır; gerçek cihazda dönüşüm ve geri yükleme ayrıca denenmelidir.
 - **PARTIAL** tam uygulama yedeği demek değildir; özel veriler, hesaplar ve ayarlar yedeklenmez. OS veya sürümler arası restore doğrulanmadı.
+- Eski sürüm doğrulanıp kurulduktan sonra **Yedekleme → Temalar içerik yedeğini geri yükle** adımı, yalnızca eksik harici dosyaları geri kopyalar. Aynı yoldaki farklı dosyaların üzerine yazmaz; çakışmada durur. Yedek SHA-256 ile kontrol edilir, tar yolları ve dosya sayısı tekrar doğrulanır. Kesintide bazı yeni dosyalar eklenmiş olabilir; yedek silinmez.
+- Geri yükleme başarılı olsa bile Xiaomi Temalar galerisinin kayıtları tanıması, önizlemeleri göstermesi veya temayı uygulaması garanti değildir. Özel veriler, hesaplar ve ayarlar geri yüklenmez.
 - **UNAVAILABLE**: ADB erişimi yok; **EMPTY**: erişilebilir kökte tema kaydı yok; **FAILED**: kopya/doğrulama başarısız. Bu durumlarda sahte/boş BAK yayımlanmaz. Kitaplık ve APK yedeği doğrulanırsa kullanıcı açık veri kaybı onayıyla kuruluma devam edebilir; tema yedeği alınmış sayılmaz.
 - Arşiv sınırları: yaklaşık 1 GiB; girdi başına 512 MiB; Studio BAK okuyucusuyla uyumlu dosya sayısı. Bağlantı, izin veya sınır hatasında tam yedek iddiasında bulunulmaz.
 - Test1'in public yedeği olmayan hazırlığı doğrudan kurulum izni vermez; yeniden **Hazırla ve Yedekle** gerekir.
@@ -57,5 +60,6 @@ Bu deneysel APK: **5.6.3-rootless-test.9**, sürüm kodu **88**; kaynak dal **ma
 
 - Durum makinesi testleri: onaysız işlem, bozuk hedef/yedek, hizmet kaybı, değişen paket, staging/günlük yazma hatası, belirsiz kaldırma, eski günlük, eksik/değişmiş public URI, eksik toplu BAK/sayım, imza uyuşmazlığı ve tehlikeli komutların reddi.
 - Tek toplu BAK testleri: birden çok tema, manifest/başlık, byte karşılaştırması, USTAR uzun yolları; traversal, link, checksum, truncation, terminator, boyut/dosya sınırı reddi.
+- Geri yükleme testleri: 5 temalı gerçek aggregate BAK, 583 dosyalık cihaz sandbox smoke testi, tekrar çalıştırmada aynı dosyaların korunması, farklı mevcut dosyada çakışma reddi ve canlı Themes ağacının değiştirilmemesi.
 - Android debug APK derlemesi ve app/tester-adapter birim testleri çalıştırılır.
 - Gerçek HyperOS kaldırma/kurulum ve veri kaybı/kurtarma davranışı masaüstü birim testleriyle doğrulanmış sayılmaz.
