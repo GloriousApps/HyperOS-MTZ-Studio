@@ -10,6 +10,7 @@ import dev.glorioustr.mtzstudio.core.Hashing
 import dev.glorioustr.mtzstudio.library.LibraryTheme
 import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
+import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
 import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTarget
 import java.util.UUID
 
@@ -776,10 +777,7 @@ class ThemeApplyCoordinator(
     }
 
     fun legacyTesterAvailable(): Boolean {
-        val request = ThemeManagerContract.legacyTesterRequest("/dev/null", context.packageName)
-        return Intent(request.action).apply {
-            component = ComponentName(THEME_MANAGER_PACKAGE, request.componentClassName)
-        }.resolveActivity(context.packageManager) != null
+        return ThemeManagerCapabilityProbe.isLegacyTesterDeclared(context)
     }
 
     private fun runRecordedRootOrShell(stage: String, command: String, timeoutSeconds: Long) = try {

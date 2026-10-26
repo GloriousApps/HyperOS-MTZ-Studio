@@ -46,12 +46,7 @@ class ThemeManagerCapabilityProbe(private val context: Context) {
         if (!installed.installed) {
             return ThemeManagerRuntimeProfile(false, null, ThemeManagerBehavior.UNKNOWN, false, false, false, 0, emptyList())
         }
-        val legacyTester = Intent(ThemeManagerContract.LEGACY_TESTER_ACTION).apply {
-            component = ComponentName(ThemeManagerContract.PACKAGE_NAME, ThemeManagerContract.LEGACY_TESTER_COMPONENT)
-        }
-        val resolvable = runCatching {
-            context.packageManager.resolveActivity(legacyTester, PackageManager.MATCH_DEFAULT_ONLY) != null
-        }.getOrDefault(false)
+        val resolvable = isLegacyTesterDeclared(context)
         val modernLocalLibrary = Intent().apply {
             component = ComponentName(
                 ThemeManagerContract.PACKAGE_NAME,
@@ -118,6 +113,33 @@ class ThemeManagerCapabilityProbe(private val context: Context) {
             exportedThemeActivityCandidates = candidates,
             themeResourceTabResolvable = themeResourceTabResolvable,
         )
+    }
+
+    companion object {
+        /**
+         * Some HyperOS PackageManager builds return a non-null result for an explicit
+         * component even when the activity is not declared by the active APK. Check the
+         * installed manifest directly before dispatching the legacy tester request.
+         */
+        fun isLegacyTesterDeclared(context: Context): Boolean = runCatching {
+            val flags = PackageManager.GET_ACTIVITIES.toLong()
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    ThemeManagerContract.PACKAGE_NAME,
+                    PackageManager.PackageInfoFlags.of(flags),
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(
+                    ThemeManagerContract.PACKAGE_NAME,
+                    PackageManager.GET_ACTIVITIES,
+                )
+            }
+            packageInfo.activities.orEmpty().any { activity ->
+                activity.name == ThemeManagerContract.LEGACY_TESTER_COMPONENT &&
+                    activity.enabled && activity.exported
+            }
+        }.getOrDefault(false)
     }
 
     fun probeCapabilities(
