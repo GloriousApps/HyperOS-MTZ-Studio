@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +49,7 @@ import kotlinx.coroutines.withContext
 internal fun ThemeManagerCompatibilityCard(
     inspector: ThemeManagerInspector,
     rootAccessAvailable: Boolean = false,
+    privilegedAccessAvailable: Boolean = false,
     neonStyle: Boolean = false,
 ) {
     val context = LocalContext.current
@@ -57,6 +60,12 @@ internal fun ThemeManagerCompatibilityCard(
             PreferredPrivilegedCommandRunner(context.applicationContext),
         )
     }
+    val factoryRestorer = remember {
+        FactoryThemeManagerRestorer(
+            inspector,
+            PreferredPrivilegedCommandRunner(context.applicationContext),
+        )
+    }
     var installed by remember { mutableStateOf<InstalledThemeManager?>(null) }
     var profile by remember { mutableStateOf<ThemeManagerRuntimeProfile?>(null) }
     var module by remember { mutableStateOf<RootThemeImportModuleInstaller.State?>(null) }
@@ -64,6 +73,8 @@ internal fun ThemeManagerCompatibilityCard(
     var busy by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
+    var factoryState by remember { mutableStateOf<FactoryThemeManagerRestorer.State?>(null) }
+    var showFactoryRestoreConfirm by remember { mutableStateOf(false) }
 
     fun refresh() {
         scope.launch {
@@ -77,10 +88,15 @@ internal fun ThemeManagerCompatibilityCard(
                 module = null
                 target = null
             }
+            factoryState = if (!rootAccessAvailable && privilegedAccessAvailable) {
+                runCatching { withContext(Dispatchers.IO) { factoryRestorer.inspect() } }.getOrNull()
+            } else {
+                null
+            }
         }
     }
 
-    LaunchedEffect(rootAccessAvailable) { refresh() }
+    LaunchedEffect(rootAccessAvailable, privilegedAccessAvailable) { refresh() }
 
     val accent = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) {
         Color(0xFF006A78)
@@ -144,11 +160,33 @@ internal fun ThemeManagerCompatibilityCard(
                         },
                     ) { Text(if (busy) "Root runtime kuruluyor…" else "Root MTZ Import runtime kur/güncelle") }
                 }
-                installed?.installed == true -> Text(
-                    "Bu sürüm ApplyThemeForScreenshot etkinliğini ilan etmiyor; root erişimi veya manuel Xiaomi Temalar aktarımı gerekir.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+                installed?.installed == true -> {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.72f),
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        shape = MaterialTheme.shapes.small,
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(Icons.Filled.Warning, contentDescription = null)
+                            Text(
+                                stringResource(R.string.tm_apply_activity_missing_note),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    if (factoryState?.eligible == true && privilegedAccessAvailable) {
+                        OutlinedButton(
+                            enabled = !busy,
+                            onClick = { showFactoryRestoreConfirm = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.tm_factory_restore_button, factoryState?.factoryVersionName.orEmpty()))
+                        }
+                    }
+                }
             }
             status?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }
@@ -158,8 +196,63 @@ internal fun ThemeManagerCompatibilityCard(
         AlertDialog(
             onDismissRequest = { showInfo = false },
             title = { Text("Theme Manager runtime") },
-            text = { Text("Eski sürüme zorlama ve APK yedekleme akışı kaldırıldı. Mevcut Xiaomi Themes sürümü korunur; root varsa kurulu Xiaomi Themes Runtime + MTZ Support modülü kullanılır.") },
+            text = {
+                Text(
+                    if (runtime?.legacyTesterResolvable == false && installed?.installed == true) {
+                        stringResource(R.string.tm_apply_activity_missing_info)
+                    } else {
+                        "Eski sürüme zorlama ve APK yedekleme akışı kaldırıldı. Mevcut Xiaomi Temalar sürümü korunur; root varsa kurulu Xiaomi Themes Runtime + MTZ Support modülü kullanılır."
+                    },
+                )
+            },
             confirmButton = { TextButton(onClick = { showInfo = false }) { Text("Kapat") } },
+        )
+    }
+
+    if (showFactoryRestoreConfirm) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) showFactoryRestoreConfirm = false },
+            title = { Text(stringResource(R.string.tm_factory_restore_title)) },
+            text = {
+                Text(stringResource(R.string.tm_factory_restore_desc, factoryState?.factoryVersionName.orEmpty()))
+            },
+            dismissButton = {
+                TextButton(enabled = !busy, onClick = { showFactoryRestoreConfirm = false }) {
+                    Text(stringResource(R.string.tm_factory_restore_cancel))
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !busy,
+                    onClick = {
+                        busy = true
+                        status = null
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    factoryRestorer.restoreFactory(checkNotNull(factoryState))
+                                }
+                            }.onSuccess { restored ->
+                                status = context.getString(
+                                    R.string.tm_factory_restore_success,
+                                    restored.factoryVersionName ?: context.getString(R.string.tm_version_unknown),
+                                )
+                                showFactoryRestoreConfirm = false
+                                refresh()
+                            }.onFailure { error ->
+                                status = error.message ?: error::class.simpleName
+                            }
+                            busy = false
+                        }
+                    },
+                ) {
+                    Text(
+                        stringResource(
+                            if (busy) R.string.tm_factory_restore_working else R.string.tm_factory_restore_confirm,
+                        ),
+                    )
+                }
+            },
         )
     }
 }

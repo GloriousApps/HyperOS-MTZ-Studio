@@ -496,4 +496,14 @@
     <string name="status_modern_theme_detail_opened">%1$s içe aktarıldı. Xiaomi Temalar uygulama ekranı açıldı.</string>
     <string name="app_update_up_to_date">Zaten en güncel sürümü kullanıyorsunuz.</string>
     <string name="app_update_check_failed">Güncelleme denetimi tamamlanamadı.</string>
+    <string name="tm_apply_activity_missing_error">ApplyThemeForScreenshot bulunamadı. Bu Activity olmadan Shevery/Shizuku ile bu cihazda tema uygulanamaz. Doğrulanmış root runtime’ı kullanın veya uygun bir fabrika Tema Yöneticisi sürümüne dönün.</string>
+    <string name="tm_apply_activity_missing_note">ApplyThemeForScreenshot yok. Bu Activity olmadan Shevery/Shizuku ile tema uygulanamaz; bu cihazda root runtime gerekir.</string>
+    <string name="tm_apply_activity_missing_info">ApplyThemeForScreenshot olmadan rootsuz Shevery/Shizuku uygulama akışının desteklenen bir yolu yoktur. Rootlu cihazlar doğrulanmış Xiaomi Themes Runtime + MTZ Support modülünü kullanabilir. Fabrika sürümü 3.0.5.14 veya daha eskiyse ADB izniyle Tema Yöneticisi verileri silinmeden fabrika sürümüne dönülebilir.</string>
+    <string name="tm_factory_restore_button">Fabrika Xiaomi Temalar sürümüne dön (%1$s)</string>
+    <string name="tm_factory_restore_title">Fabrika sürümüne dönülsün mü?</string>
+    <string name="tm_factory_restore_desc">Xiaomi Temalar güncellemesi kaldırılacak ve fabrika sürümü (%1$s) yeniden etkinleştirilecek. Tema verileri silinmez; işlemden sonra ApplyThemeForScreenshot yeniden denetlenir.</string>
+    <string name="tm_factory_restore_confirm">Dön</string>
+    <string name="tm_factory_restore_cancel">İptal</string>
+    <string name="tm_factory_restore_working">Dönülüyor…</string>
+    <string name="tm_factory_restore_success">Fabrika Xiaomi Temalar sürümü etkinleştirildi: %1$s.</string>
 </resources>

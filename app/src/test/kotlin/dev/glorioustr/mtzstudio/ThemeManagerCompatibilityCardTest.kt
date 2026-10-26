@@ -12,4 +12,12 @@ class ThemeManagerCompatibilityCardTest {
         assertTrue(supportsRootMtzImportModule("11.5.3.1"))
         assertFalse(supportsRootMtzImportModule("3.4.1.25"))
     }
+
+    @Test
+    fun `factory rollback is offered only for an older compatible factory build`() {
+        assertTrue(factoryThemeManagerRollbackAvailable("3.4.1.23-global", "3.0.5.14"))
+        assertTrue(factoryThemeManagerRollbackAvailable("3.0.6.8-global", "3.0.4.32"))
+        assertFalse(factoryThemeManagerRollbackAvailable("3.0.5.14", "3.0.5.14"))
+        assertFalse(factoryThemeManagerRollbackAvailable("3.4.1.23-global", "3.0.6.8"))
+    }
 }

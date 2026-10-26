@@ -104,6 +104,14 @@ class ThemeManagerCompatibilityTest {
     }
 
     @Test
+    fun `theme manager version comparison handles channel suffixes`() {
+        assertTrue(ThemeManagerContract.compareVersionNames("3.0.5.14-global", "3.0.5.14") == 0)
+        assertTrue(ThemeManagerContract.compareVersionNames("3.0.5.13", "3.0.5.14")!! < 0)
+        assertTrue(ThemeManagerContract.compareVersionNames("3.0.6.8", "3.0.5.14")!! > 0)
+        assertEquals(null, ThemeManagerContract.compareVersionNames("unknown", "3.0.5.14"))
+    }
+
+    @Test
     fun `modern profile is compatible only when native local library resolves`() {
         val available = ThemeManagerRuntimeProfile(
             packageInstalled = true,

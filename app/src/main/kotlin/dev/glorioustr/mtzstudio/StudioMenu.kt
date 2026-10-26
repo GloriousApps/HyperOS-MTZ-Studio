@@ -258,6 +258,7 @@ internal fun StudioPanelScreen(
                 ThemeManagerCompatibilityCard(
                     inspector = themeManagerInspector,
                     rootAccessAvailable = accessMode == StudioAccessMode.ROOT,
+                    privilegedAccessAvailable = accessMode == StudioAccessMode.ROOT || accessMode == StudioAccessMode.SHIZUKU,
                     neonStyle = true,
                 )
             },
@@ -371,6 +372,7 @@ internal fun StudioPanelScreen(
             ThemeManagerCompatibilityCard(
                 inspector = themeManagerInspector,
                 rootAccessAvailable = accessMode == StudioAccessMode.ROOT,
+                privilegedAccessAvailable = accessMode == StudioAccessMode.ROOT || accessMode == StudioAccessMode.SHIZUKU,
             )
         }
         item {
@@ -738,6 +740,7 @@ internal fun HomeMenuScreen(
                             ThemeManagerCompatibilityCard(
                                 inspector = themeManagerInspector,
                                 rootAccessAvailable = accessMode == StudioAccessMode.ROOT,
+                                privilegedAccessAvailable = accessMode == StudioAccessMode.ROOT || accessMode == StudioAccessMode.SHIZUKU,
                             )
                         }
                     }

@@ -464,4 +464,14 @@
     <string name="experimental_ocr_description">L’OCR tente de traduire le texte des images du thème. Le résultat peut être incomplet ou modifier leur apparence. Les images impossibles à modifier sans risque restent intactes.</string>
     <string name="experimental_ocr_confirm">Confirmer la traduction OCR</string>
     <string name="experimental_ocr_skip">Ignorer</string>
+    <string name="tm_apply_activity_missing_error">ApplyThemeForScreenshot is not available. Shevery/Shizuku cannot apply themes on this device without it. Use the verified root runtime or restore an eligible factory Theme Manager version.</string>
+    <string name="tm_apply_activity_missing_note">ApplyThemeForScreenshot is missing. Shevery/Shizuku cannot apply themes without this activity; root runtime is required on this device.</string>
+    <string name="tm_apply_activity_missing_info">Without ApplyThemeForScreenshot, the rootless Shevery/Shizuku apply flow has no supported way to apply a theme. Rooted devices can use the verified Xiaomi Themes Runtime + MTZ Support module. If the factory version is 3.0.5.14 or older, ADB permission can restore it without deleting Theme Manager data.</string>
+    <string name="tm_factory_restore_button">Restore factory Xiaomi Themes (%1$s)</string>
+    <string name="tm_factory_restore_title">Restore the factory version?</string>
+    <string name="tm_factory_restore_desc">The Xiaomi Themes update will be removed and the factory version (%1$s) will be enabled again. Theme data is not deleted; ApplyThemeForScreenshot will be checked afterward.</string>
+    <string name="tm_factory_restore_confirm">Restore</string>
+    <string name="tm_factory_restore_cancel">Cancel</string>
+    <string name="tm_factory_restore_working">Restoring…</string>
+    <string name="tm_factory_restore_success">Factory Xiaomi Themes version enabled: %1$s.</string>
 </resources>

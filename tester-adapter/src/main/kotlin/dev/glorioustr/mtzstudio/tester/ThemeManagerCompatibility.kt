@@ -91,6 +91,13 @@ object ThemeManagerContract {
         return compareVersions(parts, MODERN_NATIVE_LIBRARY_MIN_VERSION.split('.').map(String::toInt)) >= 0
     }
 
+    /** Compares dotted numeric Theme Manager versions after removing channel suffixes. */
+    fun compareVersionNames(left: String?, right: String?): Int? {
+        val leftParts = canonicalVersion(left)?.split('.')?.map { it.toIntOrNull() ?: return null } ?: return null
+        val rightParts = canonicalVersion(right)?.split('.')?.map { it.toIntOrNull() ?: return null } ?: return null
+        return compareVersions(leftParts, rightParts)
+    }
+
     private fun compareVersions(left: List<Int>, right: List<Int>): Int {
         repeat(maxOf(left.size, right.size)) { index ->
             val difference = (left.getOrElse(index) { 0 }).compareTo(right.getOrElse(index) { 0 })

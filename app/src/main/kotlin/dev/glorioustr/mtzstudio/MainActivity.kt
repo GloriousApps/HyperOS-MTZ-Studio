@@ -1026,6 +1026,9 @@ private fun StudioScreen(
                         rootAccessAvailable == true && themeApplyCoordinator.rootGlobalModuleBridgeReady()
                     val modernNativeLibrary =
                         themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
+                    check(hasLegacyTester || modernNativeLibrary || accessMode != StudioAccessMode.SHIZUKU) {
+                        resources.getString(R.string.tm_apply_activity_missing_error)
+                    }
                     if (hasLegacyTester) {
                         // A current Theme Manager may still expose the verified tester contract.
                         // Prefer it over every version-based or root-module heuristic.
