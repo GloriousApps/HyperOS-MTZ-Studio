@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-The product is a local MTZ library, analyzer, component picker, composer, verifier, preview foundation, and exporter. Theme Manager compatibility diagnostics and the explicit root downgrade action are isolated from MTZ parsing and composition. Failure or absence of that integration cannot disable library, composition, or export features.
+The product is a local MTZ library, analyzer, component picker, composer, verifier, preview foundation, and exporter. Theme Manager compatibility diagnostics and the optional root runtime integration are isolated from MTZ parsing and composition. Failure or absence of that integration cannot disable library, composition, or export features.
 
 ## Dependency direction
 
@@ -36,9 +36,9 @@ Theme application is split along the Root and Rootless boundary. The active Them
 
 | Runtime path | Theme Manager build | Family | Apply mechanism |
 | --- | --- | --- | --- |
-| Shizuku / legacy tester | `3.0.5.6-global` | Global | `ApplyThemeForScreenshot` tester activity |
+| Runtime-resolved tester | Any installed build that exports the contract | Global/compatible | `ApplyThemeForScreenshot` tester activity |
 | Root module (Global) | `3.4.1.23-global` | Global | Root MTZ Import module (Zygisk bridge) |
 | Root module (China) | `11.5.3.1` | China | Root MTZ Import module (Zygisk bridge) |
 | Modern native library | `10.8.7.6` and later | China | Native local-library import + native apply |
 
-The Root module flow (`installRootModuleWithThemeManager`) resolves the installed family from the active build (`familyOf`), pairs it with the matching target APK (`rootTargetApk`), downloads it, verifies its SHA-256 and Xiaomi signature, then installs it before installing the module. The Shizuku path stays on `3.0.5.6` and never touches the Root module.
+The Root module flow (`installRootModuleWithThemeManager`) resolves the installed family from the active build (`familyOf`), pairs it with the matching target APK (`rootTargetApk`), downloads it, verifies its SHA-256 and Xiaomi signature, then installs it before installing the module. The tester path is selected from the actual exported activity; it does not install or downgrade Xiaomi Themes. If that activity is absent, the existing root runtime path is used when available.

@@ -85,7 +85,6 @@ import dev.glorioustr.mtzstudio.core.ThemeId
 import dev.glorioustr.mtzstudio.library.LibraryTheme
 import dev.glorioustr.mtzstudio.library.StudioBackupManager
 import dev.glorioustr.mtzstudio.library.ThemeLibrary
-import dev.glorioustr.mtzstudio.tester.RootThemeManagerUpdater
 import dev.glorioustr.mtzstudio.tester.ThemeManagerInspector
 import dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior
 import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
@@ -147,11 +146,6 @@ class MainActivity : ComponentActivity() {
         val composer = MtzComposer()
         val themeManagerInspector = ThemeManagerInspector(applicationContext)
         val privilegedRunner = PreferredPrivilegedCommandRunner(applicationContext)
-        val themeManagerUpdater = RootThemeManagerUpdater(
-            context = applicationContext,
-            inspector = themeManagerInspector,
-            commandRunner = privilegedRunner,
-        )
         val themeApplyCoordinator = ThemeApplyCoordinator(applicationContext, privilegedRunner)
         val bakImporter = ThemeManagerBakImporter(applicationContext, privilegedRunner)
         val themeLanguageTool = ThemeLanguageTool(applicationContext, library)
@@ -189,7 +183,6 @@ class MainActivity : ComponentActivity() {
                     backupManager = backupManager,
                     composer = composer,
                     themeManagerInspector = themeManagerInspector,
-                    themeManagerUpdater = themeManagerUpdater,
                     privilegedRunner = privilegedRunner,
                     themeApplyCoordinator = themeApplyCoordinator,
                     bakImporter = bakImporter,
@@ -297,7 +290,6 @@ private fun StudioScreen(
     backupManager: StudioBackupManager,
     composer: MtzComposer,
     themeManagerInspector: ThemeManagerInspector,
-    themeManagerUpdater: RootThemeManagerUpdater,
     privilegedRunner: PreferredPrivilegedCommandRunner,
     themeApplyCoordinator: ThemeApplyCoordinator,
     bakImporter: ThemeManagerBakImporter,
@@ -816,6 +808,13 @@ private fun StudioScreen(
                     diagnostics.record("rootless_backup_returned", "Doğrudan aktarılan tema için Xiaomi Temalar ekranından dönüldü", mapOf("theme" to prepared.themeName))
                     status = resources.getString(R.string.status_legacy_apply_unverified, prepared.themeName)
                 }
+
+                ThemeApplyProtocol.ROOT_MANUAL_IMPORT -> {
+                    status = resources.getString(
+                        R.string.status_manual_import_ready,
+                        prepared.manualImportPath.orEmpty(),
+                    )
+                }
             }
             if (prepared.operation == ThemeManagerOperation.APPLY) {
                 // Applying a full theme recreates the activity on some HyperOS builds. The
@@ -1022,16 +1021,19 @@ private fun StudioScreen(
                         accessMode == StudioAccessMode.SHIZUKU &&
                             themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY &&
                             SheveryBackupRestorer.state() == SheveryBackupRestorer.State.READY
+                    val hasLegacyTester = themeApplyCoordinator.legacyTesterAvailable()
                     val rootBridgeReady =
                         rootAccessAvailable == true && themeApplyCoordinator.rootGlobalModuleBridgeReady()
                     val modernNativeLibrary =
                         themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
-                    if (rootAccessAvailable == true && !rootBridgeReady && !modernNativeLibrary) {
-                        // The installed Zygisk binary may not recognize a newer Global Themes
-                        // importer. Use the platform backup transport rather than sending the
-                        // archive to an uninitialized bridge that would only return a generic
-                        // "local theme directory unavailable" error.
-                        themeApplyCoordinator.prepareRootlessManualImport(theme)
+                    if (hasLegacyTester) {
+                        // A current Theme Manager may still expose the verified tester contract.
+                        // Prefer it over every version-based or root-module heuristic.
+                        themeApplyCoordinator.prepare(theme)
+                    } else if (rootAccessAvailable == true && !rootBridgeReady && !modernNativeLibrary) {
+                        // No module bridge is active, so stage the verified archive through the
+                        // existing root hand-off instead of invoking an uninitialized bridge.
+                        themeApplyCoordinator.prepareRootFallbackImport(theme)
                     } else if (rootAccessAvailable == true || modernShizukuImport) {
                         // Modern 10.8.7.6+ builds expose their own local import library. Shizuku
                         // can stage an MTZ for that screen even though it cannot read the private
@@ -1116,6 +1118,7 @@ private fun StudioScreen(
                     RootlessRestoreAssistant.remember(context, prepared)
                 }
                 if (prepared.protocol == ThemeApplyProtocol.MODERN_THEME_MANAGER_MANUAL_IMPORT ||
+                    prepared.protocol == ThemeApplyProtocol.ROOT_MANUAL_IMPORT ||
                     prepared.protocol == ThemeApplyProtocol.ROOTLESS_MANUAL_IMPORT ||
                     prepared.protocol == ThemeApplyProtocol.ROOTLESS_FILE_MANAGER_HANDOFF
                 ) {
@@ -1960,7 +1963,6 @@ private fun StudioScreen(
                 importing = diagnosticState.activeSessionId != null || checkingImportAccess || themeOperationRunning,
                 accessMode = accessMode,
                 themeManagerInspector = themeManagerInspector,
-                themeManagerUpdater = themeManagerUpdater,
                 openInput = openInput,
                 onAddMtz = {
                     navigateTo(StudioDestination.MTZ_IMPORT)
@@ -1984,7 +1986,6 @@ private fun StudioScreen(
                         }
                     }
                 },
-                allowRootDowngrade = rootAccessAvailable == true,
                 themeCount = themes.count(LibraryTheme::isThemeGalleryItem),
                 activeThemeName = activeThemeId?.let { id ->
                     themes.firstOrNull { it.id.value == id && it.isThemeGalleryItem() }?.displayName
@@ -2032,6 +2033,11 @@ private fun StudioScreen(
                 onDeleteTheme = ::deleteTheme,
                 onCustomizeTheme = { theme ->
                     baseThemeId = theme.id.value
+                    selections.clear()
+                    destination = StudioDestination.PERSONALIZE
+                },
+                onOpenPersonalize = {
+                    baseThemeId = activeThemeId
                     selections.clear()
                     destination = StudioDestination.PERSONALIZE
                 },
@@ -2188,7 +2194,6 @@ private fun StudioScreen(
                     restoreLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
                 },
                 modifier = contentModifier,
-                showRootlessThemeRestore = BuildConfig.VERSION_NAME.contains("rootless-test"),
             )
             destination == StudioDestination.APPEARANCE -> AppearanceScreen(
                 selected = appearance,

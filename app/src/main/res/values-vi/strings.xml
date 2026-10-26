@@ -3,11 +3,9 @@
 <resources>
     <string name="theme_guard_active">Bảo vệ chủ đề đang hoạt động qua Shizuku/Shevery</string>
     <string name="theme_guard_waiting">Đã mất kết nối Shizuku/Shevery. Bảo vệ chủ đề sẽ tự động tiếp tục khi dịch vụ trở lại.</string>
-    <string name="tm_rootless_import_unavailable">Để khôi phục hỗ trợ MTZ, hãy dùng nút hạ cấp được ủy quyền bên dưới để cài Xiaomi Themes 3.0.5.6 đã xác minh. Quá trình cài đặt chỉ bắt đầu sau khi tên gói, phiên bản, mã SHA-256 và chữ ký Xiaomi được xác minh.</string>
+    <string name="tm_rootless_import_unavailable">No supported Xiaomi Themes import route is available. ApplyThemeForScreenshot is checked first; when it is absent, use the installed root MTZ runtime.</string>
     <string name="tm_incompatibility_reason_missing_activity">Hoạt động nhập MTZ cục bộ bắt buộc không có trong phiên bản Xiaomi Themes này.</string>
-    <string name="tm_btn_download_apk">Tải APK %1$s</string>
-    <string name="tm_btn_shizuku_downgrade">Hạ xuống %1$s bằng Shizuku</string>
-    <string name="app_name">HyperOS MTZ Studio</string>
+<string name="app_name">HyperOS MTZ Studio</string>
     <string name="dest_home">HyperOS MTZ Studio</string>
     <string name="dest_themes">Chủ đề</string>
     <string name="dest_wallpapers">Hình nền</string>
@@ -274,26 +272,11 @@
     <string name="diag_phase_committing">Tiết kiệm vào thư viện tư nhân</string>
     <string name="tm_card_title">Themes Manager tương thích</string>
     <string name="tm_checking_version">Xem phiên bản Theme Manager...</string>
-    <string name="tm_recommended_active">Phiên bản khuyến cáo hoạt động. Hành vi nhập khẩu địa phương độc lập MTZ được dự kiến.</string>
-    <string name="tm_recommendation_notice">%1$s được khuyến cáo để nhập khẩu độc lập tại địa phương MTZ.</string>
-    <string name="tm_verifying_apk">Đảm nhận APK gói, phiên bản, SHA-256 và Xiaomi chữ ký...</string>
-    <string name="tm_apk_verified">APK được xác minh: %1$s · SHA-256 %2$s</string>
-    <string name="tm_apk_rejected">APK bị từ chối: %1$s</string>
-    <string name="tm_error_apk_open">Số APK được chọn không thể mở</string>
     <string name="tm_device_installed_compatible">%1$s · Thích hợp</string>
     <string name="tm_device_installed_incompatible">Thiết bị: %1$s</string>
     <string name="tm_root_runtime_version_mismatch">Root MTZ apply requires Xiaomi Themes %1$s. Installed version: %2$s.</string>
     <string name="tm_version_unknown">phiên bản không rõ</string>
     <string name="tm_device_not_found">Không có gói Xiaomi Theme Manager được hỗ trợ</string>
-    <string name="tm_btn_select_apk_version">Chọn %1$s APK</string>
-    <string name="tm_verified_apk_info">APK: %1$s %2$s\nSHA-256: %3$s</string>
-    <string name="tm_btn_downgrade_to_version">Chuyển sang %1$s với Root</string>
-    <string name="tm_risk_checkbox">Tôi hiểu rằng cài phiên bản cũ bằng root có thể khởi động lại Trình quản lý chủ đề và có thể bị ROM từ chối.</string>
-    <string name="tm_dialog_title">Thay đổi phiên bản Theme Manager?</string>
-    <string name="tm_dialog_text">Chỉ gói đã xác minh %1$s sẽ được thay đổi. Lệnh `pm install -r -d` chạy qua root; không ghi tệp hệ thống hay bỏ qua xác minh. Thao tác có thể thất bại; hãy sao lưu cài đặt chủ đề trước.</string>
-    <string name="tm_dialog_confirm">Đảm nhận và thực hiện</string>
-    <string name="tm_status_waiting_root">Chờ đợi root giấy phép và kết quả quản lý gói...</string>
-    <string name="tm_status_root_failed">Root hoạt động thất bại: %1$s</string>
     <string name="shevery_dialog_title">Shizuku / Shevery</string>
     <string name="shevery_dialog_text">Shizuku/Shevery đang chạy. Hãy cấp quyền cho MTZ Studio để tiếp tục. Chế độ ADB đủ cho thao tác chủ đề không root; chế độ root chỉ dùng trên thiết bị đã root.</string>
     <string name="shevery_btn_grant">Cho phép</string>
@@ -481,9 +464,4 @@
     <string name="experimental_ocr_description">OCR sẽ thử dịch chữ trong hình ảnh của chủ đề. Kết quả có thể chưa đầy đủ hoặc làm thay đổi hình ảnh. Hình ảnh không thể chỉnh sửa an toàn sẽ được giữ nguyên.</string>
     <string name="experimental_ocr_confirm">Xác nhận dịch OCR</string>
     <string name="experimental_ocr_skip">Bỏ qua</string>
-    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
-    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
-    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
-    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
-    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 </resources>

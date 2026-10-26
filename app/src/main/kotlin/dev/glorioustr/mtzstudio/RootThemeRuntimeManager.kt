@@ -3,7 +3,6 @@ package dev.glorioustr.mtzstudio
 import android.content.Context
 import dev.glorioustr.mtzstudio.tester.RemoveResult
 import dev.glorioustr.mtzstudio.tester.RollbackResult
-import dev.glorioustr.mtzstudio.tester.RootThemeManagerUpdater
 import dev.glorioustr.mtzstudio.tester.RuntimeHealth
 import dev.glorioustr.mtzstudio.tester.RuntimeInstallResult
 import dev.glorioustr.mtzstudio.tester.RuntimeState
@@ -17,17 +16,15 @@ import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTarget
 import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTargetDetector
 
 /**
- * Root-side [ThemeRuntimeManager] implementation. The legacy updater dependency remains in the
- * constructor for caller compatibility, but the bundled module installer exclusively owns the
- * verified runtime APK and Package Manager mutation. This class owns the runtime state machine
- * and diagnostics.
+ * Root-side [ThemeRuntimeManager] implementation. The bundled module installer exclusively owns
+ * the verified runtime APK and Package Manager mutation. This class owns the runtime state
+ * machine and diagnostics.
  *
  * Diagnostics are forwarded through [onEvent] so the app's LiveDiagnostics recorder can
  * capture install/verify/rollback events without this class depending on the app module.
  */
 internal class RootThemeRuntimeManager(
     context: Context,
-    @Suppress("UNUSED_PARAMETER") updater: RootThemeManagerUpdater,
     private val moduleInstaller: RootThemeImportModuleInstaller,
     private val inspector: ThemeManagerInspector = ThemeManagerInspector(context),
     private val capabilityProbe: ThemeManagerCapabilityProbe = ThemeManagerCapabilityProbe(context),
@@ -68,9 +65,8 @@ internal class RootThemeRuntimeManager(
         }
 
         // RootThemeImportModuleInstaller is the single owner of the bundled runtime ZIP,
-        // verified payload APK, and Package Manager mutation. Do not use RootThemeManagerUpdater
-        // here: a separate APK download/install would perform a second PM mutation before the
-        // module swap and could leave the selected target out of sync with the installed module.
+        // verified payload APK, and Package Manager mutation. It keeps the selected target in
+        // sync with the installed module.
         currentState = RuntimeState.INSTALLING
         onEvent("runtime_install_started", "Bundled Theme Manager runtime kuruluyor", mapOf("target" to target.name))
         return runCatching {

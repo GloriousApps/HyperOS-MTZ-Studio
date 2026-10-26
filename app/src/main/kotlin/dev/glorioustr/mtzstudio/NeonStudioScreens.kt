@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -433,6 +434,7 @@ fun NeonLibraryScreen(
     items: List<NeonLibraryItem>,
     query: String = "",
     onQueryChange: (String) -> Unit = {},
+    onOpenPersonalize: () -> Unit = {},
     modifier: Modifier = Modifier,
     title: String = "Kitaplık",
     subtitle: String = "Temalarını keşfet, düzenle ve yönet",
@@ -478,6 +480,17 @@ fun NeonLibraryScreen(
                             Icon(Icons.Filled.Refresh, contentDescription = "Yenile", tint = NeonCyan)
                         }
                     }
+                }
+            }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Button(
+                    onClick = onOpenPersonalize,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Icon(Icons.Filled.Tune, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.library_customize))
                 }
             }
             if (items.isEmpty()) {

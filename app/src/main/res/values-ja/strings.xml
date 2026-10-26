@@ -3,11 +3,9 @@
 <resources>
     <string name="theme_guard_active">Shizuku/Shevery によるテーマ保護が有効です</string>
     <string name="theme_guard_waiting">Shizuku/Shevery の接続が切れました。サービスが戻るとテーマ保護は自動的に再開します。</string>
-    <string name="tm_rootless_import_unavailable">MTZ 対応を復元するには、下の承認済みダウングレードボタンから検証済みの Xiaomi Themes 3.0.5.6 をインストールしてください。パッケージ名、バージョン、SHA-256 チェックサム、Xiaomi 署名の検証が完了するまでインストールは開始されません。</string>
+    <string name="tm_rootless_import_unavailable">No supported Xiaomi Themes import route is available. ApplyThemeForScreenshot is checked first; when it is absent, use the installed root MTZ runtime.</string>
     <string name="tm_incompatibility_reason_missing_activity">この Xiaomi Themes バージョンでは、必要なローカル MTZ インポートアクティビティを利用できません。</string>
-    <string name="tm_btn_download_apk">%1$s APK をダウンロード</string>
-    <string name="tm_btn_shizuku_downgrade">Shizuku で %1$s にダウングレード</string>
-    <string name="app_name">HyperOS MTZ Studio</string>
+<string name="app_name">HyperOS MTZ Studio</string>
     <string name="dest_home">HyperOS MTZ Studio</string>
     <string name="dest_themes">テーマ</string>
     <string name="dest_wallpapers">壁紙</string>
@@ -274,26 +272,11 @@
     <string name="diag_phase_committing">プライベートライブラリに保存する</string>
     <string name="tm_card_title">テーママネージャーの互換性</string>
     <string name="tm_checking_version">テーママネージャーのバージョンを確認する...</string>
-    <string name="tm_recommended_active">推奨バージョンが有効です 独立した地元のMTZ輸入行動が予想される.</string>
-    <string name="tm_recommendation_notice">%1$sは,独立した地方輸入 MTZのために推奨されています.</string>
-    <string name="tm_verifying_apk">APK パッケージ,バージョン SHA-256と Xiaomiの署名を確認する...</string>
-    <string name="tm_apk_verified">APK 確認: %1$s · SHA-256 %2$s</string>
-    <string name="tm_apk_rejected">APK 拒否された: %1$s</string>
-    <string name="tm_error_apk_open">選択した APK は開けられなかった</string>
     <string name="tm_device_installed_compatible">%1$s · 同性</string>
     <string name="tm_device_installed_incompatible">装置: %1$s</string>
     <string name="tm_root_runtime_version_mismatch">Root MTZ apply requires Xiaomi Themes %1$s. Installed version: %2$s.</string>
     <string name="tm_version_unknown">未知のバージョン</string>
     <string name="tm_device_not_found">サポートされていない Xiaomi テーママネージャー パッケージが見つかりませんでした</string>
-    <string name="tm_btn_select_apk_version">選択する %1$s APK</string>
-    <string name="tm_verified_apk_info">APK: %1$s %2$s\nSHA-256: %3$s</string>
-    <string name="tm_btn_downgrade_to_version">Rootで%1$sに切り替える</string>
-    <string name="tm_risk_checkbox">root で旧バージョンをインストールすると、テーママネージャーが再起動する場合や、ROM にインストールを拒否される場合があることを理解しました。</string>
-    <string name="tm_dialog_title">テーママネージャーのバージョンを変更しますか?</string>
-    <string name="tm_dialog_text">検証済みのパッケージ %1$s のみを変更します。コマンド `pm install -r -d` は root で実行されますが、システムファイルへの書き込みや検証の回避は行いません。処理が失敗する場合があります。事前にテーマ設定をバックアップしてください。</string>
-    <string name="tm_dialog_confirm">確認と実行</string>
-    <string name="tm_status_waiting_root">rootの許可と パッケージ管理の結果を待っています</string>
-    <string name="tm_status_root_failed">Root 操作失敗: %1$s</string>
     <string name="shevery_dialog_title">Shizuku / Shevery</string>
     <string name="shevery_dialog_text">Shizuku/Shevery が実行中です。続行するには MTZ Studio の権限を許可してください。root なしのテーマ操作には ADB モードで十分です。root モードは root 済み端末でのみ使用されます。</string>
     <string name="shevery_btn_grant">許可を与えること</string>
@@ -481,9 +464,4 @@
     <string name="experimental_ocr_description">OCR はテーマ画像内の文字の翻訳を試みます。結果が不完全だったり、画像の見た目が変わったりする場合があります。安全に編集できない画像は変更しません。</string>
     <string name="experimental_ocr_confirm">OCR 翻訳を確認</string>
     <string name="experimental_ocr_skip">スキップ</string>
-    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
-    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
-    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
-    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
-    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 </resources>

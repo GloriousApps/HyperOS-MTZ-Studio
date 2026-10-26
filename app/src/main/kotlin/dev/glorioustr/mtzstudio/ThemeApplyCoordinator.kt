@@ -10,9 +10,7 @@ import dev.glorioustr.mtzstudio.core.Hashing
 import dev.glorioustr.mtzstudio.library.LibraryTheme
 import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
-import dev.glorioustr.mtzstudio.tester.ThemeManagerFamily
 import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTarget
-import dev.glorioustr.mtzstudio.tester.ThemeRuntimeTargetDetector
 import java.util.UUID
 
 data class PreparedThemeApply(
@@ -39,6 +37,7 @@ enum class ThemeApplyProtocol {
     ROOTLESS_FILE_MANAGER_HANDOFF,
     ROOTLESS_LEGACY_TESTER,
     ROOTLESS_BACKUP_RESTORE,
+    ROOT_MANUAL_IMPORT,
 }
 
 class ThemeApplyCoordinator(
@@ -62,41 +61,11 @@ class ThemeApplyCoordinator(
         diagnostics.record("apply_hash_verified", "Tema kaynak SHA-256 doğrulaması başarılı")
         val modern = ThemeManagerContract.behavior(installedThemeManagerVersion()) ==
             dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
-        // Root köprüsü hazır olduğunda, kurulu Theme Manager'ın hedef family'ye uygun olduğunu
-        // doğrula. Yanlış family (ör. Global cihazda Çin sürümü) köprüyü kırar; kullanıcıya
-        // net bir uyarı bırakırız ama akışı bozmayız — köprü yine de dener.
-        if (rootGlobalModuleBridgeReady()) {
-            val installedVersion = installedThemeManagerVersion()
-            val target = ThemeRuntimeTargetDetector.resolve(
-                readSystemProperty("ro.miui.region"),
-                readSystemProperty("ro.product.mod_device"),
-                installedVersion,
-            )
-            val targetApk = ThemeManagerContract.rootTargetApk(
-                when (target) {
-                    ThemeRuntimeTargetDetector.Target.GLOBAL -> ThemeManagerFamily.GLOBAL
-                    ThemeRuntimeTargetDetector.Target.CHINA -> ThemeManagerFamily.CHINA
-                    ThemeRuntimeTargetDetector.Target.UNKNOWN -> ThemeManagerFamily.UNKNOWN
-                },
-            )
-            val versionMatches = installedVersion != null && targetApk != null &&
-                ThemeManagerContract.canonicalVersion(installedVersion) == targetApk.version
-            if (!versionMatches) {
-                diagnostics.record(
-                    "root_runtime_target_mismatch",
-                    "Root köprüsü hazır ancak kurulu Theme Manager hedef sürümle eşleşmiyor",
-                    mapOf(
-                        "target" to target.name,
-                        "installed" to (installedVersion ?: "-"),
-                        "expected" to (targetApk?.version ?: "-"),
-                    ),
-                )
-            }
-        }
-        // A modern local-library identity is authoritative. Some vendor/modded Themes 10.8/11
-        // packages also expose the old screenshot tester alias, but that route needs root-only
-        // staging and must not steal an already imported Shizuku theme from the native flow.
+        // Prefer the exported screenshot tester whenever the installed build actually exposes it.
+        // The component is probed at runtime because newer Global builds may retain the contract
+        // even when their numeric version is not in the historical compatibility matrix.
         return when {
+            legacyTesterAvailable() -> prepareLegacyTester(theme)
             // Global Themes builds do not expose a safe, stable "replace this existing local
             // record" API. A local theme is a tree of generated component records, not merely
             // one MTZ file. Reuse the native import-and-apply flow that Xiaomi Themes itself
@@ -111,13 +80,6 @@ class ThemeApplyCoordinator(
                 themeManagerLocalIds,
             )
             modern && themeManagerLocalId != null -> prepareModernExistingTheme(theme, themeManagerLocalId)
-            modern && legacyTesterAvailable() -> {
-                diagnostics.record(
-                    "modern_legacy_tester_fallback",
-                    "Yerel tema kimliği bulunamadığı için Temalar tester geçidi yedek yol olarak kullanılacak",
-                )
-                prepareLegacyTester(theme)
-            }
             modern -> prepareModernImport(theme, ThemeManagerOperation.APPLY)
             else -> prepareLegacyTester(theme)
         }
@@ -412,6 +374,37 @@ class ThemeApplyCoordinator(
             intent = publicIntent,
             protocol = publicProtocol,
             manualImportPath = publicFile.absolutePath,
+        )
+    }
+
+    /**
+     * Root fallback for current Global builds that removed ApplyThemeForScreenshot and do not
+     * expose the modern native library. Root only stages a readable copy in the shared Themes
+     * directory; Xiaomi Themes still owns the final import/apply decision.
+     */
+    fun prepareRootFallbackImport(theme: LibraryTheme): PreparedThemeApply {
+        check(Hashing.sha256(theme.archive.source) == theme.archive.sha256) {
+            "Tema kaynağı doğrulama sonrası değişmiş"
+        }
+        val themeName = theme.archive.metadata?.name ?: theme.displayName
+        val publicFile = checkNotNull(
+            MtzPublicExporter.exportToPublicDownloads(context, theme.archive.source, themeName),
+        ) { "MTZ, ortak İndirilenler alanına hazırlanamadı" }
+        val sharedPath = "/sdcard/MIUI/theme/mtzstudio-${UUID.randomUUID()}.mtz"
+        val command = "/system/bin/mkdir -p /sdcard/MIUI/theme && " +
+            "/system/bin/cp ${shellQuote(publicFile.absolutePath)} ${shellQuote(sharedPath)} && " +
+            "/system/bin/chmod 0644 ${shellQuote(sharedPath)}"
+        val result = runRecordedRoot("root_fallback_staging", command, 120)
+        check(result.exitCode == 0) {
+            "Tema root aktarım alanına hazırlanamadı: ${result.output.takeLast(500)}"
+        }
+        return PreparedThemeApply(
+            themeId = theme.id.value,
+            themeName = themeName,
+            stagedPath = "",
+            intent = safeThemeManagerLauncherIntent(),
+            protocol = ThemeApplyProtocol.ROOT_MANUAL_IMPORT,
+            manualImportPath = sharedPath,
         )
     }
 
@@ -726,11 +719,6 @@ class ThemeApplyCoordinator(
 
     private fun shellQuote(value: String): String = "'${value.replace("'", "'\"'\"'")}'"
 
-    private fun readSystemProperty(name: String): String? = runCatching {
-        val process = ProcessBuilder("getprop", name).redirectErrorStream(true).start()
-        process.inputStream.bufferedReader().readText().trim().takeIf { it.isNotEmpty() }
-    }.getOrNull()
-
     private fun installedThemeManagerVersion(): String? = runCatching {
         context.packageManager.getPackageInfo(THEME_MANAGER_PACKAGE, 0).versionName
     }.getOrNull()
@@ -787,7 +775,7 @@ class ThemeApplyCoordinator(
         throw error
     }
 
-    private fun legacyTesterAvailable(): Boolean {
+    fun legacyTesterAvailable(): Boolean {
         val request = ThemeManagerContract.legacyTesterRequest("/dev/null", context.packageName)
         return Intent(request.action).apply {
             component = ComponentName(THEME_MANAGER_PACKAGE, request.componentClassName)

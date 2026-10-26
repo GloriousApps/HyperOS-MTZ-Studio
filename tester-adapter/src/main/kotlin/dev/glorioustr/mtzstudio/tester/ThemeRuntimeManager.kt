@@ -6,7 +6,7 @@ package dev.glorioustr.mtzstudio.tester
  * The Root module installs a controlled Theme Manager runtime (Global: 3.4.1.23-global,
  * China: 11.5.3.1). This manager owns the lifecycle of that runtime: detect, install,
  * verify, rollback, remove and health-check. Implementations wrap the actual root command
- * execution (RootThemeManagerUpdater) and the module installer.
+ * execution and the module installer.
  *
  * The state machine is:
  *   STOCK -> INSTALLING -> ACTIVE (verified) | FAILED -> ROLLED_BACK -> STOCK

@@ -3,8 +3,7 @@ package dev.glorioustr.mtzstudio.tester
 /**
  * Strategy for the Shizuku/legacy Global tester path.
  *
- * Applies to the Shizuku-compatible Global builds (2.15.5.46, 3.0.4.32, 3.0.5.6) where the
- * exported `ApplyThemeForScreenshot` tester activity is present. The strategy is a pure decision
+ * Applies whenever the exported `ApplyThemeForScreenshot` tester activity is present. The strategy is a pure decision
  * function: it inspects the installed Theme Manager and produces a [ThemeApplyResult] — either a
  * [ThemeApplyResult.Success] carrying the exact [LegacyTesterRequest], or a failure describing
  * which capability is missing.

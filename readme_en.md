@@ -76,12 +76,7 @@ On non-rooted devices, install and start Shizuku or [Shevery](https://github.com
 
 ## Theme Manager compatibility
 
-Studio does not rely only on a fixed Xiaomi Themes version allowlist. At runtime it verifies the legacy `ApplyThemeForScreenshot` route, the native local-theme library and the live runtime APK. Xiaomi Themes `3.4.1.23-global` and `11.5.3.1` runtime families are supported. A valid Theme Manager V7 setup is adopted without overwriting the existing runtime.
-
-The recovery action downloads the verified Xiaomi Themes `3.0.5.6-global` package directly through Android Download Manager:
-
-- [Xiaomi Themes 3.0.5.6-global APK](https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/Xiaomi_Themes_3.0.5.6-global.apk)
-- [SHA-256 checksum](https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/Xiaomi_Themes_3.0.5.6-global.apk.sha256)
+Studio does not rely only on a fixed Xiaomi Themes version allowlist. It first resolves the installed package's `ApplyThemeForScreenshot` activity at runtime; when that activity is absent, it uses root access and the installed Xiaomi Themes Runtime + MTZ Support module. Xiaomi Themes `3.4.1.23-global` and `11.5.3.1` runtime families are supported. A valid Theme Manager V7 setup is adopted without overwriting the existing runtime. Forced downgrade and APK-backup flows are not included.
 
 Xiaomi can change the final application screen and theme-acceptance behaviour depending on the ROM. Studio verifies capabilities and outcomes at runtime whenever possible, but a Xiaomi confirmation screen may still appear.
 

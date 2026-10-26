@@ -7,8 +7,7 @@ import kotlin.test.assertTrue
 
 class ThemeManagerCompatibilityTest {
     @Test
-    fun `recommended version is recognized with global suffix`() {
-        assertEquals("3.0.5.6", ThemeManagerContract.RECOMMENDED_VERSION)
+    fun `legacy global activity contract is recognized without version based routing`() {
         assertEquals("3.0.5.6", ThemeManagerContract.canonicalVersion("3.0.5.6-global"))
         assertEquals(ThemeManagerBehavior.LOCAL_THEME_IMPORT, ThemeManagerContract.behavior("3.0.5.6-global"))
     }
@@ -225,30 +224,4 @@ class ThemeManagerCompatibilityTest {
         assertTrue(request.longExtras.isEmpty())
     }
 
-    @Test
-    fun `root command stages verified apk in a fixed temporary namespace and cleans it`() {
-        val command = RootInstallCommand.forStagedApk(
-            "/data/user/0/dev.glorioustr.mtzstudio/cache/theme-manager-update/themes-id.apk",
-            "/data/local/tmp/mtzstudio-theme-manager-id.apk",
-        )
-        assertTrue(command.contains("/system/bin/cp '/data/user/0/dev.glorioustr.mtzstudio/cache/theme-manager-update/themes-id.apk'"))
-        assertTrue(command.contains("/system/bin/pm install -r -d --user 0 '/data/local/tmp/mtzstudio-theme-manager-id.apk'"))
-        assertTrue(command.contains("/system/bin/rm -f '/data/local/tmp/mtzstudio-theme-manager-id.apk'"))
-        assertFalse(" -S " in command)
-        assertFalse("skip-verification" in command)
-        assertFalse("uninstall" in command)
-    }
-
-    @Test
-    fun `shizuku command moves shared download to shell staging before install`() {
-        val command = ShellInstallCommand.forDownloadedApk(
-            "/sdcard/Download/Xiaomi_Themes_3.0.5.6-global.apk",
-        )
-
-        assertTrue(command.contains("/system/bin/cp '/sdcard/Download/Xiaomi_Themes_3.0.5.6-global.apk' '/data/local/tmp/mtzstudio-theme-manager-"))
-        assertTrue(command.contains("/system/bin/chmod 0644 '/data/local/tmp/mtzstudio-theme-manager-"))
-        assertTrue(command.contains("/system/bin/pm install -r -d --user 0 '/data/local/tmp/mtzstudio-theme-manager-"))
-        assertTrue(command.contains("/system/bin/rm -f '/data/local/tmp/mtzstudio-theme-manager-"))
-        assertFalse("pm install -r -d '/sdcard/Download/" in command)
-    }
 }

@@ -132,7 +132,6 @@ import dev.glorioustr.mtzstudio.core.ThemeVisualPolicy
 import dev.glorioustr.mtzstudio.library.LibraryTheme
 import dev.glorioustr.mtzstudio.shevery.SheveryAccess
 import dev.glorioustr.mtzstudio.shevery.SheveryAuthorizationStatus
-import dev.glorioustr.mtzstudio.tester.RootThemeManagerUpdater
 import dev.glorioustr.mtzstudio.tester.ThemeManagerInspector
 import java.io.InputStream
 import java.nio.file.Path
@@ -174,7 +173,6 @@ internal fun StudioPanelScreen(
     importing: Boolean,
     accessMode: StudioAccessMode?,
     themeManagerInspector: ThemeManagerInspector,
-    themeManagerUpdater: RootThemeManagerUpdater,
     openInput: (Uri) -> InputStream?,
     onAddMtz: () -> Unit,
     showBakImport: Boolean,
@@ -183,7 +181,6 @@ internal fun StudioPanelScreen(
     onOpenBackup: () -> Unit,
     authorizationManagerName: String?,
     onOpenAuthorizationManager: () -> Unit,
-    allowRootDowngrade: Boolean,
     themeCount: Int = 0,
     activeThemeName: String? = null,
     workspaceStatus: String = "Hazır",
@@ -260,8 +257,7 @@ internal fun StudioPanelScreen(
             footerContent = {
                 ThemeManagerCompatibilityCard(
                     inspector = themeManagerInspector,
-                    updater = themeManagerUpdater,
-                    allowRootDowngrade = allowRootDowngrade,
+                    rootAccessAvailable = accessMode == StudioAccessMode.ROOT,
                     neonStyle = true,
                 )
             },
@@ -374,8 +370,7 @@ internal fun StudioPanelScreen(
         item {
             ThemeManagerCompatibilityCard(
                 inspector = themeManagerInspector,
-                updater = themeManagerUpdater,
-                allowRootDowngrade = allowRootDowngrade,
+                rootAccessAvailable = accessMode == StudioAccessMode.ROOT,
             )
         }
         item {
@@ -610,7 +605,6 @@ internal fun HomeMenuScreen(
     importing: Boolean,
     accessMode: StudioAccessMode? = null,
     themeManagerInspector: ThemeManagerInspector,
-    themeManagerUpdater: RootThemeManagerUpdater,
     openInput: (Uri) -> InputStream?,
     onToggleImport: () -> Unit,
     onAddMtz: () -> Unit,
@@ -621,7 +615,6 @@ internal fun HomeMenuScreen(
     authorizationManagerName: String? = null,
     onOpenAuthorizationManager: () -> Unit = {},
     showThemeManagerVersionTool: Boolean = true,
-    allowRootDowngrade: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -744,8 +737,7 @@ internal fun HomeMenuScreen(
                         if (showThemeManagerVersionTool) {
                             ThemeManagerCompatibilityCard(
                                 inspector = themeManagerInspector,
-                                updater = themeManagerUpdater,
-                                allowRootDowngrade = allowRootDowngrade,
+                                rootAccessAvailable = accessMode == StudioAccessMode.ROOT,
                             )
                         }
                     }
@@ -1236,6 +1228,7 @@ internal fun ThemesScreen(
     onTranslateTheme: (LibraryTheme) -> Unit,
     onDeleteTheme: (LibraryTheme) -> Unit,
     onCustomizeTheme: (LibraryTheme) -> Unit = {},
+    onOpenPersonalize: () -> Unit = {},
     onRollbackTheme: (LibraryTheme) -> Unit = {},
     redesignedUi: Boolean = false,
     modifier: Modifier = Modifier,
@@ -1283,6 +1276,7 @@ internal fun ThemesScreen(
             modifier = modifier,
             query = libraryQuery,
             onQueryChange = { libraryQuery = it },
+            onOpenPersonalize = onOpenPersonalize,
             onRefresh = if (nativeCatalogMode && catalogError != null) {
                 onRetryCatalog
             } else {
@@ -2570,7 +2564,6 @@ internal fun BackupRestoreScreen(
     onBackupLocal: () -> Unit,
     onRestoreLocal: () -> Unit,
     cloudTransferRunning: Boolean = false,
-    showRootlessThemeRestore: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -2711,9 +2704,6 @@ internal fun BackupRestoreScreen(
             }
         } else {
             // ==================== GERİ YÜKLEME ====================
-            if (showRootlessThemeRestore) {
-                item { RootlessThemeRecoveryBackupCard() }
-            }
             item {
                 StudioCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

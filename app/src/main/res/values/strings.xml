@@ -1,11 +1,9 @@
 <resources>
     <string name="theme_guard_active">Theme protection is active through Shizuku/Shevery</string>
     <string name="theme_guard_waiting">Shizuku/Shevery connection was lost. Theme protection will resume automatically when the service returns.</string>
-    <string name="tm_rootless_import_unavailable">To restore MTZ support, use the authorized downgrade button below to install the verified Xiaomi Themes 3.0.5.6 release. Installation will not start until the package name, version, SHA-256 checksum, and Xiaomi signature are verified.</string>
+    <string name="tm_rootless_import_unavailable">No supported Xiaomi Themes import route is available. ApplyThemeForScreenshot is checked first; when it is absent, use the installed root MTZ runtime.</string>
     <string name="tm_incompatibility_reason_missing_activity">The required local MTZ import activity is not available in this Xiaomi Themes version.</string>
-    <string name="tm_btn_download_apk">Download %1$s APK</string>
-    <string name="tm_btn_shizuku_downgrade">Downgrade to %1$s with Shizuku</string>
-    <string name="app_name">HyperOS MTZ Studio</string>
+<string name="app_name">HyperOS MTZ Studio</string>
 
     <!-- Navigation & Destinations -->
     <string name="dest_home">HyperOS MTZ Studio</string>
@@ -379,31 +377,11 @@
     <!-- Theme Manager Compatibility Card -->
     <string name="tm_card_title">Theme Manager compatibility</string>
     <string name="tm_checking_version">Checking Theme Manager version…</string>
-    <string name="tm_recommended_active">Recommended version active. Independent local MTZ import behavior is expected.</string>
-    <string name="tm_recommendation_notice">%1$s is recommended for independent local MTZ import.</string>
-    <string name="tm_verifying_apk">Verifying APK package, version, SHA-256 and Xiaomi signature…</string>
-    <string name="tm_apk_verified">APK verified: %1$s · SHA-256 %2$s</string>
-    <string name="tm_apk_rejected">APK rejected: %1$s</string>
-    <string name="tm_error_apk_open">The selected APK could not be opened</string>
     <string name="tm_device_installed_compatible">%1$s · Compatible</string>
     <string name="tm_device_installed_incompatible">Device: %1$s</string>
     <string name="tm_root_runtime_version_mismatch">Root MTZ apply requires Xiaomi Themes %1$s. Installed version: %2$s.</string>
     <string name="tm_version_unknown">unknown version</string>
     <string name="tm_device_not_found">No supported Xiaomi Theme Manager package found</string>
-    <string name="tm_btn_select_apk_version">Select %1$s APK</string>
-    <string name="tm_verified_apk_info">Verified APK: %1$s %2$s\nSHA-256: %3$s</string>
-    <string name="tm_btn_downgrade_to_version">Switch to %1$s with Root</string>
-    <string name="tm_risk_checkbox">I understand that downgrading with root may restart Theme Manager and could be rejected by ROM.</string>
-    <string name="tm_dialog_title">Change Theme Manager version?</string>
-    <string name="tm_dialog_text">Only the verified %1$s package will be targeted. The command runs `pm install -r -d` via root; it does not write system files or bypass verification. The operation may fail; back up your theme settings beforehand.</string>
-    <string name="tm_dialog_confirm">Confirm and execute</string>
-    <string name="tm_status_waiting_root">Waiting for root permission and package manager result…</string>
-    <string name="tm_status_root_failed">Root operation failed: %1$s</string>
-    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
-    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
-    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
-    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
-    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 
     <!-- Shizuku-compatible Authorization Gate -->
     <string name="shevery_dialog_title">Shizuku / Shevery access</string>

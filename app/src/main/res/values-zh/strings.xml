@@ -3,11 +3,9 @@
 <resources>
     <string name="theme_guard_active">已通过 Shizuku/Shevery 启用主题保护</string>
     <string name="theme_guard_waiting">Shizuku/Shevery 连接已断开。服务恢复后，主题保护将自动继续。</string>
-    <string name="tm_rootless_import_unavailable">要恢复 MTZ 支持，请使用下方的授权降级按钮安装已验证的 Xiaomi Themes 3.0.5.6。只有在软件包名称、版本、SHA-256 校验值和 Xiaomi 签名验证通过后才会开始安装。</string>
+    <string name="tm_rootless_import_unavailable">No supported Xiaomi Themes import route is available. ApplyThemeForScreenshot is checked first; when it is absent, use the installed root MTZ runtime.</string>
     <string name="tm_incompatibility_reason_missing_activity">此 Xiaomi Themes 版本缺少所需的本地 MTZ 导入活动。</string>
-    <string name="tm_btn_download_apk">下载 %1$s APK</string>
-    <string name="tm_btn_shizuku_downgrade">使用 Shizuku 降级到 %1$s</string>
-    <string name="app_name">HyperOS MTZ Studio</string>
+<string name="app_name">HyperOS MTZ Studio</string>
     <string name="dest_home">HyperOS MTZ Studio</string>
     <string name="dest_themes">主题</string>
     <string name="dest_wallpapers">壁纸</string>
@@ -274,26 +272,11 @@
     <string name="diag_phase_committing">正在保存到私有主题库</string>
     <string name="tm_card_title">主题管理器兼容性</string>
     <string name="tm_checking_version">检查主题管理器版本...</string>
-    <string name="tm_recommended_active">当前为推荐版本，预计支持将 MTZ 导入为独立的本地主题。</string>
-    <string name="tm_recommendation_notice">建议使用 %1$s 版本，将 MTZ 导入为独立的本地主题。</string>
-    <string name="tm_verifying_apk">检查 APK包,版本, SHA-256和 Xiaomi签名...</string>
-    <string name="tm_apk_verified">APK验证: %1$s · SHA-256 %2$s</string>
-    <string name="tm_apk_rejected">APK被拒绝: %1$s</string>
-    <string name="tm_error_apk_open">选择的APK无法打开</string>
     <string name="tm_device_installed_compatible">%1$s · 兼容</string>
     <string name="tm_device_installed_incompatible">设备: %1$s</string>
     <string name="tm_root_runtime_version_mismatch">Root MTZ apply requires Xiaomi Themes %1$s. Installed version: %2$s.</string>
     <string name="tm_version_unknown">未知版本</string>
     <string name="tm_device_not_found">没有支持的 Xiaomi 主题管理器包</string>
-    <string name="tm_btn_select_apk_version">选择%1$s APK</string>
-    <string name="tm_verified_apk_info">APK: %1$s %2$s\nSHA-256: %3$s</string>
-    <string name="tm_btn_downgrade_to_version">切换到%1$s号,以Root号</string>
-    <string name="tm_risk_checkbox">我了解，使用 root 降级可能重启主题管理器，且 ROM 可能拒绝安装。</string>
-    <string name="tm_dialog_title">修改主题管理器版本?</string>
-    <string name="tm_dialog_text">仅操作已验证的 %1$s 安装包。命令 `pm install -r -d` 通过 root 执行，不会写入系统文件或绕过验证。操作可能失败；请先备份主题设置。</string>
-    <string name="tm_dialog_confirm">确认和执行</string>
-    <string name="tm_status_waiting_root">正在等待 root 授权和软件包管理器返回结果…</string>
-    <string name="tm_status_root_failed">root 操作失败：%1$s</string>
     <string name="shevery_dialog_title">Shizuku / Shevery</string>
     <string name="shevery_dialog_text">Shizuku/Shevery 正在运行。请授予 MTZ Studio 权限以继续。ADB 模式足以进行无 root 的主题操作；root 模式仅用于已 root 的设备。</string>
     <string name="shevery_btn_grant">授予许可</string>
@@ -481,9 +464,4 @@
     <string name="experimental_ocr_description">OCR 会尝试翻译主题图片中的文字。结果可能不完整或影响图片外观。无法安全修改的图片将保持不变。</string>
     <string name="experimental_ocr_confirm">确认 OCR 翻译</string>
     <string name="experimental_ocr_skip">跳过</string>
-    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
-    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
-    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
-    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
-    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 </resources>

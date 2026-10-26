@@ -1,7 +1,7 @@
 <resources>
     <string name="theme_guard_active">Tema koruması Shizuku/Shevery ile etkin</string>
     <string name="theme_guard_waiting">Shizuku/Shevery bağlantısı kesildi. Hizmet geri geldiğinde tema koruması otomatik olarak devam edecek.</string>
-    <string name="tm_rootless_import_unavailable">MTZ desteğini geri getirmek için aşağıdaki yetkili sürüm düşürme düğmesiyle doğrulanmış Xiaomi Temalar 3.0.5.6 sürümünü kurun. Paket adı, sürüm, SHA-256 özeti ve Xiaomi imzası doğrulanmadan kurulum başlamaz.</string>
+    <string name="tm_rootless_import_unavailable">Desteklenen bir Xiaomi Temalar içe aktarma yolu bulunamadı. Önce ApplyThemeForScreenshot aranır; bulunamazsa kurulu root MTZ runtime yolu kullanılır.</string>
     <string name="tm_incompatibility_reason_missing_activity">Bu Xiaomi Temalar sürümünde gerekli yerel MTZ içe aktarma etkinliği bulunmuyor.</string>
     <string name="app_name">HyperOS MTZ Studio</string>
 
@@ -377,33 +377,11 @@
     <!-- Theme Manager Compatibility Card -->
     <string name="tm_card_title">Tema Yöneticisi uyumluluğu</string>
     <string name="tm_checking_version">Tema Yöneticisi sürümü denetleniyor…</string>
-    <string name="tm_recommended_active">Önerilen sürüm etkin. Bağımsız yerel MTZ import davranışı bekleniyor.</string>
-    <string name="tm_recommendation_notice">Bağımsız yerel MTZ importu için %1$s önerilir.</string>
-    <string name="tm_btn_download_apk">%1$s APK indir</string>
-    <string name="tm_btn_shizuku_downgrade">Shizuku ile %1$s sürümüne düşür</string>
-    <string name="tm_verifying_apk">APK paket, sürüm, SHA-256 ve Xiaomi imzası doğrulanıyor…</string>
-    <string name="tm_apk_verified">APK doğrulandı: %1$s · SHA-256 %2$s</string>
-    <string name="tm_apk_rejected">APK reddedildi: %1$s</string>
-    <string name="tm_error_apk_open">Seçilen APK açılamadı</string>
     <string name="tm_device_installed_compatible">%1$s · Uyumlu</string>
     <string name="tm_device_installed_incompatible">Cihaz: %1$s</string>
     <string name="tm_root_runtime_version_mismatch">Root ile MTZ uygulamak için Xiaomi Temalar %1$s sürümü gereklidir. Kurulu sürüm: %2$s.</string>
     <string name="tm_version_unknown">sürüm bilinmiyor</string>
     <string name="tm_device_not_found">Desteklenen Xiaomi Tema Yöneticisi paketi bulunamadı</string>
-    <string name="tm_btn_select_apk_version">%1$s APK seç</string>
-    <string name="tm_verified_apk_info">Doğrulanan APK: %1$s %2$s\nSHA-256: %3$s</string>
-    <string name="tm_btn_downgrade_to_version">Root ile %1$s sürümüne geç</string>
-    <string name="tm_risk_checkbox">Root ile sürüm düşürmenin Tema Yöneticisini yeniden başlatabileceğini ve ROM tarafından reddedilebileceğini anlıyorum.</string>
-    <string name="tm_dialog_title">Tema Yöneticisi sürümü değiştirilsin mi?</string>
-    <string name="tm_dialog_text">Yalnızca doğrulanan %1$s paketi hedeflenecek. Komut root üzerinden `pm install -r -d` çalıştırır; sistem dosyası yazmaz ve doğrulamayı devre dışı bırakmaz. İşlem başarısız olabilir; önemli tema ayarlarınızı önceden yedekleyin.</string>
-    <string name="tm_dialog_confirm">Onayla ve çalıştır</string>
-    <string name="tm_status_waiting_root">Root izni ve paket yöneticisi sonucu bekleniyor…</string>
-    <string name="tm_status_root_failed">Root işlemi başarısız: %1$s</string>
-    <string name="tm_downgrade_failed">Themes %1$s sürümüne geçirilemedi. Etkin sürüm hâlâ %2$s. %3$s</string>
-    <string name="tm_downgrade_warning_channel">Tema Yöneticisi geri dönüş uyarıları</string>
-    <string name="tm_downgrade_warning_title">Xiaomi Themes geri dönüşü başarısız</string>
-    <string name="tm_downgrade_warning_text">Themes %1$s sürümüne geçemedi. Etkin sürüm %2$s olarak kaldı. %3$s</string>
-    <string name="tm_downgrade_unknown_reason">Paket yöneticisi istenen sürümü reddetti veya etkinleştirmedi.</string>
 
     <!-- Shizuku uyumlu yetkilendirme kapısı -->
     <string name="shevery_dialog_title">Shizuku / Shevery erişimi</string>

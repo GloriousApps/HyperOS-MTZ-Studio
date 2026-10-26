@@ -3,11 +3,9 @@
 <resources>
     <string name="theme_guard_active">Shizuku/Shevery দিয়ে থিম সুরক্ষা সক্রিয়</string>
     <string name="theme_guard_waiting">Shizuku/Shevery সংযোগ বিচ্ছিন্ন হয়েছে। পরিষেবা ফিরে এলে থিম সুরক্ষা স্বয়ংক্রিয়ভাবে আবার চলবে।</string>
-    <string name="tm_rootless_import_unavailable">MTZ সমর্থন ফিরিয়ে আনতে নিচের অনুমোদিত ডাউনগ্রেড বোতাম দিয়ে যাচাইকৃত Xiaomi Themes 3.0.5.6 ইনস্টল করুন। প্যাকেজের নাম, সংস্করণ, SHA-256 চেকসম এবং Xiaomi স্বাক্ষর যাচাই না হওয়া পর্যন্ত ইনস্টলেশন শুরু হবে না।</string>
+    <string name="tm_rootless_import_unavailable">No supported Xiaomi Themes import route is available. ApplyThemeForScreenshot is checked first; when it is absent, use the installed root MTZ runtime.</string>
     <string name="tm_incompatibility_reason_missing_activity">এই Xiaomi Themes সংস্করণে প্রয়োজনীয় স্থানীয় MTZ ইমপোর্ট অ্যাক্টিভিটি নেই।</string>
-    <string name="tm_btn_download_apk">%1$s APK ডাউনলোড করুন</string>
-    <string name="tm_btn_shizuku_downgrade">Shizuku দিয়ে %1$s-এ ডাউনগ্রেড করুন</string>
-    <string name="app_name">HyperOS MTZ Studio</string>
+<string name="app_name">HyperOS MTZ Studio</string>
     <string name="dest_home">HyperOS MTZ Studio</string>
     <string name="dest_themes">থিম</string>
     <string name="dest_wallpapers">ওয়ালপেপার</string>
@@ -274,26 +272,11 @@
     <string name="diag_phase_committing">ব্যক্তিগত লাইব্রেরিতে সঞ্চয় করা</string>
     <string name="tm_card_title">থিম ম্যানেজার সামঞ্জস্য</string>
     <string name="tm_checking_version">থিম ম্যানেজারের সংস্করণ পরীক্ষা করছি...</string>
-    <string name="tm_recommended_active">প্রস্তাবিত সংস্করণ সক্রিয়। স্বাধীন স্থানীয় MTZ আমদানি আচরণ প্রত্যাশিত।</string>
-    <string name="tm_recommendation_notice">স্বতন্ত্র স্থানীয় MTZ আমদানির জন্য %1$s প্রস্তাবিত।</string>
-    <string name="tm_verifying_apk">APK প্যাকেজ, সংস্করণ, SHA-256 এবং Xiaomi স্বাক্ষর যাচাই করা...</string>
-    <string name="tm_apk_verified">APK যাচাই করা হয়েছেঃ %1$s · SHA-256 %2$s</string>
-    <string name="tm_apk_rejected">APK প্রত্যাখ্যান করা হয়েছে: %1$s</string>
-    <string name="tm_error_apk_open">নির্বাচিত APK খুলতে পারেনি</string>
     <string name="tm_device_installed_compatible">%1$s · সামঞ্জস্যপূর্ণ</string>
     <string name="tm_device_installed_incompatible">ডিভাইসঃ %1$s</string>
     <string name="tm_root_runtime_version_mismatch">Root MTZ apply requires Xiaomi Themes %1$s. Installed version: %2$s.</string>
     <string name="tm_version_unknown">অজানা সংস্করণ</string>
     <string name="tm_device_not_found">কোন সমর্থিত Xiaomi থিম ম্যানেজার প্যাকেজ পাওয়া যায়নি</string>
-    <string name="tm_btn_select_apk_version">নির্বাচন করুন %1$s APK</string>
-    <string name="tm_verified_apk_info">APK: %1$s %2$s\nSHA-256: %3$s</string>
-    <string name="tm_btn_downgrade_to_version">Root এর সাথে %1$s এ স্যুইচ করুন</string>
-    <string name="tm_risk_checkbox">আমি বুঝি যে root দিয়ে পুরোনো সংস্করণ ইনস্টল করলে থিম ম্যানেজার পুনরায় চালু হতে পারে এবং ROM ইনস্টলেশন প্রত্যাখ্যান করতে পারে।</string>
-    <string name="tm_dialog_title">থিম ম্যানেজার সংস্করণ পরিবর্তন?</string>
-    <string name="tm_dialog_text">শুধু যাচাইকৃত %1$s প্যাকেজটি পরিবর্তন করা হবে। `pm install -r -d` কমান্ডটি root দিয়ে চলে; এটি সিস্টেম ফাইল লেখে না বা যাচাই এড়িয়ে যায় না। প্রক্রিয়া ব্যর্থ হতে পারে; আগে থিম সেটিংসের ব্যাকআপ নিন।</string>
-    <string name="tm_dialog_confirm">নিশ্চিত করুন এবং কার্যকর করুন</string>
-    <string name="tm_status_waiting_root">root এর অনুমতি এবং প্যাকেজ ম্যানেজারের ফলাফলের অপেক্ষায়...</string>
-    <string name="tm_status_root_failed">Root অপারেশন ব্যর্থঃ %1$s</string>
     <string name="shevery_dialog_title">Shizuku / Shevery</string>
     <string name="shevery_dialog_text">Shizuku/Shevery চলছে। চালিয়ে যেতে MTZ Studio-কে অনুমতি দিন। Root ছাড়া থিম পরিচালনার জন্য ADB মোড যথেষ্ট; root মোড শুধু root করা ডিভাইসে ব্যবহৃত হয়।</string>
     <string name="shevery_btn_grant">অনুমতি প্রদান</string>
@@ -481,9 +464,4 @@
     <string name="experimental_ocr_description">OCR থিমের ছবির লেখা অনুবাদ করার চেষ্টা করে। ফল অসম্পূর্ণ হতে পারে বা ছবির চেহারা বদলাতে পারে। নিরাপদে সম্পাদনা করা যায় না এমন ছবি অপরিবর্তিত থাকবে।</string>
     <string name="experimental_ocr_confirm">OCR অনুবাদ নিশ্চিত করুন</string>
     <string name="experimental_ocr_skip">এড়িয়ে যান</string>
-    <string name="tm_downgrade_failed">Could not activate Themes %1$s. The active version is still %2$s. %3$s</string>
-    <string name="tm_downgrade_warning_channel">Theme Manager rollback warnings</string>
-    <string name="tm_downgrade_warning_title">Xiaomi Themes rollback failed</string>
-    <string name="tm_downgrade_warning_text">Themes could not switch to %1$s. The active version remains %2$s. %3$s</string>
-    <string name="tm_downgrade_unknown_reason">The package manager rejected or did not activate the requested version.</string>
 </resources>

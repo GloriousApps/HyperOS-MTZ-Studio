@@ -1,7 +1,6 @@
 package dev.glorioustr.mtzstudio.tester
 
 object ThemeManagerContract {
-    const val RECOMMENDED_VERSION = "3.0.5.6"
     // The Global build the bundled Root MTZ Import module is verified against.
     // This is NOT Shizuku-compatible (tester activity removed); it is applied
     // exclusively through the Root module's Zygisk bridge.

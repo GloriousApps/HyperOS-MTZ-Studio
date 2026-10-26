@@ -76,12 +76,7 @@ Rootsuz cihazlarda Shizuku ya da [Shevery](https://github.com/HmnDev-Tech/shever
 
 ## Tema Yöneticisi uyumluluğu
 
-Studio yalnızca sabit bir Temalar sürüm listesine güvenmez. Eski Global sürümlerde `ApplyThemeForScreenshot` etkinliğini; modern sürümlerde yerleşik yerel tema kitaplığı ekranını ve runtime doğrulamasını çalışma anında kontrol eder. Xiaomi Themes `3.4.1.23-global` ve `11.5.3.1` runtime aileleri desteklenir. Geçerli Theme Manager V7 kurulumu varsa mevcut runtime benimsenir ve üzerine yazılmaz.
-
-Bu seçenek, doğrulanmış Xiaomi Themes `3.0.5.6-global` paketini uygulama içinden Android İndirme Yöneticisiyle doğrudan indirir:
-
-- [Xiaomi Themes 3.0.5.6-global APK](https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/Xiaomi_Themes_3.0.5.6-global.apk)
-- [SHA-256 doğrulama dosyası](https://raw.githubusercontent.com/GloriousApps/HyperOS-MTZ-Studio/main/requirements/Xiaomi_Themes_3.0.5.6-global.apk.sha256)
+Studio yalnızca sabit bir Temalar sürüm listesine güvenmez. Kurulu pakette `ApplyThemeForScreenshot` etkinliğini önce çalışma anında çözer; etkinlik yoksa root erişimi ve kurulu Xiaomi Themes Runtime + MTZ Support modülünü kullanır. Xiaomi Themes `3.4.1.23-global` ve `11.5.3.1` runtime aileleri desteklenir. Geçerli Theme Manager V7 kurulumu varsa mevcut runtime benimsenir ve üzerine yazılmaz. Eski sürüme zorlama ve APK yedekleme akışı bulunmaz.
 
 Xiaomi son uygulama ekranını ve tema kabul davranışını ROM’a göre değiştirebilir. Studio, uygulama sonuçlarını ve uyumluluğu mümkün olduğunda çalışma anında doğrular; manuel Xiaomi onayı yine görünebilir.
 
