@@ -106,7 +106,7 @@ public final class ThemeProtectionModule extends XposedModule {
     private static boolean hasModernThemeManagerImportSurface(ClassLoader classLoader) {
         try {
             Class.forName(
-                "com.android.thememanager.mine.remote.view.activity.MineResourceTabActivity",
+                "com.android.thememanager.ThemeResourceTabActivity",
                 false,
                 classLoader
             );
@@ -125,7 +125,7 @@ public final class ThemeProtectionModule extends XposedModule {
     private void installThemeManagerImportBridge(ClassLoader classLoader) throws Exception {
         installImportDiagnostics(classLoader);
         Class<?> localThemeActivity = Class.forName(
-            "com.android.thememanager.mine.remote.view.activity.MineResourceTabActivity",
+            "com.android.thememanager.ThemeResourceTabActivity",
             false,
             classLoader
         );
