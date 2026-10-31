@@ -106,11 +106,12 @@ internal fun ThemeManagerCompatibilityCard(
     val runtime = profile
     val legacyReady = runtime?.legacyTesterResolvable == true
     val modernReady = runtime?.modernLocalLibraryResolvable == true
-    val selectedTarget = target ?: ThemeRuntimeTarget.GLOBAL
+    val selectedTarget = module?.activeTarget ?: module?.target ?: target ?: ThemeRuntimeTarget.GLOBAL
+    val adoptedExternal = rootAccessAvailable && installer.isAdoptedExternalRuntime(module)
     val bundledCurrent = rootAccessAvailable && installer.isBundledVersion(module, selectedTarget)
     val moduleState = module
-    val rootReady = bundledCurrent && moduleState?.runtimeActive == true && moduleState.runtimeVerified &&
-        (selectedTarget == ThemeRuntimeTarget.NON_GLOBAL || moduleState.bridgeReady)
+    val moduleCurrent = adoptedExternal || bundledCurrent
+    val rootReady = adoptedExternal || (moduleCurrent && moduleState?.active == true)
 
     StudioCard(Modifier.fillMaxWidth(), neon = neonStyle) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -139,6 +140,16 @@ internal fun ThemeManagerCompatibilityCard(
                 legacyReady -> RouteBadge("ApplyThemeForScreenshot etkin", accent)
                 modernReady -> RouteBadge("Yerleşik yerel tema kitaplığı etkin", accent)
                 rootReady -> RouteBadge("Root MTZ Import runtime hazır", MaterialTheme.colorScheme.tertiary)
+                moduleCurrent -> {
+                    RouteBadge(
+                        if (moduleState?.runtimeActive == true) {
+                            "Root MTZ Import modülü güncel"
+                        } else {
+                            "Root MTZ Import modülü güncel; runtime yeniden başlatma bekliyor"
+                        },
+                        accent,
+                    )
+                }
                 rootAccessAvailable -> {
                     Text("ApplyThemeForScreenshot bulunamadı; mevcut root runtime yolu kullanılabilir.", style = MaterialTheme.typography.bodySmall)
                     Button(
