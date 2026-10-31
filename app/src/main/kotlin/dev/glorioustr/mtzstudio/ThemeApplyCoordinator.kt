@@ -125,7 +125,7 @@ class ThemeApplyCoordinator(
         require(localId.matches(SAFE_LOCAL_ID)) { "Geçersiz Xiaomi Temalar yerel kimliği" }
         val themeName = theme.archive.metadata?.name ?: theme.displayName
         val intent = Intent(ThemeManagerBridgeContract.ACTION_APPLY_EXISTING).apply {
-            component = ComponentName(THEME_MANAGER_PACKAGE, ROOT_GLOBAL_THEME_ACTIVITY)
+            component = ComponentName(THEME_MANAGER_PACKAGE, THEME_MANAGER_MODERN_LOCAL_ACTIVITY)
             putExtra(ThemeManagerBridgeContract.EXTRA_THEME_LOCAL_ID, localId)
         }
         check(intent.resolveActivity(context.packageManager) != null) {
@@ -216,7 +216,7 @@ class ThemeApplyCoordinator(
                 ThemeManagerBridgeContract.ACTION_IMPORT_MODERN
             },
         ).apply {
-            component = ComponentName(THEME_MANAGER_PACKAGE, ROOT_GLOBAL_THEME_ACTIVITY)
+            component = ComponentName(THEME_MANAGER_PACKAGE, THEME_MANAGER_MODERN_LOCAL_ACTIVITY)
             putExtra(ThemeManagerBridgeContract.EXTRA_THEME_PATH, stagedPath)
             putExtra(ThemeManagerBridgeContract.EXTRA_THEME_SHA256, theme.archive.sha256)
             putExtra(ThemeManagerBridgeContract.EXTRA_THEME_NAME, themeName.take(180))
@@ -879,7 +879,6 @@ class ThemeApplyCoordinator(
             "/sdcard/Android/data/com.android.thememanager/files/MIUI/theme/.download"
         const val THEME_MANAGER_MODERN_LOCAL_ACTIVITY =
             ThemeManagerContract.MODERN_LOCAL_LIBRARY_COMPONENT
-        const val ROOT_GLOBAL_THEME_ACTIVITY = "com.android.thememanager.activity.ThemeTabActivity"
         const val ROOT_GLOBAL_READY_MARKER = "/data/user/0/com.android.thememanager/files/mtz_import_module_ready"
         const val ROOT_GLOBAL_MODULE_PROP = "/data/adb/modules/xiaomi_themes_global_import/module.prop"
         const val ROOT_GLOBAL_MODULE_VERSION = "1.0.0"
