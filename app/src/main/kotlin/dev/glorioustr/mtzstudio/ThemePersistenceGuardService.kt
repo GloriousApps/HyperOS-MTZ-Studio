@@ -253,6 +253,13 @@ class ThemePersistenceGuardService : Service() {
     }
 
     private fun executePrivileged(command: String, timeoutSeconds: Long): PrivilegedCommandResult {
+        val directRoot = directRootAvailable ?: runCatching {
+            val result = SuPrivilegedCommandRunner().run("id -u", 5)
+            result.exitCode == 0 && result.output.lineSequence().firstOrNull()?.trim() == "0"
+        }.getOrDefault(false).also { directRootAvailable = it }
+        if (directRoot) {
+            return SuPrivilegedCommandRunner().run(command, timeoutSeconds)
+        }
         val shevery = SheveryAccess(applicationContext)
         return when (shevery.status()) {
             SheveryAuthorizationStatus.ADB_READY -> shevery.executeShell(command, timeoutSeconds)
@@ -262,6 +269,13 @@ class ThemePersistenceGuardService : Service() {
     }
 
     private fun hasPrivilegedAccess(): Boolean {
+        directRootAvailable?.let { if (it) return true }
+        val directRoot = runCatching {
+            val result = SuPrivilegedCommandRunner().run("id -u", 5)
+            result.exitCode == 0 && result.output.lineSequence().firstOrNull()?.trim() == "0"
+        }.getOrDefault(false)
+        directRootAvailable = directRoot
+        if (directRoot) return true
         return when (SheveryAccess(applicationContext).status()) {
             SheveryAuthorizationStatus.ADB_READY,
             SheveryAuthorizationStatus.ROOT_READY,
