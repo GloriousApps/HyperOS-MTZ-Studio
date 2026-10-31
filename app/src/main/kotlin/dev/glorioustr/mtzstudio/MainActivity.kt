@@ -1029,9 +1029,10 @@ private fun StudioScreen(
                     check(hasLegacyTester || modernNativeLibrary || accessMode != StudioAccessMode.SHIZUKU) {
                         resources.getString(R.string.tm_apply_activity_missing_error)
                     }
-                    if (hasLegacyTester) {
+                    if (hasLegacyTester && !rootBridgeReady) {
                         // A current Theme Manager may still expose the verified tester contract.
-                        // Prefer it over every version-based or root-module heuristic.
+                        // Use it only when the Root bridge is not active; otherwise the legacy
+                        // component bypasses the verified Root import/apply route.
                         themeApplyCoordinator.prepare(theme)
                     } else if (rootAccessAvailable == true && !rootBridgeReady && !modernNativeLibrary) {
                         // No module bridge is active, so stage the verified archive through the
