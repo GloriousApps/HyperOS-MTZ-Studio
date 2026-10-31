@@ -64,6 +64,7 @@ internal class DeviceThemeImporter(
     private val importOrigins = appContext.getSharedPreferences(ORIGIN_PREFERENCES, Context.MODE_PRIVATE)
     private val diagnostics = LiveDiagnosticsRecorder.get(appContext)
     private val mutableCatalogProgress = kotlinx.coroutines.flow.MutableStateFlow(DeviceCatalogProgress())
+    @Volatile private var resolvedThemeDataRoot: String? = null
     val catalogProgress: kotlinx.coroutines.flow.StateFlow<DeviceCatalogProgress> = mutableCatalogProgress
 
     /** Scans Theme Manager and returns list of available themes with metadata. */
@@ -143,7 +144,10 @@ internal class DeviceThemeImporter(
 
     /** Recovers the first Xiaomi import link from the unmodified MTZ retained by Studio.
      * Its title can differ completely from the translated title, so the current archive alone
-     * cannot identify the original record. An ambiguous catalog match is never removed. */
+     * cannot identify the original record. An ambiguous catalog match is never removed.
+     * The private Themes catalog can be temporarily unavailable (for example right after a
+     * Themes update/restart); that must not abort a Root bridge apply, so a failed catalog
+     * read degrades to no match instead of throwing. */
     @Synchronized
     fun resolveExistingLocalId(source: Path): String? {
         val metadata = parser.parse(source).metadata ?: return null
@@ -151,7 +155,16 @@ internal class DeviceThemeImporter(
         if (title.isBlank()) return null
         val version = metadata.version.normalized()
         val author = metadata.author.normalized()
-        return readRecords().filter { record ->
+        val records = runCatching { readRecords() }
+            .onFailure { error ->
+                diagnostics.record(
+                    "catalog_lookup_failed",
+                    "Katalog okunamadı; yerel eşleşme atlandı",
+                    error = error,
+                )
+            }
+            .getOrDefault(emptyList())
+        return records.filter { record ->
             record.title.normalized() == title &&
                 (version.isBlank() || record.version.normalized() == version) &&
                 (author.isBlank() || record.author.normalized() == author)
@@ -374,13 +387,14 @@ internal class DeviceThemeImporter(
         if (safeIds.isEmpty()) return 0
         val records = readRecords().filter { it.localId in safeIds }
         if (records.isEmpty()) return 0
+        val dataRoot = resolveThemeDataRoot()
         val command = buildString {
             records.forEach { record ->
-                append("rm -f ").append(shellQuote("$THEME_DATA_ROOT/meta/theme/${record.localId}.mrm")).append('\n')
-                append("rm -rf ").append(shellQuote("$THEME_DATA_ROOT/preview/theme/${record.localId}")).append('\n')
+                append("rm -f ").append(shellQuote("$dataRoot/meta/theme/${record.localId}.mrm")).append('\n')
+                append("rm -rf ").append(shellQuote("$dataRoot/preview/theme/${record.localId}")).append('\n')
                 record.resources.forEach { resource ->
                     append("rm -f ").append(
-                        shellQuote("$THEME_DATA_ROOT/content/${resource.resourceCode}/${resource.localId}.mrc"),
+                        shellQuote("$dataRoot/content/${resource.resourceCode}/${resource.localId}.mrc"),
                     ).append('\n')
                 }
             }
@@ -489,8 +503,9 @@ internal class DeviceThemeImporter(
     }
 
     private fun copyThemeMetadata(target: Path) {
+        val dataRoot = resolveThemeDataRoot()
         val command = dev.glorioustr.mtzstudio.tester.ThemeCatalogCommands.copyMetadata(
-            "$THEME_DATA_ROOT/meta/theme", target.toAbsolutePath().toString(), Process.myUid(),
+            "$dataRoot/meta/theme", target.toAbsolutePath().toString(), Process.myUid(),
         )
         val result = commandRunner.run(command, 120)
         LiveDiagnosticsRecorder.get(appContext).record(
@@ -506,20 +521,21 @@ internal class DeviceThemeImporter(
     }
 
     private fun copyThemeFiles(record: ThemeManagerRecord, target: Path, timeoutSeconds: Long = 300) {
+        val dataRoot = resolveThemeDataRoot()
         val parts = target.resolve("parts")
         val previews = target.resolve("preview")
         Files.createDirectories(parts)
         Files.createDirectories(previews)
         val command = buildString {
             record.resources.forEachIndexed { index, resource ->
-                val source = "$THEME_DATA_ROOT/content/${resource.resourceCode}/${resource.localId}.mrc"
+                val source = "$dataRoot/content/${resource.resourceCode}/${resource.localId}.mrc"
                 val destination = parts.resolve("$index.mrc").toAbsolutePath().toString()
                 append("cp ").append(shellQuote(source)).append(' ').append(shellQuote(destination))
                     .append(" || exit ").append(20 + index).append('\n')
             }
             append("preview_count=0\n")
             record.previewNames.forEach { name ->
-                val source = "$THEME_DATA_ROOT/preview/theme/${record.localId}/$name"
+                val source = "$dataRoot/preview/theme/${record.localId}/$name"
                 val destination = previews.resolve(name).toAbsolutePath().toString()
                 append("if [ \"${'$'}preview_count\" -lt $MAX_PREVIEWS_PER_THEME ] && [ -f ")
                     .append(shellQuote(source)).append(" ]; then cp ")
@@ -542,12 +558,13 @@ internal class DeviceThemeImporter(
 
     private fun copyThemePreviewFiles(records: List<ThemeManagerRecord>, target: Path) {
         if (records.isEmpty()) return
+        val dataRoot = resolveThemeDataRoot()
         val command = buildString {
             records.forEach { record ->
                 val destination = target.resolve("${record.localId}.preview").toAbsolutePath().toString()
                 append("for candidate in ")
                 record.previewNames.forEach { name ->
-                    append(shellQuote("$THEME_DATA_ROOT/preview/theme/${record.localId}/$name")).append(' ')
+                    append(shellQuote("$dataRoot/preview/theme/${record.localId}/$name")).append(' ')
                 }
                 append("; do if [ -f \"${'$'}candidate\" ]; then cp \"${'$'}candidate\" ")
                     .append(shellQuote(destination)).append("; break; fi; done\n")
@@ -558,6 +575,41 @@ internal class DeviceThemeImporter(
                 .append(" || exit 91")
         }
         runPrivileged(command, 120, "Theme previews could not be copied")
+    }
+
+    private fun resolveThemeDataRoot(): String {
+        resolvedThemeDataRoot?.let { return it }
+        val candidates = THEME_DATA_ROOT_CANDIDATES.joinToString(" ") { shellQuote(it) }
+        val command = """
+            for candidate in $candidates; do
+              if [ -d "${'$'}candidate/meta/theme" ] &&
+                 [ -r "${'$'}candidate/meta/theme" ] &&
+                 [ -x "${'$'}candidate/meta/theme" ]; then
+                echo "${'$'}candidate"
+                exit 0
+              fi
+            done
+            exit 4
+        """.trimIndent()
+        val result = commandRunner.run(command, 20)
+        val resolved = result.output.lineSequence()
+            .map(String::trim)
+            .firstOrNull { it in THEME_DATA_ROOT_CANDIDATES }
+        if (result.exitCode != 0 || resolved == null) {
+            diagnostics.record(
+                "catalog_root_resolution_failed",
+                "Xiaomi Temalar katalog kökü bulunamadı",
+                mapOf("exitCode" to result.exitCode, "output" to result.output),
+            )
+            error(appContext.getString(R.string.catalog_location_unavailable))
+        }
+        resolvedThemeDataRoot = resolved
+        diagnostics.record(
+            "catalog_root_resolved",
+            "Xiaomi Temalar katalog kökü çözümlendi",
+            mapOf("root" to resolved),
+        )
+        return resolved
     }
 
     private fun buildMtz(record: ThemeManagerRecord, sourceDirectory: Path, output: Path) {
@@ -811,6 +863,12 @@ internal class DeviceThemeImporter(
         private const val ORIGIN_PREFERENCES = "theme-manager-imports"
         const val THEME_DATA_ROOT =
             "/data/media/0/Android/data/com.android.thememanager/files/MIUI/theme/.data"
+        val THEME_DATA_ROOT_CANDIDATES = listOf(
+            THEME_DATA_ROOT,
+            "/data/user/0/com.android.thememanager/files/MIUI/theme/.data",
+            "/data/user_de/0/com.android.thememanager/files/MIUI/theme/.data",
+            "/data/data/com.android.thememanager/files/MIUI/theme/.data",
+        )
         const val MAX_PREVIEWS_PER_THEME = 16
         const val MAX_PREVIEW_CANDIDATES = 16
         const val AUTO_CATALOG_NEW_IMPORT_LIMIT = 8
