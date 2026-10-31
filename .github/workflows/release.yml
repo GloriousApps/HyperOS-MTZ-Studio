@@ -16,11 +16,11 @@ on:
       tag_name:
         description: 'Release tag, or signed artifact label for a private test build'
         required: false
-        default: 'v5.6.5'
+        default: 'v5.6.6'
       release_name:
         description: 'Release Title'
         required: false
-        default: 'HyperOS MTZ Studio v5.6.5'
+        default: 'HyperOS MTZ Studio v5.6.6'
 
 permissions:
   contents: write

@@ -62,11 +62,10 @@ class ThemeApplyCoordinator(
         diagnostics.record("apply_hash_verified", "Tema kaynak SHA-256 doğrulaması başarılı")
         val modern = ThemeManagerContract.behavior(installedThemeManagerVersion()) ==
             dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
-        // Prefer the exported screenshot tester whenever the installed build actually exposes it.
-        // The component is probed at runtime because newer Global builds may retain the contract
-        // even when their numeric version is not in the historical compatibility matrix.
+        // Prefer the active Root bridge when Root is available. Some Theme Manager builds expose
+        // the legacy tester component as well, but that route bypasses the verified Root import
+        // bridge and only opens the Themes activity on affected devices.
         return when {
-            legacyTesterAvailable() -> prepareLegacyTester(theme)
             // Global Themes builds do not expose a safe, stable "replace this existing local
             // record" API. A local theme is a tree of generated component records, not merely
             // one MTZ file. Reuse the native import-and-apply flow that Xiaomi Themes itself
@@ -80,6 +79,7 @@ class ThemeApplyCoordinator(
                 ThemeManagerOperation.APPLY,
                 themeManagerLocalIds,
             )
+            legacyTesterAvailable() -> prepareLegacyTester(theme)
             modern && themeManagerLocalId != null -> prepareModernExistingTheme(theme, themeManagerLocalId)
             modern -> prepareModernImport(theme, ThemeManagerOperation.APPLY)
             else -> prepareLegacyTester(theme)
