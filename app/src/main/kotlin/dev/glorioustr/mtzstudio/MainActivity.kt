@@ -1070,9 +1070,17 @@ private fun StudioScreen(
                                     )
                                 }
                             }
-                            !originNeedsRefresh -> deviceThemeImporter.resolveExistingLocalId(theme)?.also { existingLocalId ->
-                                deviceThemeImporter.rememberThemeManagerOrigin(existingLocalId, theme)
-                            }
+                            !originNeedsRefresh -> runCatching { deviceThemeImporter.resolveExistingLocalId(theme) }
+                                .onFailure { error ->
+                                    diagnostics.record(
+                                        "catalog_lookup_failed",
+                                        "Katalog okunamadı; yerel eşleşme atlandı",
+                                        error = error,
+                                    )
+                                }
+                                .getOrNull()?.also { existingLocalId ->
+                                    deviceThemeImporter.rememberThemeManagerOrigin(existingLocalId, theme)
+                                }
                             else -> null
                         }
                         if (rootBridgeReady) {

@@ -144,7 +144,10 @@ internal class DeviceThemeImporter(
 
     /** Recovers the first Xiaomi import link from the unmodified MTZ retained by Studio.
      * Its title can differ completely from the translated title, so the current archive alone
-     * cannot identify the original record. An ambiguous catalog match is never removed. */
+     * cannot identify the original record. An ambiguous catalog match is never removed.
+     * The private Themes catalog can be temporarily unavailable (for example right after a
+     * Themes update/restart); that must not abort a Root bridge apply, so a failed catalog
+     * read degrades to no match instead of throwing. */
     @Synchronized
     fun resolveExistingLocalId(source: Path): String? {
         val metadata = parser.parse(source).metadata ?: return null
@@ -152,7 +155,16 @@ internal class DeviceThemeImporter(
         if (title.isBlank()) return null
         val version = metadata.version.normalized()
         val author = metadata.author.normalized()
-        return readRecords().filter { record ->
+        val records = runCatching { readRecords() }
+            .onFailure { error ->
+                diagnostics.record(
+                    "catalog_lookup_failed",
+                    "Katalog okunamadı; yerel eşleşme atlandı",
+                    error = error,
+                )
+            }
+            .getOrDefault(emptyList())
+        return records.filter { record ->
             record.title.normalized() == title &&
                 (version.isBlank() || record.version.normalized() == version) &&
                 (author.isBlank() || record.author.normalized() == author)
