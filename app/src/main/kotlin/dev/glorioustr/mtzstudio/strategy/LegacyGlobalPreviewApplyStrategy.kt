@@ -11,6 +11,7 @@ import dev.glorioustr.mtzstudio.ThemeManagerOperation
 import dev.glorioustr.mtzstudio.core.Hashing
 import dev.glorioustr.mtzstudio.library.LibraryTheme
 import dev.glorioustr.mtzstudio.tester.ThemeApplyResult
+import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
 import java.io.File
 
@@ -33,13 +34,16 @@ class LegacyGlobalPreviewApplyStrategy(
 
     private val diagnostics get() = LiveDiagnosticsRecorder.get(context)
 
-    override fun isAvailable(): Boolean {
-        val request = ThemeManagerContract.legacyTesterRequest("/dev/null", context.packageName)
-        val intent = Intent(request.action).apply {
-            component = ComponentName(ThemeManagerContract.PACKAGE_NAME, request.componentClassName)
-        }
-        return intent.resolveActivity(context.packageManager) != null
-    }
+    /**
+     * The component that publishes the tester contract on this build. Global builds that moved
+     * the contract behind an <activity-alias> must be dispatched to the alias, not to the
+     * historical class name.
+     */
+    private fun testerComponent(): String? =
+        runCatching { ThemeManagerCapabilityProbe.resolveLegacyTester(context).componentClassName }
+            .getOrNull()
+
+    override fun isAvailable(): Boolean = testerComponent() != null
 
     override suspend fun prepare(
         theme: LibraryTheme,
@@ -54,11 +58,15 @@ class LegacyGlobalPreviewApplyStrategy(
             MtzPublicExporter.exportToPublicDownloads(context, theme.archive.source, themeName),
         ) { "MTZ, İndirilenler/MTZ Studio klasörüne kaydedilemedi" }
 
-        check(isAvailable()) {
+        val component = checkNotNull(testerComponent()) {
             "Bu Temalar sürümünde ApplyThemeForScreenshot aktivitesi bulunamadı; otomatik önizleme uygulanamaz."
         }
 
-        val request = ThemeManagerContract.legacyTesterRequest(publicFile.absolutePath, context.packageName)
+        val request = ThemeManagerContract.legacyTesterRequest(
+            publicFile.absolutePath,
+            context.packageName,
+            component,
+        )
         val intent = Intent(request.action).apply {
             component = ComponentName(ThemeManagerContract.PACKAGE_NAME, request.componentClassName)
             request.stringExtras.forEach(::putExtra)

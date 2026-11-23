@@ -107,10 +107,14 @@ object ThemeManagerContract {
     }
 
     /** The exact tester request used by the verified legacy Global contract. */
-    fun legacyTesterRequest(themePath: String, callerPackage: String): LegacyTesterRequest =
+    fun legacyTesterRequest(
+        themePath: String,
+        callerPackage: String,
+        componentClassName: String = LEGACY_TESTER_COMPONENT,
+    ): LegacyTesterRequest =
         LegacyTesterRequest(
             action = LEGACY_TESTER_ACTION,
-            componentClassName = LEGACY_TESTER_COMPONENT,
+            componentClassName = componentClassName,
             stringExtras = linkedMapOf(
                 "theme_file_path" to themePath,
                 "api_called_from" to callerPackage,
@@ -122,10 +126,13 @@ object ThemeManagerContract {
         )
 
     /** Exact local-apply contract used by Zyper after Themes can read the restored MTZ. */
-    fun localRestoredThemeRequest(themePath: String): LegacyTesterRequest =
+    fun localRestoredThemeRequest(
+        themePath: String,
+        componentClassName: String = LEGACY_TESTER_COMPONENT,
+    ): LegacyTesterRequest =
         LegacyTesterRequest(
             action = "",
-            componentClassName = LEGACY_TESTER_COMPONENT,
+            componentClassName = componentClassName,
             stringExtras = linkedMapOf(
                 "theme_file_path" to themePath,
                 "api_called_from" to PACKAGE_NAME,

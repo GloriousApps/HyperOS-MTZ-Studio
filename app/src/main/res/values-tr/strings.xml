@@ -506,4 +506,35 @@
     <string name="tm_factory_restore_cancel">İptal</string>
     <string name="tm_factory_restore_working">Dönülüyor…</string>
     <string name="tm_factory_restore_success">Fabrika Xiaomi Temalar sürümü etkinleştirildi: %1$s.</string>
+    <!-- Yetki gerektirmeyen Temalar ThemeService kanalı (yalnızca duvar kağıdı ve ikon) -->
+    <string name="theme_service_title">Root olmadan uygula</string>
+    <string name="theme_service_desc">Duvar kağıtlarını doğrudan Android uygular, uygulama ikonlarını ise Xiaomi Temalar her uygulamadan kabul eder; bu yüzden bu MTZ\'nin o bileşenleri root ve Shizuku olmadan uygulanabilir. Font, durum çubuğu ve kilit ekranı stili uygulanmaz.</string>
+    <string name="rootless_wallpaper_applied">%1$d duvar kağıdı uygulandı.</string>
+    <string name="rootless_wallpaper_failed">Duvar kağıdı uygulanamadı.</string>
+    <string name="rootless_partial_applied_both">%1$d duvar kağıdı ve %2$d ikon uygulandı.</string>
+    <string name="theme_service_button">Duvar kağıtlarını uygula</string>
+    <string name="theme_service_button_icons">İkonları uygula</string>
+    <string name="theme_service_button_both">Duvar kağıtları ve ikonları uygula</string>
+    <string name="theme_service_nothing_sendable">Bu MTZ\'de root olmadan uygulanabilecek duvar kağıdı veya ikon bileşeni yok.</string>
+    <string name="theme_service_no_icons">Bu MTZ içinde ikon bileşeni yok.</string>
+    <string name="theme_service_icons_not_installed">Bu MTZ\'deki ikonlar bu cihazda kurulu olmayan uygulamalara ait.</string>
+    <string name="theme_service_icons_unreadable">Bu MTZ\'nin ikon bileşeni okunamadı.</string>
+    <string name="theme_service_icons_applied">Xiaomi Temalar %1$d ikonu uyguladı.</string>
+    <!-- MIUI Yedekleme uygulaması üzerinden rootsuz tam tema aktarımı -->
+    <string name="miui_backup_desc">Ya da temanın tamamını root olmadan, MIUI Yedekleme üzerinden Xiaomi Temalar\'a aktar. Sistem yedekleme uygulaması geri yükler; sonra Temalar\'dan uygularsın.</string>
+    <string name="miui_backup_button">MIUI Yedekleme ile aktar</string>
+    <string name="miui_backup_staging">MIUI Yedekleme paketi hazırlanıyor…</string>
+    <string name="miui_backup_restore_opened">MIUI Yedekleme açıldı. Geri Yükle\'yi seç, temaya dokun, sonra Geri Yükle. Bitince buraya dön.</string>
+    <string name="miui_backup_needs_all_files">MTZ Studio\'nun MIUI Yedekleme\'ye yazabilmesi için tüm dosyalara erişim izni gerekiyor. İzni verip tekrar dene.</string>
+    <string name="miui_backup_app_missing">Bu cihazda MIUI Yedekleme uygulaması bulunamadı.</string>
+    <string name="miui_backup_ready_title">Aktarılan temayı aç</string>
+    <string name="miui_backup_ready_desc">MIUI Yedekleme\'de geri yüklemeyi bitirdiysen \"%1$s\" temasını Xiaomi Temalar\'da açıp Uygula\'ya dokun.</string>
+    <string name="miui_backup_open_in_themes">Temalar\'da aç</string>
+    <string name="miui_backup_apply_unavailable">Bu Xiaomi Temalar sürümü yerel tema sayfasını açamıyor.</string>
+    <string name="theme_service_working">Xiaomi Temalar\'a gönderiliyor…</string>
+    <string name="theme_service_unavailable">Bu Xiaomi Temalar sürümü yetki gerektirmeyen duvar kağıdı servisini sunmuyor.</string>
+    <string name="theme_service_bind_failed">Xiaomi Temalar bağlantı isteğine yanıt vermedi.</string>
+    <string name="theme_service_no_wallpaper">Bu MTZ içinde duvar kağıdı bileşeni yok.</string>
+    <string name="theme_service_rejected">Xiaomi Temalar isteği reddetti. Temanın kendisi uygulanmadı.</string>
+    <string name="theme_service_partial_notice">Bu işlem yalnızca duvar kağıdı ve uygulama ikonlarını uygular. Temanın tamamı için Xiaomi Temalar\'da açıp orada Uygula\'ya dokunun; root gerekmez.</string>
 </resources>

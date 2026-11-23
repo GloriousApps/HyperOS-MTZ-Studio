@@ -90,6 +90,9 @@ import dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior
 import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
 import dev.glorioustr.mtzstudio.tester.StudioCapabilityPolicy
 import dev.glorioustr.mtzstudio.shevery.PreferredPrivilegedCommandRunner
+import dev.glorioustr.mtzstudio.miuibackup.MiuiBackupImportCoordinator
+import dev.glorioustr.mtzstudio.miuibackup.MiuiBackupThemeStager
+import dev.glorioustr.mtzstudio.themeservice.RootlessPartialApply
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -167,6 +170,8 @@ class MainActivity : ComponentActivity() {
             "restored" to (savedInstanceState != null),
             "knownBehavior" to capabilityProfile.knownBehavior,
             "legacyTesterResolvable" to capabilityProfile.legacyTesterResolvable,
+            "legacyTesterComponent" to capabilityProfile.legacyTesterComponent,
+            "unprivilegedWallpaperService" to capabilityProfile.unprivilegedWallpaperService,
             "modernLocalLibraryResolvable" to capabilityProfile.modernLocalLibraryResolvable,
             "themeResourceTabResolvable" to capabilityProfile.themeResourceTabResolvable,
             "manualLocalLibraryHandoffAvailable" to capabilityProfile.manualLocalLibraryHandoffAvailable,
@@ -809,6 +814,17 @@ private fun StudioScreen(
                     status = resources.getString(R.string.status_legacy_apply_unverified, prepared.themeName)
                 }
 
+                ThemeApplyProtocol.ROOTLESS_LOCAL_RESOURCE_DEEP_LINK -> {
+                    // Themes' own detail page was opened. Whether the user tapped Apply there is
+                    // not observable from here, so nothing is claimed about the result.
+                    diagnostics.record(
+                        "rootless_local_resource_detail_returned",
+                        "Xiaomi Temalar yerel tema ayrıntı sayfasından dönüldü; uygulama sonucu doğrulanamaz",
+                        mapOf("theme" to prepared.themeName, "localId" to prepared.themeManagerLocalId),
+                    )
+                    status = resources.getString(R.string.status_legacy_apply_unverified, prepared.themeName)
+                }
+
                 ThemeApplyProtocol.ROOT_MANUAL_IMPORT -> {
                     status = resources.getString(
                         R.string.status_manual_import_ready,
@@ -1026,8 +1042,23 @@ private fun StudioScreen(
                         rootAccessAvailable == true && themeApplyCoordinator.rootGlobalModuleBridgeReady()
                     val modernNativeLibrary =
                         themeManagerBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY
-                    check(hasLegacyTester || modernNativeLibrary || accessMode != StudioAccessMode.SHIZUKU) {
-                        resources.getString(R.string.tm_apply_activity_missing_error)
+                    // ADB-mode Shizuku/Shevery cannot run the privileged branches, but the
+                    // rootless hand-off below needs no privileged access at all. Refusing here
+                    // turned every non-root device with Shizuku in ADB mode into a hard "root
+                    // required" error, even on Global builds that still expose the tester
+                    // contract (for example 3.0.5.14). Record the reduced capability and let
+                    // the branch chain fall through to prepareRootlessManualImport().
+                    if (!hasLegacyTester && !modernNativeLibrary &&
+                        accessMode == StudioAccessMode.SHIZUKU && rootAccessAvailable != true
+                    ) {
+                        diagnostics.record(
+                            "apply_rootless_fallback",
+                            "Yetkili kanal ADB modunda; tema rootsuz aktarım yoluyla hazırlanacak",
+                            mapOf(
+                                "theme" to theme.displayName,
+                                "themeManagerBehavior" to themeManagerBehavior.name,
+                            ),
+                        )
                     }
                     if (hasLegacyTester && !rootBridgeReady) {
                         // A current Theme Manager may still expose the verified tester contract.
@@ -1125,7 +1156,8 @@ private fun StudioScreen(
                 if (prepared.protocol == ThemeApplyProtocol.ROOTLESS_MANUAL_IMPORT ||
                     prepared.protocol == ThemeApplyProtocol.ROOTLESS_FILE_MANAGER_HANDOFF ||
                     prepared.protocol == ThemeApplyProtocol.ROOTLESS_LEGACY_TESTER ||
-                    prepared.protocol == ThemeApplyProtocol.ROOTLESS_BACKUP_RESTORE
+                    prepared.protocol == ThemeApplyProtocol.ROOTLESS_BACKUP_RESTORE ||
+                    prepared.protocol == ThemeApplyProtocol.ROOTLESS_LOCAL_RESOURCE_DEEP_LINK
                 ) {
                     RootlessRestoreAssistant.remember(context, prepared)
                 }
@@ -2562,9 +2594,106 @@ private fun StudioScreen(
         )
     }
 
+    // Current Global Themes builds (3.4.x) dropped ApplyThemeForScreenshot, so a full MTZ apply
+    // needs root there. The exported, permission-free ThemeService still accepts wallpapers and
+    // app icons from any caller, offered here as explicit partial actions — never as "applied".
+    val rootlessPartialApply = remember { RootlessPartialApply(context) }
+    var themeServiceUsable by remember { mutableStateOf(false) }
+    var themeServiceBusy by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(themeManagerBehavior) {
+        themeServiceUsable = withContext(Dispatchers.IO) { rootlessPartialApply.iconChannelAvailable() }
+    }
+
+    // Rootless import of the whole theme into the Themes catalogue, through the system MIUI Backup
+    // app. This is the only way, without root, to register a third-party theme so the user can then
+    // apply it from Themes' own Apply button. Offered only when there is no privileged channel.
+    val miuiImport = remember { MiuiBackupImportCoordinator(context) }
+    var miuiBackupPresent by remember { mutableStateOf(false) }
+    var miuiImportBusy by remember { mutableStateOf(false) }
+    var pendingMiuiApply by remember { mutableStateOf<MiuiBackupImportCoordinator.PendingApply?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        miuiBackupPresent = withContext(Dispatchers.IO) { MiuiBackupThemeStager.isBackupAppPresent(context) }
+        pendingMiuiApply = withContext(Dispatchers.IO) { miuiImport.pendingApply() }
+    }
+    // Re-check the pending import whenever the app comes back to the foreground, so the "open in
+    // Themes" offer appears right after the user returns from running the restore in MIUI Backup.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                pendingMiuiApply = miuiImport.pendingApply()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    fun startMiuiBackupImport(theme: LibraryTheme) {
+        when (val readiness = miuiImport.readiness()) {
+            is MiuiBackupImportCoordinator.Readiness.BackupAppMissing -> {
+                operationError = resources.getString(R.string.miui_backup_app_missing)
+            }
+            is MiuiBackupImportCoordinator.Readiness.NeedsAllFilesAccess -> {
+                status = resources.getString(R.string.miui_backup_needs_all_files)
+                runCatching { context.startActivity(readiness.settingsIntent) }
+            }
+            is MiuiBackupImportCoordinator.Readiness.Ready -> {
+                miuiImportBusy = true
+                status = resources.getString(R.string.miui_backup_staging)
+                scope.launch {
+                    val started = runCatching { withContext(Dispatchers.IO) { miuiImport.start(theme) } }
+                    miuiImportBusy = false
+                    started.onSuccess { result ->
+                        pendingApplyTheme = null
+                        runCatching { context.startActivity(result.restoreIntent) }
+                        pendingMiuiApply = miuiImport.pendingApply()
+                        status = resources.getString(R.string.miui_backup_restore_opened)
+                    }.onFailure { error ->
+                        status = error.message ?: error::class.simpleName.orEmpty()
+                        operationError = status
+                    }
+                }
+            }
+        }
+    }
+
+    /** Reports exactly what happened per channel; a declined request is never shown as applied. */
+    fun reportThemeServiceResult(result: RootlessPartialApply.Result) {
+        val wallpapers = result.wallpapersApplied
+        val icons = result.iconsAccepted
+        status = when {
+            wallpapers > 0 && icons > 0 ->
+                resources.getString(R.string.rootless_partial_applied_both, wallpapers, icons)
+            wallpapers > 0 -> resources.getString(R.string.rootless_wallpaper_applied, wallpapers)
+            icons > 0 -> resources.getString(R.string.theme_service_icons_applied, icons)
+            else -> result.failureMessage ?: resources.getString(R.string.theme_service_rejected)
+        }
+    }
+
     pendingApplyTheme?.let { theme ->
+        // Wallpapers go through WallpaperManager and need nothing from Themes; only the icon
+        // channel depends on the exported ThemeService being usable.
+        val wallpaperOffer = rootlessPartialApply.hasSendableWallpaper(theme)
+        val iconOffer = themeServiceUsable && rootlessPartialApply.hasIconComponent(theme)
+        val partialOfferAvailable = wallpaperOffer || iconOffer
+
+        fun sendToThemeService(send: suspend () -> RootlessPartialApply.Result) {
+            themeServiceBusy = true
+            status = resources.getString(R.string.theme_service_working)
+            scope.launch {
+                val outcome = runCatching { withContext(Dispatchers.IO) { send() } }
+                themeServiceBusy = false
+                outcome.onSuccess { result ->
+                    reportThemeServiceResult(result)
+                    if (result.anyApplied) pendingApplyTheme = null
+                }.onFailure { error ->
+                    status = error.message ?: error::class.simpleName.orEmpty()
+                    operationError = status
+                }
+            }
+        }
         AlertDialog(
-            onDismissRequest = { pendingApplyTheme = null },
+            onDismissRequest = { if (!themeServiceBusy) pendingApplyTheme = null },
             title = {
                 Text(
                     stringResource(
@@ -2574,13 +2703,74 @@ private fun StudioScreen(
                 )
             },
             text = {
-                Text(
-                    stringResource(
-                        if (rootAccessAvailable != true) R.string.rootless_apply_dialog_desc
-                        else R.string.apply_dialog_desc,
-                        theme.archive.metadata?.name ?: theme.displayName,
-                    ),
-                )
+                androidx.compose.foundation.layout.Column(
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        stringResource(
+                            if (rootAccessAvailable != true) R.string.rootless_apply_dialog_desc
+                            else R.string.apply_dialog_desc,
+                            theme.archive.metadata?.name ?: theme.displayName,
+                        ),
+                    )
+                    if (partialOfferAvailable) {
+                        Text(
+                            stringResource(R.string.theme_service_partial_notice),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (wallpaperOffer && iconOffer) {
+                            TextButton(
+                                enabled = !themeServiceBusy,
+                                onClick = {
+                                    sendToThemeService { rootlessPartialApply.applyWallpapersAndIcons(theme) }
+                                },
+                            ) {
+                                Text(
+                                    stringResource(
+                                        if (themeServiceBusy) R.string.theme_service_working
+                                        else R.string.theme_service_button_both,
+                                    ),
+                                )
+                            }
+                        }
+                        if (wallpaperOffer) {
+                            TextButton(
+                                enabled = !themeServiceBusy,
+                                onClick = { sendToThemeService { rootlessPartialApply.applyWallpapers(theme) } },
+                            ) {
+                                Text(stringResource(R.string.theme_service_button))
+                            }
+                        }
+                        if (iconOffer) {
+                            TextButton(
+                                enabled = !themeServiceBusy,
+                                onClick = { sendToThemeService { rootlessPartialApply.applyIcons(theme) } },
+                            ) {
+                                Text(stringResource(R.string.theme_service_button_icons))
+                            }
+                        }
+                    }
+                    // Whole-theme rootless import: stage the theme into MIUI Backup and let the
+                    // system app restore it into the Themes catalogue. Only when there is no
+                    // privileged channel and the MIUI Backup app is present.
+                    if (rootAccessAvailable != true && miuiBackupPresent) {
+                        Text(
+                            stringResource(R.string.miui_backup_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        TextButton(
+                            enabled = !miuiImportBusy && !themeServiceBusy,
+                            onClick = { startMiuiBackupImport(theme) },
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (miuiImportBusy) R.string.miui_backup_staging
+                                    else R.string.miui_backup_button,
+                                ),
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
@@ -2595,9 +2785,46 @@ private fun StudioScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingApplyTheme = null }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(enabled = !themeServiceBusy, onClick = { pendingApplyTheme = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
             },
         )
+    }
+
+    // After the user runs the restore in MIUI Backup and returns, offer to open the restored theme
+    // on its own Apply page in Xiaomi Themes. Shown only while no apply dialog is up.
+    pendingMiuiApply?.let { pending ->
+        if (pendingApplyTheme == null) {
+            AlertDialog(
+                onDismissRequest = { },
+                title = { Text(stringResource(R.string.miui_backup_ready_title)) },
+                text = { Text(stringResource(R.string.miui_backup_ready_desc, pending.themeTitle)) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val intent = miuiImport.applyIntent(pending.localId)
+                            if (intent != null) {
+                                runCatching { context.startActivity(intent) }
+                                    .onFailure { operationError = it.message }
+                            } else {
+                                operationError = resources.getString(R.string.miui_backup_apply_unavailable)
+                            }
+                            miuiImport.clearPending()
+                            pendingMiuiApply = null
+                        },
+                    ) { Text(stringResource(R.string.miui_backup_open_in_themes)) }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            miuiImport.clearPending()
+                            pendingMiuiApply = null
+                        },
+                    ) { Text(stringResource(R.string.action_cancel)) }
+                },
+            )
+        }
     }
 }
 

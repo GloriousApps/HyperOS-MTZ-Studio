@@ -38,6 +38,8 @@ enum class ThemeApplyProtocol {
     ROOTLESS_FILE_MANAGER_HANDOFF,
     ROOTLESS_LEGACY_TESTER,
     ROOTLESS_BACKUP_RESTORE,
+    /** Themes' own local-resource detail page was opened so the user's apply is one tap. */
+    ROOTLESS_LOCAL_RESOURCE_DEEP_LINK,
     ROOT_MANUAL_IMPORT,
 }
 
@@ -303,43 +305,67 @@ class ThemeApplyCoordinator(
                 // restore places the MTZ in Themes' own external-files domain, so the Zyper
                 // local-apply contract can consume it without a picker or online rights check.
                 val testerIntent = if (
-                    ThemeManagerContract.behavior(installedVersion) ==
-                        dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.LOCAL_THEME_IMPORT
+                    legacyTesterContractUsable(ThemeManagerContract.behavior(installedVersion))
                 ) {
-                    val tester = ThemeManagerContract.localRestoredThemeRequest(restoredThemePath)
+                    val tester = ThemeManagerContract.localRestoredThemeRequest(
+                        restoredThemePath,
+                        legacyTesterComponentName(),
+                    )
                     Intent().apply {
                         component = ComponentName(THEME_MANAGER_PACKAGE, tester.componentClassName)
                         tester.stringExtras.forEach(::putExtra)
                         tester.longExtras.forEach(::putExtra)
                     }.takeIf { it.resolveActivity(context.packageManager) != null }
                 } else null
+                // Builds that dropped the tester (3.4.x) still export ThemeDetailActivity with
+                // the ViewLocalResource deep link and no permission. The BAK record we just
+                // restored carries a known localId, so the user can be put straight onto that
+                // theme's own detail page instead of the Themes home screen. This opens a page;
+                // it applies nothing by itself.
+                val restoredLocalId = runCatching {
+                    MtzToBakConverter.restoredThemeLocalId(theme.archive.source.toFile())
+                }.getOrNull()
+                val detailIntent = if (testerIntent == null && restoredLocalId != null) {
+                    localResourceDetailIntent(restoredLocalId)
+                } else {
+                    null
+                }
                 diagnostics.record(
                     "rootless_local_apply_ready",
-                    if (testerIntent != null) {
-                        "Tema Xiaomi'nin yerel uygulama geçidine hazırlandı"
-                    } else {
-                        "Tema kitaplığa aktarıldı; bu Temalar sürümünde doğrudan uygulama geçidi olmadığı için güvenli ana ekran açılacak"
+                    when {
+                        testerIntent != null -> "Tema Xiaomi'nin yerel uygulama geçidine hazırlandı"
+                        detailIntent != null -> "Tema kitaplığa aktarıldı; Xiaomi Temalar'ın yerel tema ayrıntı sayfası açılacak"
+                        else -> "Tema kitaplığa aktarıldı; bu Temalar sürümünde doğrudan uygulama geçidi olmadığı için güvenli ana ekran açılacak"
                     },
                     mapOf(
                         "restoredPath" to restoredThemePath,
                         "caller" to THEME_MANAGER_PACKAGE,
                         "directApplyAvailable" to (testerIntent != null),
+                        "localResourceDetailAvailable" to (detailIntent != null),
+                        "localId" to restoredLocalId,
                     ),
                 )
                 return PreparedThemeApply(
                     themeId = theme.id.value,
                     themeName = themeName,
                     stagedPath = "",
-                    intent = testerIntent ?: safeThemeManagerLauncherIntent(),
-                    protocol = ThemeApplyProtocol.ROOTLESS_BACKUP_RESTORE,
+                    intent = testerIntent ?: detailIntent ?: safeThemeManagerLauncherIntent(),
+                    protocol = if (testerIntent == null && detailIntent != null) {
+                        ThemeApplyProtocol.ROOTLESS_LOCAL_RESOURCE_DEEP_LINK
+                    } else {
+                        ThemeApplyProtocol.ROOTLESS_BACKUP_RESTORE
+                    },
                     manualImportPath = restoredThemePath,
+                    themeManagerLocalId = restoredLocalId,
                 )
             }
         }
-        val legacyIntent = if (behavior ==
-            dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.LOCAL_THEME_IMPORT
-        ) {
-            val request = ThemeManagerContract.legacyTesterRequest(publicFile.absolutePath, context.packageName)
+        val legacyIntent = if (legacyTesterContractUsable(behavior)) {
+            val request = ThemeManagerContract.legacyTesterRequest(
+                publicFile.absolutePath,
+                context.packageName,
+                legacyTesterComponentName(),
+            )
             Intent(request.action).apply {
                 component = ComponentName(THEME_MANAGER_PACKAGE, request.componentClassName)
                 request.stringExtras.forEach(::putExtra)
@@ -671,22 +697,40 @@ class ThemeApplyCoordinator(
         val themeName = theme.archive.metadata?.name ?: theme.displayName
         val readableSource = MtzPublicExporter.exportToPublicDownloads(context, theme.archive.source, themeName)
             ?.absolutePath ?: theme.archive.source.toString()
-        val stagedPath = "$THEME_MANAGER_STAGING_ROOT/${UUID.randomUUID()}.mtz"
-        val command = buildString {
-            append("/system/bin/mkdir -p ").append(shellQuote(THEME_MANAGER_STAGING_ROOT))
-            append(" && /system/bin/cp ").append(shellQuote(readableSource))
-            append(' ').append(shellQuote(stagedPath))
-            append(" && /system/bin/chmod 777 ").append(shellQuote(stagedPath))
-            append(" && /system/bin/mkdir -p /sdcard/MIUI/theme")
-            append(" && /system/bin/cp ").append(shellQuote(readableSource))
-            append(" /sdcard/MIUI/theme/${UUID.randomUUID()}.mtz 2>/dev/null || true")
+        // Only the Themes-private staging directory needs privileged access. The tester
+        // contract itself takes an ordinary readable path, so an unrooted device must use the
+        // public Downloads copy instead of being refused outright.
+        val rootReady = runCatching { commandRunner.isRootReadySilently() }.getOrDefault(false)
+        val privilegedStagedPath = if (rootReady) {
+            val target = "$THEME_MANAGER_STAGING_ROOT/${UUID.randomUUID()}.mtz"
+            val command = buildString {
+                append("/system/bin/mkdir -p ").append(shellQuote(THEME_MANAGER_STAGING_ROOT))
+                append(" && /system/bin/cp ").append(shellQuote(readableSource))
+                append(' ').append(shellQuote(target))
+                append(" && /system/bin/chmod 777 ").append(shellQuote(target))
+                append(" && /system/bin/mkdir -p /sdcard/MIUI/theme")
+                append(" && /system/bin/cp ").append(shellQuote(readableSource))
+                append(" /sdcard/MIUI/theme/${UUID.randomUUID()}.mtz 2>/dev/null || true")
+            }
+            val result = runRecorded("legacy_staging", command, 120)
+            check(result.exitCode == 0) {
+                "Tema, Tema Yöneticisine hazırlanamadı: ${result.output.takeLast(500)}"
+            }
+            target
+        } else {
+            diagnostics.record(
+                "legacy_staging_public",
+                "Root erişimi yok; tester geçidine ortak İndirilenler kopyası verilecek",
+                mapOf("theme" to themeName, "file" to readableSource),
+            )
+            null
         }
-        val result = runRecorded("legacy_staging", command, 120)
-        check(result.exitCode == 0) { "Tema, Tema Yöneticisine hazırlanamadı: ${result.output.takeLast(500)}" }
+        val testerPath = privilegedStagedPath ?: readableSource
 
         val request = ThemeManagerContract.legacyTesterRequest(
-            stagedPath,
+            testerPath,
             context.packageName,
+            legacyTesterComponentName(),
         )
         val intent = Intent(request.action).apply {
             component = ComponentName(THEME_MANAGER_PACKAGE, request.componentClassName)
@@ -697,9 +741,16 @@ class ThemeApplyCoordinator(
         return PreparedThemeApply(
             themeId = theme.id.value,
             themeName = themeName,
-            stagedPath = stagedPath,
+            // Only a privileged staging copy may be removed afterwards. The public Downloads
+            // copy is the user's retained backup and must never be deleted by cleanup().
+            stagedPath = privilegedStagedPath.orEmpty(),
             intent = intent,
-            protocol = ThemeApplyProtocol.LEGACY_TESTER,
+            protocol = if (privilegedStagedPath != null) {
+                ThemeApplyProtocol.LEGACY_TESTER
+            } else {
+                ThemeApplyProtocol.ROOTLESS_LEGACY_TESTER
+            },
+            manualImportPath = if (privilegedStagedPath == null) testerPath else null,
         )
     }
 
@@ -776,8 +827,77 @@ class ThemeApplyCoordinator(
         throw error
     }
 
+    /**
+     * Themes' own detail page for one local resource. Availability is manifest-verified, so an
+     * explicit component that this HyperOS build does not actually declare is never launched.
+     */
+    private fun localResourceDetailIntent(localId: String): Intent? {
+        val declaration = runCatching {
+            dev.glorioustr.mtzstudio.tester.LocalResourceDetailAvailability.resolve(context)
+        }.getOrNull()
+        if (declaration?.usable != true) {
+            diagnostics.record(
+                "local_resource_detail_unusable",
+                "Xiaomi Temalar yerel tema ayrıntı sayfası bu derlemede kullanılamıyor",
+                declaration?.describe() ?: emptyMap(),
+            )
+            return null
+        }
+        return dev.glorioustr.mtzstudio.tester.LocalResourceDetailContract.detailIntent(localId)
+    }
+
+    /**
+     * The component that carries the tester contract on the installed build, or the historical
+     * class name when nothing could be resolved. Dispatching to the resolved name matters on
+     * builds that republish the contract under an <activity-alias>.
+     */
+    private fun legacyTesterComponentName(): String =
+        runCatching { ThemeManagerCapabilityProbe.resolveLegacyTester(context).componentClassName }
+            .getOrNull() ?: ThemeManagerContract.LEGACY_TESTER_COMPONENT
+
     fun legacyTesterAvailable(): Boolean {
-        return ThemeManagerCapabilityProbe.isLegacyTesterDeclared(context)
+        // Detection lives in ThemeManagerCapabilityProbe so the apply path and the compatibility
+        // card can never disagree. The card used to read the strict manifest-only scan, which
+        // reported "ApplyThemeForScreenshot yok / root runtime gerekir" on builds whose tester
+        // is published under an alias (for example 3.0.5.14) even though apply itself worked.
+        val resolution = runCatching { ThemeManagerCapabilityProbe.resolveLegacyTester(context) }
+            .getOrNull()
+        val available = resolution?.available == true
+        diagnostics.record(
+            "legacy_tester_probe",
+            if (available) {
+                "Temalar tester geçidi bulundu"
+            } else {
+                "Temalar tester geçidi bulunamadı"
+            },
+            mapOf(
+                "version" to installedThemeManagerVersion(),
+                "resolvedByIntent" to (resolution?.resolvedByIntent ?: false),
+                "declaredInManifest" to (resolution?.declaredInManifest ?: false),
+                "aliasComponent" to resolution?.declaredAliasComponent,
+                "component" to resolution?.componentClassName,
+            ),
+        )
+        return available
+    }
+
+    /**
+     * Global builds that still carry the exported screenshot tester contract.
+     *
+     * `3.0.5.14` applies the MTZ as a temporary/composite result over "Default" instead of
+     * creating an independent local theme, so its behavior is `TEMPORARY_DEFAULT_COMPOSITE`
+     * rather than `LOCAL_THEME_IMPORT`.  The contract itself is
+     * still present, so the rootless hand-off must use it instead of silently demoting the
+     * device to "root required".  Any other build is accepted only when the runtime probe
+     * actually resolves the component.
+     */
+    private fun legacyTesterContractUsable(
+        behavior: dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior,
+    ): Boolean = when (behavior) {
+        dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.LOCAL_THEME_IMPORT,
+        dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior.TEMPORARY_DEFAULT_COMPOSITE,
+        -> true
+        else -> legacyTesterAvailable()
     }
 
     private fun runRecordedRootOrShell(stage: String, command: String, timeoutSeconds: Long) = try {

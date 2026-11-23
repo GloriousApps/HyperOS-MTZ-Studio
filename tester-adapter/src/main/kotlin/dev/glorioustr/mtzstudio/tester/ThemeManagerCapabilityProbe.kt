@@ -25,6 +25,17 @@ data class ThemeManagerRuntimeProfile(
     val exportedThemeActivityCandidates: List<String>,
     /** True when the verified 3.4.x Themes account/local-resource shell is exported. */
     val themeResourceTabResolvable: Boolean = false,
+    /**
+     * The component that actually carries the tester contract on this build. It is the historical
+     * class name on most Global builds, but an `<activity-alias>` when Themes republishes the
+     * contract under a different name. Null when no tester entry point exists.
+     */
+    val legacyTesterComponent: String? = null,
+    /**
+     * True when the exported, permission-free `ThemeService` can be bound. It applies wallpapers
+     * and icons only — never a whole MTZ — so it must not feed [compatibleLocalMtzPath].
+     */
+    val unprivilegedWallpaperService: Boolean = false,
 ) {
     /**
      * A manual handoff is not an importer and must never be reported as automatic apply support.
@@ -41,12 +52,26 @@ data class ThemeManagerRuntimeProfile(
             (knownBehavior == ThemeManagerBehavior.MODERN_NATIVE_LIBRARY && modernLocalLibraryResolvable)
 }
 
+/**
+ * How the legacy tester contract was found on the installed Theme Manager, and which component
+ * carries it. [available] stays false only when no entry point exists at all.
+ */
+data class LegacyTesterResolution(
+    val componentClassName: String?,
+    val declaredInManifest: Boolean,
+    val declaredAliasComponent: String?,
+    val resolvedByIntent: Boolean,
+) {
+    val available: Boolean get() = componentClassName != null
+}
+
 class ThemeManagerCapabilityProbe(private val context: Context) {
     fun probe(installed: InstalledThemeManager): ThemeManagerRuntimeProfile {
         if (!installed.installed) {
             return ThemeManagerRuntimeProfile(false, null, ThemeManagerBehavior.UNKNOWN, false, false, false, 0, emptyList())
         }
-        val resolvable = isLegacyTesterDeclared(context)
+        val legacyTester = resolveLegacyTester(context)
+        val resolvable = legacyTester.available
         val modernLocalLibrary = Intent().apply {
             component = ComponentName(
                 ThemeManagerContract.PACKAGE_NAME,
@@ -112,34 +137,92 @@ class ThemeManagerCapabilityProbe(private val context: Context) {
             splitApkCount = splits,
             exportedThemeActivityCandidates = candidates,
             themeResourceTabResolvable = themeResourceTabResolvable,
+            legacyTesterComponent = legacyTester.componentClassName,
+            unprivilegedWallpaperService = ThemeServiceAvailability.resolve(context).usable,
         )
     }
 
     companion object {
         /**
-         * Some HyperOS PackageManager builds return a non-null result for an explicit
-         * component even when the activity is not declared by the active APK. Check the
-         * installed manifest directly before dispatching the legacy tester request.
+         * Single source of truth for the legacy tester contract.
+         *
+         * Neither signal is reliable on its own:
+         *  * Some HyperOS PackageManager builds return a non-null result for an explicit
+         *    component even when the activity is not declared by the active APK, so intent
+         *    resolution alone can report a tester that cannot be started.
+         *  * Several Global builds publish the tester as an `<activity-alias>` instead of the
+         *    historical class, so a strict name/enabled/exported match against
+         *    `PackageInfo.activities` misses a contract that is in fact present. That strict
+         *    match is what demoted builds such as 3.0.5.14 to "root required" even though their
+         *    tester activity works.
+         *
+         * The manifest scan therefore also accepts an alias that targets the tester, and the
+         * `support3.0` action resolution is kept as an independent confirmation. The returned
+         * component is the entry point callers must dispatch to, which is the alias name when
+         * the build renamed the published contract.
          */
-        fun isLegacyTesterDeclared(context: Context): Boolean = runCatching {
-            val flags = PackageManager.GET_ACTIVITIES.toLong()
-            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getPackageInfo(
-                    ThemeManagerContract.PACKAGE_NAME,
-                    PackageManager.PackageInfoFlags.of(flags),
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(
-                    ThemeManagerContract.PACKAGE_NAME,
-                    PackageManager.GET_ACTIVITIES,
-                )
+        fun resolveLegacyTester(context: Context): LegacyTesterResolution {
+            val activities = runCatching {
+                val flags = PackageManager.GET_ACTIVITIES.toLong()
+                val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(
+                        ThemeManagerContract.PACKAGE_NAME,
+                        PackageManager.PackageInfoFlags.of(flags),
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(
+                        ThemeManagerContract.PACKAGE_NAME,
+                        PackageManager.GET_ACTIVITIES,
+                    )
+                }
+                packageInfo.activities.orEmpty().toList()
+            }.getOrDefault(emptyList())
+            val usable = activities.filter { it.enabled && it.exported }
+            val declaredDirectly = usable.any { it.name == ThemeManagerContract.LEGACY_TESTER_COMPONENT }
+            val declaredAlias = usable.firstOrNull { activity ->
+                activity.targetActivity == ThemeManagerContract.LEGACY_TESTER_COMPONENT &&
+                    activity.name != ThemeManagerContract.LEGACY_TESTER_COMPONENT
+            }?.name
+            // When several activities inside Themes match the action the platform answers with
+            // its own resolver component. That is not a tester entry point, so only a component
+            // that really belongs to Themes is accepted here.
+            val resolvedByAction = runCatching {
+                Intent(ThemeManagerContract.LEGACY_TESTER_ACTION)
+                    .setPackage(ThemeManagerContract.PACKAGE_NAME)
+                    .resolveActivity(context.packageManager)
+                    ?.takeIf { it.packageName == ThemeManagerContract.PACKAGE_NAME }
+                    ?.className
+            }.getOrNull()
+            val resolvedExplicitly = runCatching {
+                Intent(ThemeManagerContract.LEGACY_TESTER_ACTION).apply {
+                    component = ComponentName(
+                        ThemeManagerContract.PACKAGE_NAME,
+                        ThemeManagerContract.LEGACY_TESTER_COMPONENT,
+                    )
+                }.resolveActivity(context.packageManager) != null
+            }.getOrDefault(false)
+            val component = when {
+                declaredDirectly -> ThemeManagerContract.LEGACY_TESTER_COMPONENT
+                // The action-resolved component is what the platform would actually dispatch.
+                resolvedByAction != null -> resolvedByAction
+                declaredAlias != null -> declaredAlias
+                resolvedExplicitly -> ThemeManagerContract.LEGACY_TESTER_COMPONENT
+                else -> null
             }
-            packageInfo.activities.orEmpty().any { activity ->
-                activity.name == ThemeManagerContract.LEGACY_TESTER_COMPONENT &&
-                    activity.enabled && activity.exported
-            }
-        }.getOrDefault(false)
+            return LegacyTesterResolution(
+                componentClassName = component,
+                declaredInManifest = declaredDirectly,
+                declaredAliasComponent = declaredAlias,
+                resolvedByIntent = resolvedByAction != null || resolvedExplicitly,
+            )
+        }
+
+        /**
+         * Kept for callers that only need the yes/no answer. It is the full resolution, not the
+         * historical manifest-only match, so an aliased tester is no longer reported as absent.
+         */
+        fun isLegacyTesterDeclared(context: Context): Boolean = resolveLegacyTester(context).available
     }
 
     fun probeCapabilities(

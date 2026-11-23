@@ -12,7 +12,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import dev.glorioustr.mtzstudio.tester.ThemeManagerBehavior
+import dev.glorioustr.mtzstudio.tester.ThemeManagerCapabilityProbe
 import dev.glorioustr.mtzstudio.tester.ThemeManagerContract
 
 /**
@@ -29,7 +29,6 @@ object RootlessRestoreAssistant {
     private const val CHANNEL_ID = "rootless-restore"
     private const val NOTIFICATION_ID = 23101
     private const val THEME_MANAGER_PACKAGE = "com.android.thememanager"
-    private const val LEGACY_TESTER_COMPONENT = "com.android.thememanager.ApplyThemeForScreenshot"
 
     fun remember(context: Context, prepared: PreparedThemeApply) {
         val path = prepared.manualImportPath.orEmpty()
@@ -110,9 +109,16 @@ object RootlessRestoreAssistant {
         val version = runCatching {
             context.packageManager.getPackageInfo(THEME_MANAGER_PACKAGE, 0).versionName
         }.getOrNull()
-        val legacyTester = if (ThemeManagerContract.behavior(version) == ThemeManagerBehavior.LOCAL_THEME_IMPORT) {
+        // The tester entry point is resolved from the installed package, not from the version's
+        // import semantics. Builds such as 3.0.5.14 apply the MTZ as a temporary composite over
+        // Default (TEMPORARY_DEFAULT_COMPOSITE) yet still carry the contract, and gating on
+        // LOCAL_THEME_IMPORT alone sent them to the manual hand-off for no reason.
+        val testerComponent = runCatching {
+            ThemeManagerCapabilityProbe.resolveLegacyTester(context).componentClassName
+        }.getOrNull()
+        val legacyTester = if (testerComponent != null) {
             Intent(ThemeManagerContract.LEGACY_TESTER_ACTION).apply {
-                component = ComponentName(THEME_MANAGER_PACKAGE, LEGACY_TESTER_COMPONENT)
+                component = ComponentName(THEME_MANAGER_PACKAGE, testerComponent)
                 putExtra("theme_file_path", path)
                 putExtra("api_called_from", context.packageName)
                 putExtra("theme_apply_flags", -1L)

@@ -232,4 +232,43 @@ class ThemeManagerCompatibilityTest {
         assertTrue(request.longExtras.isEmpty())
     }
 
+    @Test
+    fun `tester requests can target the component the installed build publishes`() {
+        // Global builds that moved the contract behind an <activity-alias> must be dispatched to
+        // the alias. The extras and action stay on the verified contract.
+        val alias = "com.android.thememanager.ApplyThemeForScreenshotAlias"
+
+        val apply = ThemeManagerContract.legacyTesterRequest(
+            themePath = "/staging/Test.mtz",
+            callerPackage = "dev.glorioustr.mtzstudio",
+            componentClassName = alias,
+        )
+        assertEquals(alias, apply.componentClassName)
+        assertEquals("com.android.thememanager.support3.0", apply.action)
+        assertEquals("/staging/Test.mtz", apply.stringExtras["theme_file_path"])
+
+        val restored = ThemeManagerContract.localRestoredThemeRequest("/files/MIUI/theme/Test.mtz", alias)
+        assertEquals(alias, restored.componentClassName)
+        assertEquals("", restored.action)
+    }
+
+    @Test
+    fun `an aliased tester resolution is reported as available`() {
+        val aliased = LegacyTesterResolution(
+            componentClassName = "com.android.thememanager.ApplyThemeForScreenshotAlias",
+            declaredInManifest = false,
+            declaredAliasComponent = "com.android.thememanager.ApplyThemeForScreenshotAlias",
+            resolvedByIntent = false,
+        )
+        val absent = LegacyTesterResolution(
+            componentClassName = null,
+            declaredInManifest = false,
+            declaredAliasComponent = null,
+            resolvedByIntent = false,
+        )
+
+        assertTrue(aliased.available)
+        assertFalse(absent.available)
+    }
+
 }

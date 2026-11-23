@@ -188,6 +188,16 @@ internal fun ThemeManagerCompatibilityCard(
                             )
                         }
                     }
+                    // The tester is gone on current Global builds, but the exported, permission-free
+                    // ThemeService still takes wallpapers. Say so here instead of leaving the card
+                    // on "root runtime gerekir" alone.
+                    if (runtime?.unprivilegedWallpaperService == true) {
+                        RouteBadge(stringResource(R.string.theme_service_title), accent)
+                        Text(
+                            stringResource(R.string.theme_service_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                     if (factoryState?.eligible == true && privilegedAccessAvailable) {
                         OutlinedButton(
                             enabled = !busy,

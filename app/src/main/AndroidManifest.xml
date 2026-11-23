@@ -10,8 +10,28 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!--
+      Normal permission, granted at install. This is how an MTZ's wallpapers are applied without
+      root: device testing on HyperOS OS3.0.308.0 showed Xiaomi Themes holds no storage read
+      permission at all (READ_MEDIA_IMAGES denied, READ_EXTERNAL_STORAGE appop "ignore"), so no
+      file path can be handed to its ThemeService. WallpaperManager takes a stream instead.
+    -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <!--
+      All-files access, requested on demand (never at launch). It is the only way to write a theme
+      package into MIUI Backup's own folder (/sdcard/MIUI/backup/AllBackup), which is plain shared
+      storage. Device testing on HyperOS OS3.0.301.0 showed this is the one rootless route that
+      registers a third-party theme in Xiaomi Themes' catalogue: the system MIUI Backup app does the
+      privileged restore itself. On Android 11+ a scoped-storage app cannot write there, so the user
+      grants this in Settings only when they choose the MIUI Backup import path.
+    -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
     <queries>
+        <intent>
+            <action android:name="miui.intent.backup.LOCAL_HOME_ACTIVITY" />
+        </intent>
+        <package android:name="com.miui.backup" />
         <intent>
             <action android:name="rikka.shizuku.intent.action.REQUEST_BINDER" />
         </intent>

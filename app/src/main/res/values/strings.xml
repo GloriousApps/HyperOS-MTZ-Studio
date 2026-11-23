@@ -506,4 +506,35 @@
     <string name="status_modern_theme_detail_opened">%1$s was imported. The Xiaomi Themes apply screen was opened.</string>
     <string name="app_update_up_to_date">You already have the latest version.</string>
     <string name="app_update_check_failed">The update check could not be completed.</string>
+    <!-- Unprivileged Themes ThemeService channel (wallpaper and icon only) -->
+    <string name="theme_service_title">Apply without root</string>
+    <string name="theme_service_desc">Wallpapers are applied directly by Android, and Xiaomi Themes accepts app icons from any app, so those components of this MTZ can be applied with no root and no Shizuku. Fonts, the status bar and the lock screen style are not applied.</string>
+    <string name="rootless_wallpaper_applied">%1$d wallpapers were applied.</string>
+    <string name="rootless_wallpaper_failed">The wallpaper could not be applied.</string>
+    <string name="rootless_partial_applied_both">%1$d wallpapers and %2$d icons were applied.</string>
+    <string name="theme_service_button">Apply wallpapers</string>
+    <string name="theme_service_button_icons">Apply icons</string>
+    <string name="theme_service_button_both">Apply wallpapers and icons</string>
+    <string name="theme_service_nothing_sendable">This MTZ has no wallpaper or icon component that can be applied without root.</string>
+    <string name="theme_service_no_icons">This MTZ contains no icon component.</string>
+    <string name="theme_service_icons_not_installed">The icons in this MTZ are for applications that are not installed on this device.</string>
+    <string name="theme_service_icons_unreadable">The icon component of this MTZ could not be read.</string>
+    <string name="theme_service_icons_applied">Xiaomi Themes applied %1$d icons.</string>
+    <!-- Rootless whole-theme import via the system MIUI Backup app -->
+    <string name="miui_backup_desc">Or import the whole theme into Xiaomi Themes with no root, through MIUI Backup. The system backup app restores it; you then apply it from Themes.</string>
+    <string name="miui_backup_button">Import via MIUI Backup</string>
+    <string name="miui_backup_staging">Preparing the MIUI Backup package…</string>
+    <string name="miui_backup_restore_opened">MIUI Backup opened. Choose Restore, tap the theme, then Restore. Return here when it finishes.</string>
+    <string name="miui_backup_needs_all_files">MTZ Studio needs all-files access to write into MIUI Backup. Grant it, then try again.</string>
+    <string name="miui_backup_app_missing">The MIUI Backup app was not found on this device.</string>
+    <string name="miui_backup_ready_title">Open the imported theme</string>
+    <string name="miui_backup_ready_desc">If you finished the restore in MIUI Backup, open \"%1$s\" in Xiaomi Themes and tap Apply.</string>
+    <string name="miui_backup_open_in_themes">Open in Themes</string>
+    <string name="miui_backup_apply_unavailable">This Xiaomi Themes build cannot open the local theme page.</string>
+    <string name="theme_service_working">Sending to Xiaomi Themes…</string>
+    <string name="theme_service_unavailable">This Xiaomi Themes build does not offer the unprivileged wallpaper service.</string>
+    <string name="theme_service_bind_failed">Xiaomi Themes did not answer the connection request.</string>
+    <string name="theme_service_no_wallpaper">This MTZ contains no wallpaper component.</string>
+    <string name="theme_service_rejected">Xiaomi Themes declined the request. The theme itself was not applied.</string>
+    <string name="theme_service_partial_notice">This applies wallpapers and app icons only. For the whole theme, open it in Xiaomi Themes and tap Apply there — no root needed.</string>
 </resources>
