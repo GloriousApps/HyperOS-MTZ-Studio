@@ -68,7 +68,7 @@ class LegacyGlobalPreviewApplyStrategy(
             component,
         )
         val intent = Intent(request.action).apply {
-            component = ComponentName(ThemeManagerContract.PACKAGE_NAME, request.componentClassName)
+            this.component = ComponentName(ThemeManagerContract.PACKAGE_NAME, request.componentClassName)
             request.stringExtras.forEach(::putExtra)
             request.longExtras.forEach(::putExtra)
         }
