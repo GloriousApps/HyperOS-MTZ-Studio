@@ -194,27 +194,37 @@ class ThemeManagerCapabilityProbe(private val context: Context) {
                     ?.takeIf { it.packageName == ThemeManagerContract.PACKAGE_NAME }
                     ?.className
             }.getOrNull()
-            val resolvedExplicitly = runCatching {
-                Intent(ThemeManagerContract.LEGACY_TESTER_ACTION).apply {
-                    component = ComponentName(
+            // getActivityInfo is authoritative: it throws NameNotFoundException when the active
+            // APK does not declare the component. resolveActivity() was NOT safe here — some
+            // HyperOS PackageManager builds (verified on a HyperOS 3.0.301.0 / Themes 3.4.8.36
+            // device) answer a non-null result for the explicit historical class even though the
+            // APK dropped it, which made the tester look available and crashed startActivity with
+            // "Unable to find explicit activity class ...ApplyThemeForScreenshot". The real,
+            // declared cases are already covered by declaredDirectly / declaredAlias; this check
+            // only confirms the explicit class truly exists and is usable, and never invents one.
+            val explicitlyPresent = runCatching {
+                val info = context.packageManager.getActivityInfo(
+                    ComponentName(
                         ThemeManagerContract.PACKAGE_NAME,
                         ThemeManagerContract.LEGACY_TESTER_COMPONENT,
-                    )
-                }.resolveActivity(context.packageManager) != null
+                    ),
+                    0,
+                )
+                info.isEnabled && info.exported
             }.getOrDefault(false)
             val component = when {
                 declaredDirectly -> ThemeManagerContract.LEGACY_TESTER_COMPONENT
                 // The action-resolved component is what the platform would actually dispatch.
                 resolvedByAction != null -> resolvedByAction
                 declaredAlias != null -> declaredAlias
-                resolvedExplicitly -> ThemeManagerContract.LEGACY_TESTER_COMPONENT
+                explicitlyPresent -> ThemeManagerContract.LEGACY_TESTER_COMPONENT
                 else -> null
             }
             return LegacyTesterResolution(
                 componentClassName = component,
                 declaredInManifest = declaredDirectly,
                 declaredAliasComponent = declaredAlias,
-                resolvedByIntent = resolvedByAction != null || resolvedExplicitly,
+                resolvedByIntent = resolvedByAction != null || explicitlyPresent,
             )
         }
 
