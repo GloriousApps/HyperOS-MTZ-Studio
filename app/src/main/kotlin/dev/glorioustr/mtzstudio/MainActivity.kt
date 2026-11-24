@@ -2064,9 +2064,16 @@ private fun StudioScreen(
                 onApplyTheme = { theme ->
                     if (!themeOperationRunning) {
                         when (accessMode) {
-                            StudioAccessMode.ROOT -> pendingApplyTheme = theme
-                            StudioAccessMode.SHIZUKU -> beginThemeApply(theme)
-                            StudioAccessMode.STANDARD, null -> {
+                            // Every mode opens the apply dialog. In ROOT it shows the privileged
+                            // apply; without root it shows the rootless choices — partial
+                            // ThemeService apply and the whole-theme MIUI Backup import — so those
+                            // paths are reachable on Shizuku and on fully unprivileged devices,
+                            // where Xiaomi Themes 3.4.x no longer exposes a direct apply.
+                            StudioAccessMode.ROOT,
+                            StudioAccessMode.SHIZUKU,
+                            StudioAccessMode.STANDARD,
+                            -> pendingApplyTheme = theme
+                            null -> {
                                 status = resources.getString(R.string.shizuku_recommended_desc)
                                 operationError = status
                             }
